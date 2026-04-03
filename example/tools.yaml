@@ -1,0 +1,20 @@
+group: example
+tools:
+  - name: echo
+    fn: example.echo
+    description: Echoes back the provided message
+    parameters:
+      - name: message
+        type: str
+        required: true
+        description: The message to echo back
+  - name: datetime
+    fn: datetime.datetime
+    description: return datetime
+    parameters:
+      - name: year
+        type: int
+      - name: month
+        type: int
+      - name: day
+        type: int
