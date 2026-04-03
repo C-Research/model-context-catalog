@@ -3,22 +3,23 @@ from pathlib import Path
 import pytest
 
 from mcc.loader import Loader, load_file
+from mcc.models import ToolModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class TestLoadFile:
     def test_loads_ungrouped(self):
-        tools, group = load_file(FIXTURES / "tools_ungrouped.yaml")
+        tools = load_file(FIXTURES / "tools_ungrouped.yaml")
         assert len(tools) == 1
         assert tools[0].name == "echo"
-        assert group is None
+        assert tools[0].group is None
 
     def test_loads_grouped(self):
-        tools, group = load_file(FIXTURES / "tools_grouped.yaml")
+        tools = load_file(FIXTURES / "tools_grouped.yaml")
         assert len(tools) == 1
         assert tools[0].name == "echo"
-        assert group == "example"
+        assert tools[0].group == "example"
 
     def test_rejects_missing_tools_key(self):
         with pytest.raises(ValueError, match="expected a dict with a 'tools' key"):
@@ -34,13 +35,13 @@ class TestLoader:
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
         assert "echo" in loader
-        assert loader["echo"]["group"] is None
+        assert loader["echo"].group is None
 
     def test_load_grouped(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_grouped.yaml")
         assert "example.echo" in loader
-        assert loader["example.echo"]["group"] == "example"
+        assert loader["example.echo"].group == "example"
 
     def test_same_name_different_groups(self):
         loader = Loader()
@@ -63,14 +64,21 @@ class TestLoader:
     def test_description_defaults_to_fn_docstring(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_no_description.yaml")
-        assert loader["doc_tool"]["description"] == "A tool loaded from its docstring."
+        assert loader["doc_tool"].description == "A tool loaded from its docstring."
 
-    def test_registry_entry_has_expected_keys(self):
+    def test_registry_entry_is_tool_model(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
-        entry = loader["echo"]
-        assert callable(entry["fn"])
-        assert "model" in entry
-        assert entry["description"] == "Echoes back the provided message"
-        assert isinstance(entry["params"], list)
-        assert "group" in entry
+        tool = loader["echo"]
+        assert callable(tool.resolve_fn())
+        assert tool.param_model is not None
+        assert tool.description == "Echoes back the provided message"
+        assert isinstance(tool.params, list)
+        assert hasattr(tool, "group")
+
+    @pytest.mark.asyncio
+    async def test_call_async_tool(self):
+        loader = Loader()
+        loader.load(FIXTURES / "tools_async.yaml")
+        result = await loader["async_echo"].call(message="hello")
+        assert result == ["hello"]

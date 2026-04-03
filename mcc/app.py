@@ -1,10 +1,10 @@
 import os
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 from fastmcp.server.auth.providers.github import GitHubProvider
 from pydantic import ValidationError
 
-from .auth import can_access, get_current_user
+from .auth import get_current_user
 from .loader import loader
 
 
@@ -37,46 +37,33 @@ mcp.loader = loader
 
 
 @mcp.tool()
-async def search(
-    query: str, group: str | None = None, ctx: Context | None = None
-) -> str:
+async def search(query: str, group: str | None = None) -> str:
     """Search the tool catalog by name or description. Optionally filter by group."""
-    user = await get_current_user(ctx)
+    user = await get_current_user()
     query_lower = query.lower()
     results = []
-    for name, entry in loader.items():
-        if not can_access(user, name, entry.get("group")):
+    for name, tool in loader.items():
+        if not tool.can_access(user):
             continue
-        if group is not None and entry.get("group") != group:
+        if group is not None and tool.group != group:
             continue
-        if query_lower in name.lower() or query_lower in entry["description"].lower():
-            parts = []
-            for p in entry["params"]:
-                type_str = p.get("type", "str")
-                if p.get("required", False):
-                    parts.append(f"{p['name']}: {type_str}")
-                else:
-                    parts.append(f"{p['name']}?: {type_str} = {p.get('default')}")
-            sig = ", ".join(parts)
-            results.append(
-                f'{name} — {entry["description"]}\n  execute("{name}", {{{sig}}})'
-            )
+        if query_lower in name.lower() or query_lower in tool.description.lower():
+            results.append(tool.signature)
     if not results:
         return "No tools matched your query."
     return "\n\n".join(results)
 
 
 @mcp.tool()
-async def execute(name: str, params: dict | None = None, ctx: Context | None = None):
+async def execute(name: str, params: dict | None = None):
     """Execute a tool from the catalog by name with the given parameters."""
     if name not in loader:
         return f"Unknown tool: {name}"
-    entry = loader[name]
-    user = await get_current_user(ctx)
-    if not can_access(user, name, entry.get("group")):
+    tool = loader[name]
+    user = await get_current_user()
+    if not tool.can_access(user):
         return "Unauthorized"
     try:
-        validated = entry["model"](**params or {})
+        return await tool.call(**params or {})
     except ValidationError as e:
         return f"Validation error for tool '{name}': {e}"
-    return entry["fn"](**validated.model_dump())

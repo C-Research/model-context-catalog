@@ -1,0 +1,8 @@
+tools:
+  - name: async_echo
+    fn: tests.example.async_echo
+    description: Async echo tool
+    params:
+      - name: message
+        type: str
+        required: true

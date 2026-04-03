@@ -9,3 +9,4 @@ tools:
   - fn: mcc.auth.add_tool
   - fn: mcc.auth.remove_tool
   - fn: mcc.auth.can_access
+  - fn: mcc.loader:loader.reload

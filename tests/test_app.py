@@ -47,7 +47,7 @@ class TestSearch:
     @pytest.mark.asyncio
     async def test_grouped_display_name(self):
         _load("tools_grouped.yaml")
-        result = await search("echo", ctx=None)
+        result = await search("echo")
         assert await search("echo") == "No tools matched your query."
 
     @pytest.mark.asyncio

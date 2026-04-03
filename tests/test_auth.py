@@ -144,28 +144,33 @@ class TestTools:
 
 
 class TestCanAccess:
+    def _tool(self, name="echo", group=None):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(name=name, group=group)
+
     def test_public_group_no_user(self):
-        assert can_access(None, "echo", "public") is True
+        assert can_access(None, self._tool(group="public")) is True
 
     def test_no_user_non_public(self):
-        assert can_access(None, "echo", "ops") is False
+        assert can_access(None, self._tool(group="ops")) is False
 
     def test_admin_bypasses(self):
         user = {"username": "admin", "groups": ["admin"], "tools": []}
-        assert can_access(user, "echo", "ops") is True
+        assert can_access(user, self._tool(group="ops")) is True
 
     def test_group_membership(self):
         user = {"username": "alice", "groups": ["ops"], "tools": []}
-        assert can_access(user, "echo", "ops") is True
-        assert can_access(user, "echo", "dev") is False
+        assert can_access(user, self._tool(group="ops")) is True
+        assert can_access(user, self._tool(group="dev")) is False
 
     def test_explicit_tool_grant(self):
         user = {"username": "alice", "groups": [], "tools": ["ops.echo"]}
-        assert can_access(user, "ops.echo", "ops") is True
+        assert can_access(user, self._tool(name="echo", group="ops")) is True
 
     def test_no_access(self):
         user = {"username": "alice", "groups": [], "tools": []}
-        assert can_access(user, "echo", "ops") is False
+        assert can_access(user, self._tool(group="ops")) is False
 
 
 class TestGetCurrentUser:
@@ -175,7 +180,7 @@ class TestGetCurrentUser:
         mock_token = MagicMock()
         mock_token.claims = {"email": "alice@example.com", "login": "alice"}
         with patch("mcc.auth.get_access_token", return_value=mock_token):
-            user = await get_current_user(None)
+            user = await get_current_user()
         assert user is not None
         assert user["username"] == "alice"
 
@@ -185,7 +190,7 @@ class TestGetCurrentUser:
         mock_token = MagicMock()
         mock_token.claims = {"email": None, "login": "alice"}
         with patch("mcc.auth.get_access_token", return_value=mock_token):
-            user = await get_current_user(None)
+            user = await get_current_user()
         assert user is not None
         assert user["username"] == "alice"
 
@@ -196,13 +201,13 @@ class TestGetCurrentUser:
         mock_token = MagicMock()
         mock_token.claims = {"email": "alice@example.com", "login": "alice-other"}
         with patch("mcc.auth.get_access_token", return_value=mock_token):
-            user = await get_current_user(None)
+            user = await get_current_user()
         assert user["username"] == "alice"
 
     @pytest.mark.asyncio
     async def test_unauthenticated(self):
         with patch("mcc.auth.get_access_token", return_value=None):
-            user = await get_current_user(None)
+            user = await get_current_user()
         assert user is None
 
     @pytest.mark.asyncio
@@ -210,5 +215,5 @@ class TestGetCurrentUser:
         mock_token = MagicMock()
         mock_token.claims = {"email": None, "login": "unknown"}
         with patch("mcc.auth.get_access_token", return_value=mock_token):
-            user = await get_current_user(None)
+            user = await get_current_user()
         assert user is None

@@ -3,6 +3,8 @@ import os
 from fastmcp.server.dependencies import get_access_token
 from tinydb import TinyDB, where
 
+from .models import ToolModel
+
 db = TinyDB(os.environ.get("MCC_USERS_DB", "users.db"))
 users = db.table("users")
 
@@ -99,27 +101,28 @@ def remove_tool(username: str, tool: str) -> None:
     )
 
 
-def can_access(user: dict | None, tool_name: str, tool_group: str | None) -> bool:
-    """returns true if user can access tool"""
-    if tool_group == "public":
+def can_access(user: dict | None, tool: ToolModel) -> bool:
+    """returns true if user can access tool (tool must have .name and .group)"""
+    if tool.group == "public":
         return True
     if user is None:
         return False
     groups = user.get("groups", [])
     if "admin" in groups:
         return True
-    if tool_group and tool_group in groups:
+    if tool.group and tool.group in groups:
         return True
-    if tool_name in user.get("tools", []):
+    tool_key = f"{tool.group}.{tool.name}" if tool.group else tool.name
+    if tool_key in user.get("tools", []):
         return True
     return False
 
 
-async def get_current_user(ctx) -> dict | None:
+async def get_current_user() -> dict | None:
     """resolves GitHub identity to a user dict; prefers email, falls back to login"""
     token = get_access_token()
     if token is None:
-        return None
+        return
     email = token.claims.get("email") or None
     if email:
         user = get_user_by_email(email)
@@ -128,4 +131,4 @@ async def get_current_user(ctx) -> dict | None:
     login = token.claims.get("login") or None
     if login:
         return get_user_by_username(login)
-    return None
+    return

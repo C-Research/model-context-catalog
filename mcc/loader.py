@@ -1,83 +1,11 @@
-import importlib
 from pathlib import Path
-from typing import Any, Callable
 
 import yaml
-from pydantic import BaseModel, Field, create_model, model_validator
 
-TYPE_MAP: dict[str, type] = {
-    "str": str,
-    "int": int,
-    "float": float,
-    "bool": bool,
-    "list": list,
-    "dict": dict,
-}
+from .models import ToolModel
 
 
-class ParamModel(BaseModel):
-    name: str
-    type: str = "str"
-    required: bool = False
-    default: Any = None
-    description: str = ""
-
-
-class ToolModel(BaseModel):
-    name: str = ""
-    fn: str
-    description: str = ""
-    params: list[ParamModel] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _defaults_from_fn(self):
-        resolved = self.resolve_fn()
-        if not self.name:
-            self.name = getattr(resolved, "__name__", self.fn.rpartition(".")[-1])
-        if not self.description:
-            self.description = getattr(resolved, "__doc__", "")
-        return self
-
-    @model_validator(mode="after")
-    def validate_param_types(self):
-        for p in self.params:
-            if p.type not in TYPE_MAP:
-                raise ValueError(
-                    f"Unknown type '{p.type}' for parameter '{p.name}' in tool '{self.name}'"
-                )
-        return self
-
-    def resolve_fn(self) -> Callable:
-        if ":" in self.fn:
-            module_path, attrs = self.fn.split(":", 1)
-        else:
-            module_path, _, attrs = self.fn.rpartition(".")
-        if not module_path or not attrs:
-            raise ImportError(
-                f"Invalid fn path '{self.fn}': use 'module:attr.attr' or 'module.attr'"
-            )
-        obj = importlib.import_module(module_path)
-        for attr in attrs.split("."):
-            obj = getattr(obj, attr)
-        return obj
-
-    def build_param_model(self) -> type[BaseModel]:
-        fields: dict = {}
-        for p in self.params:
-            py_type = TYPE_MAP[p.type]
-            fields[p.name] = (py_type, ...) if p.required else (py_type, p.default)
-        return create_model(f"{self.name}_params", **fields)
-
-    def to_registry_entry(self) -> dict:
-        return {
-            "fn": self.resolve_fn(),
-            "model": self.build_param_model(),
-            "description": self.description,
-            "params": [p.model_dump() for p in self.params],
-        }
-
-
-def load_file(path: str | Path) -> tuple[list[ToolModel], str | None]:
+def load_file(path: str | Path) -> list[ToolModel]:
     if not isinstance(path, Path):
         path = Path(path)
     if not path.is_file():
@@ -88,23 +16,28 @@ def load_file(path: str | Path) -> tuple[list[ToolModel], str | None]:
             f"{path}: expected a dict with a 'tools' key, got {type(raw).__name__}"
         )
     group: str | None = raw.get("group", None)
-    return [ToolModel(**entry) for entry in raw["tools"]], group
+    return [ToolModel(group=group, **entry) for entry in raw["tools"]]
 
 
 class Loader(dict):
+    paths = set()
+
     def load(self, *paths: str | Path) -> None:
         for path in paths:
-            tools, group = load_file(path)
-            for tool in tools:
-                self.register(tool, group=group)
+            self.paths.add(path)
+            for tool in load_file(path):
+                self.register(tool)
 
-    def register(self, tool: ToolModel, *, group: str | None = None):
-        key = f"{group}.{tool.name}" if group else tool.name
-        if key in self:
-            raise ValueError(f"Duplicate tool name: {key}")
-        entry = tool.to_registry_entry()
-        entry["group"] = group
-        self[key] = entry
+    def register(self, tool: ToolModel):
+        if tool.key in self:
+            raise ValueError(f"Duplicate tool name: {tool.key}")
+        self[tool.key] = tool
+
+    def reload(self):
+        for key in self:
+            del self[key]
+        for path in self.paths:
+            self.load(path)
 
 
 loader = Loader()
