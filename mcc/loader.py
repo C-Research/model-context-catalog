@@ -24,14 +24,23 @@ class ParamModel(BaseModel):
 
 
 class ToolModel(BaseModel):
-    name: str
+    name: str = ""
     fn: str
-    description: str
-    parameters: list[ParamModel] = Field(default_factory=list)
+    description: str = ""
+    params: list[ParamModel] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _defaults_from_fn(self):
+        resolved = self.resolve_fn()
+        if not self.name:
+            self.name = getattr(resolved, "__name__", self.fn.rpartition(".")[-1])
+        if not self.description:
+            self.description = getattr(resolved, "__doc__", "")
+        return self
 
     @model_validator(mode="after")
     def validate_param_types(self):
-        for p in self.parameters:
+        for p in self.params:
             if p.type not in TYPE_MAP:
                 raise ValueError(
                     f"Unknown type '{p.type}' for parameter '{p.name}' in tool '{self.name}'"
@@ -54,7 +63,7 @@ class ToolModel(BaseModel):
 
     def build_param_model(self) -> type[BaseModel]:
         fields: dict = {}
-        for p in self.parameters:
+        for p in self.params:
             py_type = TYPE_MAP[p.type]
             fields[p.name] = (py_type, ...) if p.required else (py_type, p.default)
         return create_model(f"{self.name}_params", **fields)
@@ -64,7 +73,7 @@ class ToolModel(BaseModel):
             "fn": self.resolve_fn(),
             "model": self.build_param_model(),
             "description": self.description,
-            "parameters": [p.model_dump() for p in self.parameters],
+            "params": [p.model_dump() for p in self.params],
         }
 
 
@@ -72,7 +81,7 @@ def load_file(path: str | Path) -> tuple[list[ToolModel], str | None]:
     if not isinstance(path, Path):
         path = Path(path)
     if not path.is_file():
-        raise ValueError(f"Tool file {path!r} not found")
+        raise ValueError(f"Tool file {path} not found")
     raw = yaml.safe_load(path.read_text())
     if not isinstance(raw, dict) or "tools" not in raw:
         raise ValueError(
@@ -99,3 +108,4 @@ class Loader(dict):
 
 
 loader = Loader()
+loader.load(Path(__file__).parent / "tools.yaml")

@@ -55,6 +55,16 @@ class TestLoader:
         with pytest.raises(ValueError, match="Duplicate tool name"):
             loader.load(FIXTURES / "tools_ungrouped.yaml")
 
+    def test_name_defaults_to_fn_name(self):
+        loader = Loader()
+        loader.load(FIXTURES / "tools_no_name.yaml")
+        assert "echo" in loader
+
+    def test_description_defaults_to_fn_docstring(self):
+        loader = Loader()
+        loader.load(FIXTURES / "tools_no_description.yaml")
+        assert loader["doc_tool"]["description"] == "A tool loaded from its docstring."
+
     def test_registry_entry_has_expected_keys(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
@@ -62,5 +72,5 @@ class TestLoader:
         assert callable(entry["fn"])
         assert "model" in entry
         assert entry["description"] == "Echoes back the provided message"
-        assert isinstance(entry["parameters"], list)
+        assert isinstance(entry["params"], list)
         assert "group" in entry

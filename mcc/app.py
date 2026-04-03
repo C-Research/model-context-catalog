@@ -27,7 +27,7 @@ async def search(
             continue
         if query_lower in name.lower() or query_lower in entry["description"].lower():
             parts = []
-            for p in entry["parameters"]:
+            for p in entry["params"]:
                 type_str = p.get("type", "str")
                 if p.get("required", False):
                     parts.append(f"{p['name']}: {type_str}")
@@ -43,7 +43,7 @@ async def search(
 
 
 @mcp.tool()
-async def execute(name: str, params: dict, ctx: Context | None = None):
+async def execute(name: str, params: dict | None = None, ctx: Context | None = None):
     """Execute a tool from the catalog by name with the given parameters."""
     if name not in loader:
         return f"Unknown tool: {name}"
@@ -54,7 +54,7 @@ async def execute(name: str, params: dict, ctx: Context | None = None):
     if not can_access(user, name, entry.get("group")):
         return "Unauthorized"
     try:
-        validated = entry["model"](**params)
+        validated = entry["model"](**params or {})
     except ValidationError as e:
         return f"Validation error for tool '{name}': {e}"
     return entry["fn"](**validated.model_dump())

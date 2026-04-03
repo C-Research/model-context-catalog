@@ -1,0 +1,10 @@
+group: admin
+tools:
+  - fn: mcc.auth.list_users
+  - fn: mcc.auth.get_user_by_name
+  - fn: mcc.auth.add_group
+  - fn: mcc.auth.delete_user
+  - fn: mcc.auth.remove_group
+  - fn: mcc.auth.add_tool
+  - fn: mcc.auth.remove_tool
+  - fn: mcc.auth.can_access

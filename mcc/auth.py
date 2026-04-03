@@ -18,6 +18,7 @@ def generate_token() -> str:
 def create_user(
     username: str, tools: list[str] = None, groups: list[str] = None
 ) -> str:
+    """creates a user and adds their tools/groups perms"""
     if users.search(where("username") == username):
         raise ValueError(f"User '{username}' already exists")
     token = generate_token()
@@ -33,6 +34,7 @@ def create_user(
 
 
 def delete_user(username: str) -> None:
+    """deletes a user from the db"""
     removed = users.remove(where("username") == username)
     if not removed:
         raise ValueError(f"User '{username}' not found")
@@ -61,6 +63,7 @@ def get_user_by_name(username: str) -> dict | None:
 
 
 def add_group(username: str, group: str) -> None:
+    """adds a user to a group"""
     results = users.search(where("username") == username)
     if not results:
         raise ValueError(f"User '{username}' not found")
@@ -70,6 +73,7 @@ def add_group(username: str, group: str) -> None:
 
 
 def remove_group(username: str, group: str) -> None:
+    """removes a user from a group"""
     results = users.search(where("username") == username)
     if not results:
         raise ValueError(f"User '{username}' not found")
@@ -82,6 +86,7 @@ def remove_group(username: str, group: str) -> None:
 
 
 def add_tool(username: str, tool: str) -> None:
+    """adds a tool permission to the user"""
     results = users.search(where("username") == username)
     if not results:
         raise ValueError(f"User '{username}' not found")
@@ -91,6 +96,7 @@ def add_tool(username: str, tool: str) -> None:
 
 
 def remove_tool(username: str, tool: str) -> None:
+    """removes a tool permission from the user"""
     results = users.search(where("username") == username)
     if not results:
         raise ValueError(f"User '{username}' not found")
@@ -103,6 +109,7 @@ def remove_tool(username: str, tool: str) -> None:
 
 
 def can_access(user: dict | None, tool_name: str, tool_group: str | None) -> bool:
+    """returns true if user can access tool"""
     if tool_group == "public":
         return True
     if user is None:

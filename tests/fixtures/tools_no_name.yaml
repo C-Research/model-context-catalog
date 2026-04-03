@@ -1,9 +1,7 @@
 tools:
-  - name: echo
-    fn: tests.example.echo
+  - fn: tests.example.echo
     description: Echoes back the provided message
     params:
       - name: message
         type: str
         required: true
-        description: The message to echo back

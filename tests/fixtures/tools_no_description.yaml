@@ -1,0 +1,7 @@
+tools:
+  - name: doc_tool
+    fn: tests.example.documented_tool
+    params:
+      - name: message
+        type: str
+        required: true
