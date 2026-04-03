@@ -19,21 +19,25 @@ def cli():
 
 
 @cli.command("add-user")
-@click.argument("username")
+@click.option("-u", "--username", required=True, help="GitHub username (login handle)")
+@click.option("-e", "--email", default=None, help="User's email address (optional)")
 @click.option("-g", "--group", "groups", multiple=True, help="Group to grant")
 @click.option("-t", "--tool", "tools", multiple=True, help="Tool to grant")
-def add_user_cmd(username, groups, tools):
-    """Create a new user and print their bearer token."""
+def add_user_cmd(username, email, groups, tools):
+    """Create a new user."""
     try:
-        token = create_user(username, tools, groups)
+        create_user(username, email, list(tools), list(groups))
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
-    click.echo(
-        f"User {username} added with tools={','.join(tools)} groups={','.join(groups)}"
-    )
-    click.echo(f"Token: {token}")
-    click.echo("Save this token — it will not be shown again.", err=True)
+    msg = f"User '{username}' added"
+    if email:
+        msg += f" (email={email})"
+    if groups:
+        msg += f" groups={','.join(groups)}"
+    if tools:
+        msg += f" tools={','.join(tools)}"
+    click.echo(msg)
 
 
 @cli.command("list-users")
@@ -41,6 +45,8 @@ def list_users_cmd():
     """List all users."""
     for user in list_users():
         parts = [user["username"]]
+        if user.get("email"):
+            parts.append(f"email={user['email']}")
         if user.get("groups"):
             parts.append(f"groups={','.join(user['groups'])}")
         if user.get("tools"):

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: TinyDB user document schema
 The user store SHALL use TinyDB with a single `users` table. Each document SHALL contain: `username` (string, unique — GitHub login handle), `email` (string or null, unique when present), `groups` (list of strings), `tools` (list of strings). The fields `token_hash` and `is_admin` SHALL NOT be present.
@@ -25,7 +25,7 @@ The user store SHALL use TinyDB with a single `users` table. Each document SHALL
 **Reason**: Tokens are issued and validated by the OAuth2 provider. MCC no longer generates or stores tokens.
 **Migration**: Remove calls to `generate_token`, `hash_token`, and `get_user_by_token`.
 
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: User CRUD operations
 The user store SHALL expose functions: `create_user(username, email=None, groups=None, tools=None)`, `delete_user(username)`, `get_user_by_username(username) -> dict | None`, `get_user_by_email(email) -> dict | None`, `list_users() -> list[dict]`, `add_group(username, group)`, `remove_group(username, group)`, `add_tool(username, tool)`, `remove_tool(username, tool)`. The functions `get_user_by_token`, `generate_token`, and `hash_token` SHALL be removed.

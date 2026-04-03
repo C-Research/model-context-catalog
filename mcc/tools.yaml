@@ -1,7 +1,8 @@
 group: admin
 tools:
   - fn: mcc.auth.list_users
-  - fn: mcc.auth.get_user_by_name
+  - fn: mcc.auth.get_user_by_username
+  - fn: mcc.auth.get_user_by_email
   - fn: mcc.auth.add_group
   - fn: mcc.auth.delete_user
   - fn: mcc.auth.remove_group

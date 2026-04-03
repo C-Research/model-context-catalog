@@ -1,11 +1,4 @@
-## ADDED Requirements
-
-### Requirement: CLI entry point via `mcc` command
-The system SHALL expose a Click CLI group named `cli` in `mcc/cli.py`, registered as the `mcc` console script in `pyproject.toml`. All user and permission management SHALL be performed through this CLI.
-
-#### Scenario: mcc is available as a command
-- **WHEN** the package is installed
-- **THEN** `mcc --help` lists available commands
+## MODIFIED Requirements
 
 ### Requirement: add-user command
 `mcc add-user --username <github_handle> [--email <email>]` SHALL create a new user in the store. No token is generated or printed. The command SHALL confirm success by printing the username of the created user.

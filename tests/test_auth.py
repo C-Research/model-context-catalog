@@ -1,5 +1,4 @@
-import os
-import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,11 +7,10 @@ from mcc.auth import (
     add_tool,
     can_access,
     create_user,
-    db,
     delete_user,
-    get_user_by_name,
-    get_user_by_token,
-    hash_token,
+    get_current_user,
+    get_user_by_email,
+    get_user_by_username,
     remove_group,
     remove_tool,
     users,
@@ -27,86 +25,93 @@ def _fresh_db():
     users.truncate()
 
 
-class TestTokenUtils:
-    def test_hash_token_prefix(self):
-        h = hash_token("abc")
-        assert h.startswith("sha256:")
-
-    def test_hash_token_deterministic(self):
-        assert hash_token("abc") == hash_token("abc")
-
-    def test_hash_token_differs(self):
-        assert hash_token("abc") != hash_token("def")
-
-
 class TestCreateUser:
-    def test_creates_user(self):
-        token = create_user("alice")
-        assert isinstance(token, str)
-        assert len(token) == 64
+    def test_creates_user_with_username(self):
+        create_user("alice")
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert user["username"] == "alice"
 
-    def test_duplicate_raises(self):
+    def test_creates_user_with_email(self):
+        create_user("alice", email="alice@example.com")
+        user = get_user_by_username("alice")
+        assert user["email"] == "alice@example.com"
+
+    def test_creates_user_without_email(self):
+        create_user("alice")
+        user = get_user_by_username("alice")
+        assert user["email"] is None
+
+    def test_duplicate_username_raises(self):
         create_user("alice")
         with pytest.raises(ValueError, match="already exists"):
             create_user("alice")
 
+    def test_duplicate_email_raises(self):
+        create_user("alice", email="alice@example.com")
+        with pytest.raises(ValueError, match="already exists"):
+            create_user("bob", email="alice@example.com")
+
     def test_admin_group(self):
-        create_user("admin", groups=["admin"])
-        user = get_user_by_name("admin")
+        create_user("alice", groups=["admin"])
+        user = get_user_by_username("alice")
         assert "admin" in user["groups"]
+
+    def test_no_token_stored(self):
+        create_user("alice")
+        user = get_user_by_username("alice")
+        assert "token_hash" not in user
 
 
 class TestDeleteUser:
     def test_deletes_user(self):
         create_user("alice")
         delete_user("alice")
-        assert get_user_by_name("alice") is None
+        assert get_user_by_username("alice") is None
 
     def test_not_found_raises(self):
         with pytest.raises(ValueError, match="not found"):
             delete_user("ghost")
 
 
-class TestGetUser:
-    def test_by_token(self):
-        token = create_user("alice")
-        user = get_user_by_token(token)
-        assert user["username"] == "alice"
-        assert "token_hash" not in user
-
-    def test_by_token_invalid(self):
-        assert get_user_by_token("bad") is None
-
-    def test_by_name(self):
+class TestGetUserByUsername:
+    def test_found(self):
         create_user("alice")
-        user = get_user_by_name("alice")
+        user = get_user_by_username("alice")
         assert user["username"] == "alice"
-        assert "token_hash" not in user
 
-    def test_by_name_not_found(self):
-        assert get_user_by_name("ghost") is None
+    def test_not_found(self):
+        assert get_user_by_username("ghost") is None
+
+
+class TestGetUserByEmail:
+    def test_found(self):
+        create_user("alice", email="alice@example.com")
+        user = get_user_by_email("alice@example.com")
+        assert user["username"] == "alice"
+        assert user["email"] == "alice@example.com"
+
+    def test_not_found(self):
+        assert get_user_by_email("ghost@example.com") is None
 
 
 class TestGroups:
     def test_add_group(self):
         create_user("alice")
         add_group("alice", "ops")
-        user = get_user_by_name("alice")
-        assert "ops" in user["groups"]
+        assert "ops" in get_user_by_username("alice")["groups"]
 
     def test_add_group_idempotent(self):
         create_user("alice")
         add_group("alice", "ops")
         add_group("alice", "ops")
-        user = get_user_by_name("alice")
-        assert user["groups"].count("ops") == 1
+        assert get_user_by_username("alice")["groups"].count("ops") == 1
 
     def test_remove_group(self):
         create_user("alice")
         add_group("alice", "ops")
         remove_group("alice", "ops")
-        user = get_user_by_name("alice")
-        assert "ops" not in user["groups"]
+        assert "ops" not in get_user_by_username("alice")["groups"]
 
     def test_remove_group_not_member(self):
         create_user("alice")
@@ -118,22 +123,19 @@ class TestTools:
     def test_add_tool(self):
         create_user("alice")
         add_tool("alice", "echo")
-        user = get_user_by_name("alice")
-        assert "echo" in user["tools"]
+        assert "echo" in get_user_by_username("alice")["tools"]
 
     def test_add_tool_idempotent(self):
         create_user("alice")
         add_tool("alice", "echo")
         add_tool("alice", "echo")
-        user = get_user_by_name("alice")
-        assert user["tools"].count("echo") == 1
+        assert get_user_by_username("alice")["tools"].count("echo") == 1
 
     def test_remove_tool(self):
         create_user("alice")
         add_tool("alice", "echo")
         remove_tool("alice", "echo")
-        user = get_user_by_name("alice")
-        assert "echo" not in user["tools"]
+        assert "echo" not in get_user_by_username("alice")["tools"]
 
     def test_remove_tool_not_present(self):
         create_user("alice")
@@ -164,3 +166,49 @@ class TestCanAccess:
     def test_no_access(self):
         user = {"username": "alice", "groups": [], "tools": []}
         assert can_access(user, "echo", "ops") is False
+
+
+class TestGetCurrentUser:
+    @pytest.mark.asyncio
+    async def test_resolves_via_email(self):
+        create_user("alice", email="alice@example.com")
+        mock_token = MagicMock()
+        mock_token.claims = {"email": "alice@example.com", "login": "alice"}
+        with patch("mcc.auth.get_access_token", return_value=mock_token):
+            user = await get_current_user(None)
+        assert user is not None
+        assert user["username"] == "alice"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_username(self):
+        create_user("alice")
+        mock_token = MagicMock()
+        mock_token.claims = {"email": None, "login": "alice"}
+        with patch("mcc.auth.get_access_token", return_value=mock_token):
+            user = await get_current_user(None)
+        assert user is not None
+        assert user["username"] == "alice"
+
+    @pytest.mark.asyncio
+    async def test_email_takes_precedence_over_username(self):
+        create_user("alice", email="alice@example.com")
+        create_user("alice-other")
+        mock_token = MagicMock()
+        mock_token.claims = {"email": "alice@example.com", "login": "alice-other"}
+        with patch("mcc.auth.get_access_token", return_value=mock_token):
+            user = await get_current_user(None)
+        assert user["username"] == "alice"
+
+    @pytest.mark.asyncio
+    async def test_unauthenticated(self):
+        with patch("mcc.auth.get_access_token", return_value=None):
+            user = await get_current_user(None)
+        assert user is None
+
+    @pytest.mark.asyncio
+    async def test_no_matching_record(self):
+        mock_token = MagicMock()
+        mock_token.claims = {"email": None, "login": "unknown"}
+        with patch("mcc.auth.get_access_token", return_value=mock_token):
+            user = await get_current_user(None)
+        assert user is None

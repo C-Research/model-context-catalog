@@ -1,36 +1,31 @@
-import hashlib
 import os
 
+from fastmcp.server.dependencies import get_access_token
 from tinydb import TinyDB, where
 
 db = TinyDB(os.environ.get("MCC_USERS_DB", "users.db"))
 users = db.table("users")
 
 
-def hash_token(token: str) -> str:
-    return "sha256:" + hashlib.sha256(token.encode()).hexdigest()
-
-
-def generate_token() -> str:
-    return os.urandom(32).hex()
-
-
 def create_user(
-    username: str, tools: list[str] = None, groups: list[str] = None
-) -> str:
-    """creates a user and adds their tools/groups perms"""
+    username: str,
+    email: str = None,
+    tools: list[str] = None,
+    groups: list[str] = None,
+) -> None:
+    """creates a user and assigns their tools/groups perms"""
     if users.search(where("username") == username):
         raise ValueError(f"User '{username}' already exists")
-    token = generate_token()
+    if email and users.search(where("email") == email):
+        raise ValueError(f"Email '{email}' already exists")
     users.insert(
         {
             "username": username,
-            "token_hash": hash_token(token),
+            "email": email,
             "groups": groups or [],
             "tools": tools or [],
         }
     )
-    return token
 
 
 def delete_user(username: str) -> None:
@@ -40,26 +35,22 @@ def delete_user(username: str) -> None:
         raise ValueError(f"User '{username}' not found")
 
 
-def _user_without_hash(doc: dict) -> dict:
-    return {k: v for k, v in doc.items() if k != "token_hash"}
-
-
 def list_users() -> list[dict]:
-    return [_user_without_hash(doc) for doc in users.all()]
+    return [dict(doc) for doc in users.all()]
 
 
-def get_user_by_token(token: str) -> dict | None:
-    results = users.search(where("token_hash") == hash_token(token))
-    if not results:
-        return None
-    return _user_without_hash(results[0])
-
-
-def get_user_by_name(username: str) -> dict | None:
+def get_user_by_username(username: str) -> dict | None:
     results = users.search(where("username") == username)
     if not results:
         return None
-    return _user_without_hash(results[0])
+    return dict(results[0])
+
+
+def get_user_by_email(email: str) -> dict | None:
+    results = users.search(where("email") == email)
+    if not results:
+        return None
+    return dict(results[0])
 
 
 def add_group(username: str, group: str) -> None:
@@ -122,3 +113,19 @@ def can_access(user: dict | None, tool_name: str, tool_group: str | None) -> boo
     if tool_name in user.get("tools", []):
         return True
     return False
+
+
+async def get_current_user(ctx) -> dict | None:
+    """resolves GitHub identity to a user dict; prefers email, falls back to login"""
+    token = get_access_token()
+    if token is None:
+        return None
+    email = token.claims.get("email") or None
+    if email:
+        user = get_user_by_email(email)
+        if user:
+            return user
+    login = token.claims.get("login") or None
+    if login:
+        return get_user_by_username(login)
+    return None
