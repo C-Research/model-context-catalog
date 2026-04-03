@@ -1,0 +1,5 @@
+group: public
+tools:
+  - fn: mcc.contrib.http:request
+  - fn: mcc.contrib.subprocess:shell
+    group: admin

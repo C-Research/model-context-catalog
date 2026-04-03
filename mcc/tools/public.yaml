@@ -2,3 +2,8 @@ group: public
 tools:
   - fn: mcc.auth.get_current_user
   - fn: mcc.auth.list_tools
+  - fn: mcc.contrib.http:request
+    name: responsible-get
+    params:
+      - name: method
+        

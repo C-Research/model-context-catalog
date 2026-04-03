@@ -24,7 +24,6 @@ async def get_current_user() -> dict | None:
     from mcc.auth.backend import get_user_context
 
     token = get_user_context()
-    print(token)
     if token is None:
         return
     if hasattr(token, "claims"):

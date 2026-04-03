@@ -18,6 +18,11 @@ providers = {
 
 
 def get_user_context():
+    """
+    Displays full user context from auth provider.
+
+    may contain sensitive info and crypto keys
+    """
     return backends[settings.auth]()
 
 

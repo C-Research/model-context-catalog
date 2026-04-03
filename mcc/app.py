@@ -1,10 +1,14 @@
+import logging
+
 from fastmcp import FastMCP
+from fastmcp.server.lifespan import lifespan
 
 from pydantic import ValidationError
 
 from mcc.auth import get_current_user
 from mcc.auth.backend import get_auth
 from mcc.loader import loader
+from mcc.settings import settings, logger
 
 
 mcp = FastMCP("model-context-catalog", auth=get_auth())
@@ -45,4 +49,11 @@ async def execute(name: str, params: dict | None = None):
 
 
 if __name__ == "__main__":
+    logger.info("Starting up...")
+    for key, value in settings.as_dict().items():
+        logger.debug("Setting %s=%s", key, value)
+    for path in loader.paths:
+        logger.info("Tools from: %s", path)
+    for key, value in loader.items():
+        logger.debug("Tool: %s", value.signature)
     mcp.run(transport="http")

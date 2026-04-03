@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 from mcc.models import ToolModel
+from mcc.settings import settings
 
 
 def load_file(path: str | Path) -> list[ToolModel]:
@@ -16,7 +17,9 @@ def load_file(path: str | Path) -> list[ToolModel]:
             f"{path}: expected a dict with a 'tools' key, got {type(tool).__name__}"
         )
     group: str | None = tool.get("group", None)
-    return [ToolModel(group=group, **entry) for entry in tool["tools"]]
+    return [
+        ToolModel(group=entry.pop("group", group), **entry) for entry in tool["tools"]
+    ]
 
 
 class Loader(dict):
@@ -44,6 +47,13 @@ class Loader(dict):
         for path in self.paths:
             self.load(path)
 
+    def list_all(self):
+        return "\n".join([tool.signature for tool in self.values()])
+
 
 loader = Loader()
 loader.load(Path(__file__).parent / "tools")
+if settings.contrib:
+    loader.load(Path(__file__).parent / "contrib")
+if settings.tools:
+    loader.load(*settings.tools)

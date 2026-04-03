@@ -1,7 +1,10 @@
 import importlib
 import inspect
+import logging
 from typing import Any, Callable
 from pydantic import BaseModel, Field, create_model, model_validator
+
+logger = logging.getLogger("mcc.tools")
 
 TYPE_MAP: dict[str, type] = {
     "str": str,
@@ -34,22 +37,44 @@ class ParamModel(BaseModel):
 
 
 def _params_from_signature(fn: Callable) -> list[ParamModel]:
+    """
+    Inspects a callable to populate parameters based on inspect annotations
+    """
     params: list[ParamModel] = []
     for param in inspect.signature(fn).parameters.values():
         if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
             continue
         annotation = param.annotation if param.annotation is not param.empty else str
-        type_name = REVERSE_TYPE_MAP.get(annotation, "str")
         has_default = param.default is not param.empty
         params.append(
             ParamModel(
                 name=param.name,
-                type=type_name,
+                type=REVERSE_TYPE_MAP.get(annotation, "str"),
                 required=not has_default,
                 default=param.default if has_default else None,
             )
         )
     return params
+
+
+def fmt_signature(tool: "ToolModel"):
+    """
+    Formats the signature block of a tool so that an llm can easily understand it
+    """
+    parts = []
+    for param in tool.params:
+        if param.required:
+            parts.append(f"{param.name}: {param.type}")
+        else:
+            parts.append(f"{param.name}?: {param.type} = {param.default}")
+    sig = ", ".join(parts)
+    ret = ""
+    if tool.callable:
+        hint = inspect.signature(tool.callable).return_annotation
+        if hint is not inspect.Parameter.empty:
+            ret = f" -> {getattr(hint, '__name__', str(hint))}"
+    desc = f" - {tool.description}" if tool.description else ""
+    return f'{tool.key}{desc}\n  execute("{tool.key}", {sig}){ret}'
 
 
 class ToolModel(BaseModel):
@@ -62,6 +87,9 @@ class ToolModel(BaseModel):
 
     @model_validator(mode="after")
     def introspect(self):
+        """
+        Finds __name__ for  name and __doc__ for description if not provided
+        """
         self.callable = self.resolve_fn()
         if not self.name:
             self.name = getattr(self.callable, "__name__", self.fn.rpartition(".")[-1])
@@ -94,27 +122,14 @@ class ToolModel(BaseModel):
         fields: dict = {}
         for param in self.params:
             fields[param.name] = (
-                (param.py_type, ...)
-                if param.required
-                else (param.py_type, param.default)
+                param.py_type,
+                ... if param.required else param.default,
             )
         return create_model(f"{self.key}_params", **fields)
 
     @property
     def signature(self) -> str:
-        parts = []
-        for param in self.params:
-            if param.required:
-                parts.append(f"{param.name}: {param.type}")
-            else:
-                parts.append(f"{param.name}?: {param.type} = {param.default}")
-        sig = ", ".join(parts)
-        ret = ""
-        if self.callable:
-            hint = inspect.signature(self.callable).return_annotation
-            if hint is not inspect.Parameter.empty:
-                ret = f" -> {getattr(hint, '__name__', str(hint))}"
-        return f'{self.key} — {self.description}\n  execute("{self.key}", {sig}){ret}'
+        return fmt_signature(self)
 
     def can_access(self, user: dict | None) -> bool:
         from mcc.auth import can_access
@@ -122,9 +137,18 @@ class ToolModel(BaseModel):
         return can_access(user, self)
 
     async def call(self, **kwargs: Any) -> Any:
-        assert self.callable is not None, "Tool function not resolved"
-        validated = self.param_model(**kwargs)
-        result = self.callable(**validated.model_dump())
-        if inspect.isawaitable(result):
-            return await result
-        return result
+        """
+        Executes a tool with given kwarg parameters
+
+        If its async it will be awaited
+        """
+        logger.info("Calling %s with %s", self.key, kwargs)
+        try:
+            validated = self.param_model(**kwargs)
+            result = self.callable(**validated.model_dump())
+            if inspect.isawaitable(result):
+                result = await result
+            return result
+        except Exception as exc:
+            logger.exception("Error calling %s: %s", self.key, exc)
+            raise exc

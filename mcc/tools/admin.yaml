@@ -9,3 +9,5 @@ tools:
   - fn: mcc.auth.add_tool
   - fn: mcc.auth.remove_tool
   - fn: mcc.loader:loader.reload
+  - fn: mcc.auth.backend:get_user_context
+  - fn: mcc.loader:loader.list_all
