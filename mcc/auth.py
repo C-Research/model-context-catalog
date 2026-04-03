@@ -132,3 +132,21 @@ async def get_current_user() -> dict | None:
     if login:
         return get_user_by_username(login)
     return
+
+
+async def list_tools(text: bool = False) -> dict | str:
+    """
+    Returns a list of tools that the current user is allowed to execute
+
+    If calling from llm you want to set text=True
+    """
+    from mcc.loader import loader
+
+    user = await get_current_user()
+    tools = {}
+    for key, tool in loader.items():
+        if tool.can_access(user):
+            tools[key] = tool
+    if not text:
+        return tools
+    return "\n\n".join([tool.signature for tool in tools.values()])

@@ -12,6 +12,8 @@ TYPE_MAP: dict[str, type] = {
     "dict": dict,
 }
 
+REVERSE_TYPE_MAP: dict[type, str] = {v: k for k, v in TYPE_MAP.items()}
+
 
 class ParamModel(BaseModel):
     name: str
@@ -31,6 +33,25 @@ class ParamModel(BaseModel):
         return TYPE_MAP[self.type]
 
 
+def _params_from_signature(fn: Callable) -> list[ParamModel]:
+    params: list[ParamModel] = []
+    for param in inspect.signature(fn).parameters.values():
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
+        annotation = param.annotation if param.annotation is not param.empty else str
+        type_name = REVERSE_TYPE_MAP.get(annotation, "str")
+        has_default = param.default is not param.empty
+        params.append(
+            ParamModel(
+                name=param.name,
+                type=type_name,
+                required=not has_default,
+                default=param.default if has_default else None,
+            )
+        )
+    return params
+
+
 class ToolModel(BaseModel):
     group: str | None = None
     name: str = ""
@@ -46,6 +67,8 @@ class ToolModel(BaseModel):
             self.name = getattr(self.callable, "__name__", self.fn.rpartition(".")[-1])
         if not self.description:
             self.description = getattr(self.callable, "__doc__", "")
+        if not self.params:
+            self.params = _params_from_signature(self.callable)
         return self
 
     def resolve_fn(self) -> Callable:
@@ -86,7 +109,12 @@ class ToolModel(BaseModel):
             else:
                 parts.append(f"{param.name}?: {param.type} = {param.default}")
         sig = ", ".join(parts)
-        return f'{self.key} — {self.description}\n  execute("{self.key}", {{{sig}}})'
+        ret = ""
+        if self.callable:
+            hint = inspect.signature(self.callable).return_annotation
+            if hint is not inspect.Parameter.empty:
+                ret = f" -> {getattr(hint, '__name__', str(hint))}"
+        return f'{self.key} — {self.description}\n  execute("{self.key}", {sig}){ret}'
 
     def can_access(self, user: dict | None) -> bool:
         from mcc.auth import can_access

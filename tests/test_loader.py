@@ -76,6 +76,15 @@ class TestLoader:
         assert isinstance(tool.params, list)
         assert hasattr(tool, "group")
 
+    def test_params_inferred_from_signature(self):
+        loader = Loader()
+        loader.load(FIXTURES / "tools_no_params.yaml")
+        tool = loader["echo"]
+        assert len(tool.params) == 1
+        assert tool.params[0].name == "message"
+        assert tool.params[0].type == "str"
+        assert tool.params[0].required is True
+
     @pytest.mark.asyncio
     async def test_call_async_tool(self):
         loader = Loader()

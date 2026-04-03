@@ -1,3 +1,4 @@
 group: public
 tools:
   - fn: mcc.auth.get_current_user
+  - fn: mcc.auth.list_tools
