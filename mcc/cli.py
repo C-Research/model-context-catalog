@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from .auth import (
+from mcc.auth import (
     add_group,
     add_tool,
     create_user,

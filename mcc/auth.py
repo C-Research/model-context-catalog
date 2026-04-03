@@ -3,7 +3,7 @@ import os
 from fastmcp.server.dependencies import get_access_token
 from tinydb import TinyDB, where
 
-from .models import ToolModel
+from mcc.models import ToolModel
 
 db = TinyDB(os.environ.get("MCC_USERS_DB", "users.db"))
 users = db.table("users")

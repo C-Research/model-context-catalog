@@ -53,7 +53,7 @@ class TestLoader:
     def test_duplicate_tool_raises(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
-        with pytest.raises(ValueError, match="Duplicate tool name"):
+        with pytest.raises(ValueError, match="Duplicate tool"):
             loader.load(FIXTURES / "tools_ungrouped.yaml")
 
     def test_name_defaults_to_fn_name(self):

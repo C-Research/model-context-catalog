@@ -4,8 +4,8 @@ from fastmcp import FastMCP
 from fastmcp.server.auth.providers.github import GitHubProvider
 from pydantic import ValidationError
 
-from .auth import get_current_user
-from .loader import loader
+from mcc.auth import get_current_user
+from mcc.loader import loader
 
 
 def _github_provider() -> GitHubProvider:
@@ -68,3 +68,7 @@ async def execute(name: str, params: dict | None = None):
         return await tool.call(**params or {})
     except ValidationError as e:
         return f"Validation error for tool '{name}': {e}"
+
+
+if __name__ == "__main__":
+    mcp.run(transport="http")

@@ -89,7 +89,7 @@ class ToolModel(BaseModel):
         return f'{self.key} — {self.description}\n  execute("{self.key}", {{{sig}}})'
 
     def can_access(self, user: dict | None) -> bool:
-        from .auth import can_access
+        from mcc.auth import can_access
 
         return can_access(user, self)
 

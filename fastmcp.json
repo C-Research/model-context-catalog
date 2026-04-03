@@ -1,0 +1,16 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "path": "mcc/app.py",
+    "entrypoint": "mcp"
+  },
+  "environment": {
+    "MCC_GITHUB_CLIENT_ID": "${MCC_GITHUB_CLIENT_ID}",
+    "MCC_GITHUB_CLIENT_SECRET": "${MCC_GITHUB_CLIENT_SECRET}",
+    "MCC_BASE_URL": "${MCC_BASE_URL}"
+  },
+  "deployment": {
+    "transport": "http",
+    "log_level": "INFO"
+  }
+}
