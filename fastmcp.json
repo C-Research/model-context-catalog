@@ -1,16 +1,15 @@
 {
   "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
   "source": {
-    "path": "mcc/app.py",
+    "path": "/Users/dardanus/Projects/mcc/mcc/app.py",
     "entrypoint": "mcp"
   },
   "environment": {
-    "MCC_GITHUB_CLIENT_ID": "${MCC_GITHUB_CLIENT_ID}",
-    "MCC_GITHUB_CLIENT_SECRET": "${MCC_GITHUB_CLIENT_SECRET}",
-    "MCC_BASE_URL": "${MCC_BASE_URL}"
+    "PYTHONPATH": "/Users/dardanus/Projects/mcc",
+    "MCC_AUTH": "dangerous"
   },
   "deployment": {
-    "transport": "http",
+    "transport": "stdio",
     "log_level": "INFO"
   }
 }

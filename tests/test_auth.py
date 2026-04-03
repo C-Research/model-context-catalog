@@ -198,7 +198,7 @@ class TestGetCurrentUser:
         create_user("alice", email="alice@example.com")
         mock_token = MagicMock()
         mock_token.claims = {"email": "alice@example.com", "login": "alice"}
-        with patch("mcc.auth.get_access_token", return_value=mock_token):
+        with patch("mcc.auth.backend.get_user_context", return_value=mock_token):
             user = await get_current_user()
         assert user is not None
         assert user["username"] == "alice"
@@ -208,7 +208,7 @@ class TestGetCurrentUser:
         create_user("alice")
         mock_token = MagicMock()
         mock_token.claims = {"email": None, "login": "alice"}
-        with patch("mcc.auth.get_access_token", return_value=mock_token):
+        with patch("mcc.auth.backend.get_user_context", return_value=mock_token):
             user = await get_current_user()
         assert user is not None
         assert user["username"] == "alice"
@@ -219,14 +219,14 @@ class TestGetCurrentUser:
         create_user("alice-other")
         mock_token = MagicMock()
         mock_token.claims = {"email": "alice@example.com", "login": "alice-other"}
-        with patch("mcc.auth.get_access_token", return_value=mock_token):
+        with patch("mcc.auth.backend.get_user_context", return_value=mock_token):
             user = await get_current_user()
         assert user is not None
         assert user["username"] == "alice"
 
     @pytest.mark.asyncio
     async def test_unauthenticated(self):
-        with patch("mcc.auth.get_access_token", return_value=None):
+        with patch("mcc.auth.backend.get_user_context", return_value=None):
             user = await get_current_user()
         assert user is None
 
@@ -234,6 +234,6 @@ class TestGetCurrentUser:
     async def test_no_matching_record(self):
         mock_token = MagicMock()
         mock_token.claims = {"email": None, "login": "unknown"}
-        with patch("mcc.auth.get_access_token", return_value=mock_token):
+        with patch("mcc.auth.backend.get_user_context", return_value=mock_token):
             user = await get_current_user()
         assert user is None

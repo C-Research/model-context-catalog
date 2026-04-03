@@ -1,0 +1,13 @@
+[default]
+users_db = "users.db"
+auth = "dangerous"
+
+[default.github_oauth]
+client_id = ""
+client_secret = ""
+base_url = "http://localhost:8000"
+
+[default.github_pat]
+token = ""
+
+[default.dangerous]

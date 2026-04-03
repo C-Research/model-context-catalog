@@ -1,39 +1,13 @@
-import os
-
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.github import GitHubProvider
+
 from pydantic import ValidationError
 
 from mcc.auth import get_current_user
+from mcc.auth.backend import get_auth
 from mcc.loader import loader
 
 
-def _github_provider() -> GitHubProvider:
-    client_id = os.environ.get("MCC_GITHUB_CLIENT_ID")
-    client_secret = os.environ.get("MCC_GITHUB_CLIENT_SECRET")
-    base_url = os.environ.get("MCC_BASE_URL")
-    missing = [
-        k
-        for k, v in {
-            "MCC_GITHUB_CLIENT_ID": client_id,
-            "MCC_GITHUB_CLIENT_SECRET": client_secret,
-            "MCC_BASE_URL": base_url,
-        }.items()
-        if not v
-    ]
-    if missing:
-        raise RuntimeError(
-            f"Missing required environment variables: {', '.join(missing)}"
-        )
-    assert client_id is not None and client_secret is not None and base_url is not None
-    return GitHubProvider(
-        client_id=client_id,
-        client_secret=client_secret,
-        base_url=base_url,
-    )
-
-
-mcp = FastMCP("model-context-catalog", auth=_github_provider())
+mcp = FastMCP("model-context-catalog", auth=get_auth())
 mcp.loader = loader  # type: ignore[attr-defined]
 
 
