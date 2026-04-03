@@ -9,3 +9,7 @@ def documented_tool(message: str) -> list[str]:
 
 async def async_echo(message: str) -> list[str]:
     return [message]
+
+
+def echo_with_flag(message: str, flag: bool = False) -> dict:
+    return {"message": message, "flag": flag}

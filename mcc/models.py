@@ -24,6 +24,11 @@ class ParamModel(BaseModel):
     required: bool = False
     default: Any = None
     description: str = ""
+    override: Any = Field(default_factory=lambda: ...)
+
+    @property
+    def has_override(self) -> bool:
+        return self.override is not ...
 
     @model_validator(mode="after")
     def typecheck(self):
@@ -63,6 +68,8 @@ def fmt_signature(tool: "ToolModel"):
     """
     parts = []
     for param in tool.params:
+        if param.has_override:
+            continue
         if param.required:
             parts.append(f"{param.name}: {param.type}")
         else:
@@ -121,6 +128,8 @@ class ToolModel(BaseModel):
     def param_model(self) -> type[BaseModel]:
         fields: dict = {}
         for param in self.params:
+            if param.has_override:
+                continue
             fields[param.name] = (
                 param.py_type,
                 ... if param.required else param.default,
@@ -143,9 +152,13 @@ class ToolModel(BaseModel):
         If its async it will be awaited
         """
         logger.info("Calling %s with %s", self.key, kwargs)
+        validated = self.param_model(**kwargs)
+        call_kwargs = validated.model_dump()
+        for param in self.params:
+            if param.has_override:
+                call_kwargs[param.name] = param.override
         try:
-            validated = self.param_model(**kwargs)
-            result = self.callable(**validated.model_dump())
+            result = self.callable(**call_kwargs)
             if inspect.isawaitable(result):
                 result = await result
             return result

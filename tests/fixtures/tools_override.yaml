@@ -1,0 +1,10 @@
+tools:
+  - name: echo_with_flag
+    fn: tests.example.echo_with_flag
+    params:
+      - name: message
+        type: str
+        required: true
+      - name: flag
+        type: bool
+        override: true
