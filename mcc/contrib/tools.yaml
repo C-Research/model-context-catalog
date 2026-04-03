@@ -1,5 +1,17 @@
 group: public
 tools:
   - fn: mcc.contrib.http:request
+    group: admin
   - fn: mcc.contrib.subprocess:shell
     group: admin
+  - fn: mcc.contrib.http:request
+    name: responsible-get
+    params:
+      - name: method
+        type: str
+        override: GET
+      - name: responsible
+        type: bool
+        override: true
+      - name: url
+        type: str    

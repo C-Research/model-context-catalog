@@ -23,8 +23,12 @@ def get_user_context():
 
     may contain sensitive info and crypto keys
     """
+    if settings.auth not in backends:
+        raise ValueError(f"auth backed {settings.auth} not supported")
     return backends[settings.auth]()
 
 
 def get_auth():
+    if settings.auth not in providers:
+        raise ValueError(f"auth provider {settings.auth} not found")
     return providers[settings.auth]

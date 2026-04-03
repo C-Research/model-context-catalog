@@ -1,3 +1,5 @@
+import asyncio
+import json
 import sys
 
 import click
@@ -84,6 +86,66 @@ def grant(username, groups, tools):
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
     click.echo("Permissions updated.")
+
+
+@cli.command("list-tools")
+def list_tools_cmd():
+    """List all registered tools."""
+    from mcc.loader import loader
+
+    click.echo(loader.list_all())
+
+
+@cli.command()
+@click.argument("tool_key")
+@click.argument("params", nargs=-1)
+@click.option("--json", "json_str", default=None, help="JSON object of parameters")
+def call(tool_key, params, json_str):
+    """Look up a tool by key and call it.
+
+    Accepts parameters as key=value pairs and/or a --json blob.
+
+    Examples:
+
+        mcc call admin.list_users
+
+        mcc call my.tool name=foo count=3
+
+        mcc call my.tool --json '{"name": "foo", "count": 3}'
+    """
+    from mcc.loader import loader
+
+    tool = loader.get(tool_key)
+    if not tool:
+        click.echo(f"Error: tool '{tool_key}' not found", err=True)
+        sys.exit(1)
+
+    kwargs: dict = {}
+    if json_str:
+        try:
+            kwargs.update(json.loads(json_str))
+        except json.JSONDecodeError as e:
+            click.echo(f"Error: invalid JSON — {e}", err=True)
+            sys.exit(1)
+
+    for p in params:
+        if "=" not in p:
+            click.echo(f"Error: expected key=value, got '{p}'", err=True)
+            sys.exit(1)
+        key, _, value = p.partition("=")
+        kwargs[key] = value
+
+    try:
+        result = asyncio.run(tool.call(**kwargs))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if result is not None:
+        if isinstance(result, (dict, list)):
+            click.echo(json.dumps(result, indent=2, default=str))
+        else:
+            click.echo(result)
 
 
 @cli.command()

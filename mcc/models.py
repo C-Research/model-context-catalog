@@ -128,8 +128,8 @@ class ToolModel(BaseModel):
     def param_model(self) -> type[BaseModel]:
         fields: dict = {}
         for param in self.params:
-            if param.has_override:
-                continue
+            # if param.has_override:
+            #     continue
             fields[param.name] = (
                 param.py_type,
                 ... if param.required else param.default,
