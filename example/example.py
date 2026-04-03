@@ -1,2 +1,2 @@
-def echo(message: str) -> str:
+def echo(message: str) -> list[str]:
     return [message]

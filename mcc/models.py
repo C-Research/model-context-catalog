@@ -37,7 +37,7 @@ class ToolModel(BaseModel):
     fn: str
     description: str = ""
     params: list[ParamModel] = Field(default_factory=list)
-    callable: Callable = None
+    callable: Callable | None = None
 
     @model_validator(mode="after")
     def introspect(self):
@@ -57,7 +57,7 @@ class ToolModel(BaseModel):
             raise ImportError(
                 f"Invalid fn path '{self.fn}': use 'module:attr.attr' or 'module.attr'"
             )
-        obj = importlib.import_module(module_path)
+        obj: Any = importlib.import_module(module_path)
         for attr in attrs.split("."):
             obj = getattr(obj, attr)
         return obj
@@ -93,7 +93,8 @@ class ToolModel(BaseModel):
 
         return can_access(user, self)
 
-    async def call(self, **kwargs):
+    async def call(self, **kwargs: Any) -> Any:
+        assert self.callable is not None, "Tool function not resolved"
         validated = self.param_model(**kwargs)
         result = self.callable(**validated.model_dump())
         if inspect.isawaitable(result):

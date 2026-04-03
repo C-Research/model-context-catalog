@@ -35,11 +35,13 @@ class TestCreateUser:
     def test_creates_user_with_email(self):
         create_user("alice", email="alice@example.com")
         user = get_user_by_username("alice")
+        assert user is not None
         assert user["email"] == "alice@example.com"
 
     def test_creates_user_without_email(self):
         create_user("alice")
         user = get_user_by_username("alice")
+        assert user is not None
         assert user["email"] is None
 
     def test_duplicate_username_raises(self):
@@ -55,11 +57,13 @@ class TestCreateUser:
     def test_admin_group(self):
         create_user("alice", groups=["admin"])
         user = get_user_by_username("alice")
+        assert user is not None
         assert "admin" in user["groups"]
 
     def test_no_token_stored(self):
         create_user("alice")
         user = get_user_by_username("alice")
+        assert user is not None
         assert "token_hash" not in user
 
 
@@ -78,6 +82,7 @@ class TestGetUserByUsername:
     def test_found(self):
         create_user("alice")
         user = get_user_by_username("alice")
+        assert user is not None
         assert user["username"] == "alice"
 
     def test_not_found(self):
@@ -88,6 +93,7 @@ class TestGetUserByEmail:
     def test_found(self):
         create_user("alice", email="alice@example.com")
         user = get_user_by_email("alice@example.com")
+        assert user is not None
         assert user["username"] == "alice"
         assert user["email"] == "alice@example.com"
 
@@ -99,19 +105,25 @@ class TestGroups:
     def test_add_group(self):
         create_user("alice")
         add_group("alice", "ops")
-        assert "ops" in get_user_by_username("alice")["groups"]
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert "ops" in user["groups"]
 
     def test_add_group_idempotent(self):
         create_user("alice")
         add_group("alice", "ops")
         add_group("alice", "ops")
-        assert get_user_by_username("alice")["groups"].count("ops") == 1
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert user["groups"].count("ops") == 1
 
     def test_remove_group(self):
         create_user("alice")
         add_group("alice", "ops")
         remove_group("alice", "ops")
-        assert "ops" not in get_user_by_username("alice")["groups"]
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert "ops" not in user["groups"]
 
     def test_remove_group_not_member(self):
         create_user("alice")
@@ -123,19 +135,25 @@ class TestTools:
     def test_add_tool(self):
         create_user("alice")
         add_tool("alice", "echo")
-        assert "echo" in get_user_by_username("alice")["tools"]
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert "echo" in user["tools"]
 
     def test_add_tool_idempotent(self):
         create_user("alice")
         add_tool("alice", "echo")
         add_tool("alice", "echo")
-        assert get_user_by_username("alice")["tools"].count("echo") == 1
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert user["tools"].count("echo") == 1
 
     def test_remove_tool(self):
         create_user("alice")
         add_tool("alice", "echo")
         remove_tool("alice", "echo")
-        assert "echo" not in get_user_by_username("alice")["tools"]
+        user = get_user_by_username("alice")
+        assert user is not None
+        assert "echo" not in user["tools"]
 
     def test_remove_tool_not_present(self):
         create_user("alice")
@@ -144,10 +162,11 @@ class TestTools:
 
 
 class TestCanAccess:
-    def _tool(self, name="echo", group=None):
-        from types import SimpleNamespace
-
-        return SimpleNamespace(name=name, group=group)
+    def _tool(self, name: str = "echo", group: str | None = None) -> MagicMock:
+        tool = MagicMock()
+        tool.name = name
+        tool.group = group
+        return tool
 
     def test_public_group_no_user(self):
         assert can_access(None, self._tool(group="public")) is True
@@ -202,6 +221,7 @@ class TestGetCurrentUser:
         mock_token.claims = {"email": "alice@example.com", "login": "alice-other"}
         with patch("mcc.auth.get_access_token", return_value=mock_token):
             user = await get_current_user()
+        assert user is not None
         assert user["username"] == "alice"
 
     @pytest.mark.asyncio

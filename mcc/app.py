@@ -25,6 +25,7 @@ def _github_provider() -> GitHubProvider:
         raise RuntimeError(
             f"Missing required environment variables: {', '.join(missing)}"
         )
+    assert client_id is not None and client_secret is not None and base_url is not None
     return GitHubProvider(
         client_id=client_id,
         client_secret=client_secret,
@@ -33,7 +34,7 @@ def _github_provider() -> GitHubProvider:
 
 
 mcp = FastMCP("model-context-catalog", auth=_github_provider())
-mcp.loader = loader
+mcp.loader = loader  # type: ignore[attr-defined]
 
 
 @mcp.tool()

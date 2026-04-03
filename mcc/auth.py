@@ -11,9 +11,9 @@ users = db.table("users")
 
 def create_user(
     username: str,
-    email: str = None,
-    tools: list[str] = None,
-    groups: list[str] = None,
+    email: str | None = None,
+    tools: list[str] | None = None,
+    groups: list[str] | None = None,
 ) -> None:
     """creates a user and assigns their tools/groups perms"""
     if users.search(where("username") == username):
