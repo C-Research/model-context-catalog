@@ -11,3 +11,4 @@ wheels/
 .envrc
 .python-version
 .claude/
+users.db
