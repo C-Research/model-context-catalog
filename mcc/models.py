@@ -64,7 +64,7 @@ def _params_from_signature(fn: Callable) -> list[ParamModel]:
 
 def fmt_signature(tool: "ToolModel"):
     """
-    Formats the signature block of a tool so that an llm can easily understand it
+    Formats the signature block of a tool as markdown
     """
     parts = []
     for param in tool.params:
@@ -75,13 +75,22 @@ def fmt_signature(tool: "ToolModel"):
         else:
             parts.append(f"{param.name}?: {param.type} = {param.default}")
     sig = ", ".join(parts)
+
     ret = ""
     if tool.callable:
         hint = inspect.signature(tool.callable).return_annotation
         if hint is not inspect.Parameter.empty:
-            ret = f" -> {getattr(hint, '__name__', str(hint))}"
-    desc = f" - {tool.description}" if tool.description else ""
-    return f'{tool.key}{desc}\n  execute("{tool.key}", {sig}){ret}'
+            ret = f"{getattr(hint, '__name__', str(hint))}"
+
+    lines = [f"## {tool.key}"]
+    if sig:
+        lines.append(f"params: `{sig}`")
+    if ret:
+        lines.append(f"returns: `{ret}`")
+    if tool.description:
+        desc = tool.description.strip("\n")
+        lines.append(f"```\n{desc}\n```")
+    return "\n".join(lines)
 
 
 class ToolModel(BaseModel):
@@ -128,8 +137,8 @@ class ToolModel(BaseModel):
     def param_model(self) -> type[BaseModel]:
         fields: dict = {}
         for param in self.params:
-            # if param.has_override:
-            #     continue
+            if param.has_override:
+                continue
             fields[param.name] = (
                 param.py_type,
                 ... if param.required else param.default,
@@ -141,14 +150,14 @@ class ToolModel(BaseModel):
         return fmt_signature(self)
 
     def can_access(self, user: dict | None) -> bool:
-        from mcc.auth import can_access
+        from mcc.auth import can_access as auth_can_access
 
-        return can_access(user, self)
+        return auth_can_access(user, self)
 
     async def call(self, **kwargs: Any) -> Any:
         """
-        Executes a tool with given kwarg parameters
-
+        Executes a tool with given kwarg parameters.
+        Any tool overriden params will be forced
         If its async it will be awaited
         """
         logger.info("Calling %s with %s", self.key, kwargs)

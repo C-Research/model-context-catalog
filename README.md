@@ -43,7 +43,7 @@ contrib = true       # enable built-in HTTP and shell tools
 
 **2. Add an admin user:**
 ```bash
-mcc add-user -u alice -e alice@example.com -g admin
+mcc user add -u alice -e alice@example.com -g admin
 ```
 
 **3. Run the server:**
@@ -117,12 +117,12 @@ base_url = "https://your-server.example.com"
 ## User & Permission Management
 
 ```bash
-mcc add-user -u alice -e alice@example.com -g myteam
-mcc add-user -u bob -g admin
-mcc list-users
-mcc grant alice -g ops -t custom.tool
-mcc revoke alice -t custom.tool
-mcc remove-user alice
+mcc user add -u alice -e alice@example.com -g myteam
+mcc user add -u bob -g admin
+mcc user list
+mcc user grant alice -g ops -t custom.tool
+mcc user revoke alice -t custom.tool
+mcc user remove alice
 ```
 
 **Permission hierarchy** (first match wins):

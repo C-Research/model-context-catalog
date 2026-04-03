@@ -48,7 +48,7 @@ class Loader(dict):
             self.load(path)
 
     def list_all(self):
-        return "\n".join([tool.signature for tool in self.values()])
+        return "\n\n".join([tool.signature for tool in self.values()])
 
 
 loader = Loader()

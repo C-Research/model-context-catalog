@@ -105,11 +105,14 @@ Optional built-in tools, enabled via `contrib = true`:
 | `admin.shell` | admin | Arbitrary shell command execution |
 
 ### `mcc/cli.py`
-Click CLI (`mcc` entry point) for user and permission management:
+rich-click CLI (`mcc` entry point) with two command groups:
+
 ```
-mcc add-user / list-users / remove-user
-mcc grant / revoke
+mcc user add / list / remove / grant / revoke
+mcc tool list / call
 ```
+
+Help text and output use Rich — tables for listings, syntax-highlighted JSON for `tool call` results, markdown in all docstrings.
 
 ---
 
@@ -171,7 +174,7 @@ tools = ["path/to/mytools.yaml"]
 
 3. Grant users access:
 ```bash
-mcc grant alice -g myteam
+mcc user grant alice -g myteam
 ```
 
 That's it. The loader picks it up on next startup (or `admin.reload`).
