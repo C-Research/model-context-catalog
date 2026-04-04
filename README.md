@@ -34,11 +34,11 @@ Claude → execute("myteam.deploy", {"environment": "prod"})  →  result
 uv add model-context-catalog
 ```
 
-**1. Configure auth and extras** (`settings.local.toml`):
-```toml
-[default]
-auth = "dangerous"   # dev mode: auto-uses first admin user
-contrib = true       # enable built-in HTTP and shell tools
+**1. Configure auth and extras** (`settings.local.yaml`):
+```yaml
+default:
+  auth: "dangerous"   # dev mode: auto-uses first admin user
+  contrib: true       # enable built-in HTTP and shell tools
 ```
 
 **2. Add an admin user:**
@@ -74,10 +74,11 @@ tools:
         override: true     # always injected at call time, hidden from callers
 ```
 
-Register it in `settings.local.toml`:
-```toml
-[default]
-tools = ["path/to/mytools.yaml"]
+Register it in `settings.local.yaml`:
+```yaml
+default:
+  tools: 
+    - "path/to/mytools.yaml"
 ```
 
 ---
@@ -93,23 +94,23 @@ Switch backends via `auth` in settings:
 | `github_oauth` | Production — full OAuth2 flow via GitHub |
 
 GitHub PAT config:
-```toml
-[default]
-auth = "github_pat"
+```yaml
+default:
+  auth: "github_pat"
 
-[default.github_pat]
-token = "ghp_..."
+  github_pat:
+    token: "ghp_..."
 ```
 
 GitHub OAuth config:
-```toml
-[default]
-auth = "github_oauth"
+```yaml
+default:
+  auth: "github_oauth"
 
-[default.github_oauth]
-client_id = "..."
-client_secret = "..."
-base_url = "https://your-server.example.com"
+  github_oauth:
+    client_id: "..."
+    client_secret: "..."
+    base_url: "https://your-server.example.com"
 ```
 
 ---

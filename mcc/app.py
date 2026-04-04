@@ -1,4 +1,3 @@
-
 from fastmcp import FastMCP
 
 from pydantic import ValidationError
@@ -12,6 +11,14 @@ from mcc.settings import settings, logger
 mcp = FastMCP("model-context-catalog", auth=get_auth())
 mcp.loader = loader  # type: ignore[attr-defined]
 
+logger.info("Starting up...")
+for key, value in settings.as_dict().items():
+    logger.debug("Setting %s=%s", key, value)
+for path in loader.paths:
+    logger.info("Tools from: %s", path)
+for key, value in loader.items():
+    logger.debug("Tool: %s", value.signature)
+
 
 @mcp.tool()
 async def search(query: str, group: str | None = None) -> str:
@@ -24,7 +31,9 @@ async def search(query: str, group: str | None = None) -> str:
             continue
         if group is not None and tool.group != group:
             continue
-        if query_lower in name.lower() or query_lower in tool.description.lower():
+        if query_lower in name.lower() or (
+            tool.description and query_lower in tool.description.lower()
+        ):
             results.append(tool.signature)
     if not results:
         return "No tools matched your query."
@@ -40,6 +49,8 @@ async def execute(name: str, params: dict | None = None):
     user = await get_current_user()
     if not tool.can_access(user):
         return "Unauthorized"
+    username = f"{user['username']}<{user.get('email')}>" if user else "anonymous"
+    logger.info("%s Calling %s with %s", username, tool.key, params)
     try:
         return await tool.call(**params or {})
     except ValidationError as e:
@@ -47,11 +58,4 @@ async def execute(name: str, params: dict | None = None):
 
 
 if __name__ == "__main__":
-    logger.info("Starting up...")
-    for key, value in settings.as_dict().items():
-        logger.debug("Setting %s=%s", key, value)
-    for path in loader.paths:
-        logger.info("Tools from: %s", path)
-    for key, value in loader.items():
-        logger.debug("Tool: %s", value.signature)
     mcp.run(transport="http")

@@ -160,7 +160,6 @@ class ToolModel(BaseModel):
         Any tool overriden params will be forced
         If its async it will be awaited
         """
-        logger.info("Calling %s with %s", self.key, kwargs)
         validated = self.param_model(**kwargs)
         call_kwargs = validated.model_dump()
         for param in self.params:
@@ -172,5 +171,5 @@ class ToolModel(BaseModel):
                 result = await result
             return result
         except Exception as exc:
-            logger.exception("Error calling %s: %s", self.key, exc)
+            logger.exception("Error calling %s with %s: %s", self.key, kwargs, exc)
             raise exc

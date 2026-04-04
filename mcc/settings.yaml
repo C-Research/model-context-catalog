@@ -1,0 +1,49 @@
+default:
+  users_db: "users.db"
+  auth: "dangerous"
+  contrib: false
+  tools: []
+
+  github_oauth:
+    client_id: ""
+    client_secret: ""
+    base_url: "http://localhost:8000"
+
+  github_pat:
+    token: ""
+
+  logging:
+    version: 1
+    disable_existing_loggers: false
+    formatters:
+      standard:
+        format: "%(levelname)s [%(name)s] %(message)s"
+      verbose:
+        format: "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+    handlers:
+      console:
+        class: "logging.StreamHandler"
+        formatter: "standard"
+    loggers:
+      mcc:
+        level: "WARNING"
+        handlers:
+          - "console"
+        propagate: false
+
+development:
+  dynaconf_merge: true
+  logging:
+    loggers:
+      mcc:
+        level: "DEBUG"
+
+production:
+  dynaconf_merge: true
+  logging:
+    handlers:
+      console:
+        formatter: "verbose"
+    loggers:
+      mcc:
+        level: "INFO"

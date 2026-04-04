@@ -1,5 +1,6 @@
 group: admin
 tools:
+  - fn: mcc.auth.create_user
   - fn: mcc.auth.list_users
   - fn: mcc.auth.get_user_by_username
   - fn: mcc.auth.get_user_by_email

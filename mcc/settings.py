@@ -7,8 +7,8 @@ settings = Dynaconf(
     envvar_prefix="MCC",
     environments=True,
     settings_files=[
-        str(Path(__file__).parent / "settings.toml"),
-        "settings.local.toml",
+        str(Path(__file__).parent / "settings.yaml"),
+        "settings.local.yaml",
     ],
     load_dotenv=True,
 )

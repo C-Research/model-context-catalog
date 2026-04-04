@@ -1,4 +1,3 @@
-group: public
 tools:
   - fn: mcc.contrib.http:request
     group: admin
@@ -6,6 +5,7 @@ tools:
     group: admin
   - fn: mcc.contrib.http:request
     name: responsible-get
+    group: public
     params:
       - name: method
         type: str
