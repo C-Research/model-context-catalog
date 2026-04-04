@@ -5,6 +5,7 @@ import sys
 import rich_click as click
 from rich.console import Console
 from rich.table import Table
+from rich.markdown import Markdown
 
 from mcc.auth import (
     add_group,
@@ -17,8 +18,14 @@ from mcc.auth import (
 )
 
 click.rich_click.USE_MARKDOWN = True
+click.rich_click.USE_RICH_MARKUP = True
 
 console = Console(markup=True)
+
+
+def err(msg):
+    console.print(f"[red]Error: {msg}[/red]", markup=True)
+    sys.exit(1)
 
 
 @click.group()
@@ -46,8 +53,7 @@ def user_add(username, email, groups, tools):
     try:
         create_user(username, email, list(tools), list(groups))
     except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
-        sys.exit(1)
+        err(e)
     msg = f"User **{username}** added"
     if email:
         msg += f" `{email}`"
@@ -90,8 +96,7 @@ def user_remove(username):
     try:
         delete_user(username)
     except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
-        sys.exit(1)
+        err(e)
     console.print(f"User **{username}** removed.")
 
 
@@ -102,19 +107,14 @@ def user_remove(username):
 def user_grant(username, groups, tools):
     """Grant groups and/or tools to a user."""
     if not groups and not tools:
-        console.print(
-            "[red]Error:[/red] at least one `--group` or `--tool` is required.",
-            err=True,
-        )
-        sys.exit(1)
+        err("at least one `--group` or `--tool` is required.")
     try:
         for g in groups:
             add_group(username, g)
         for t in tools:
             add_tool(username, t)
     except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
-        sys.exit(1)
+        err(e)
     console.print("Permissions updated.")
 
 
@@ -125,19 +125,14 @@ def user_grant(username, groups, tools):
 def user_revoke(username, groups, tools):
     """Revoke groups and/or tools from a user."""
     if not groups and not tools:
-        console.print(
-            "[red]Error:[/red] at least one `--group` or `--tool` is required.",
-            err=True,
-        )
-        sys.exit(1)
+        err("at least one `--group` or `--tool` is required.")
     try:
         for g in groups:
             remove_group(username, g)
         for t in tools:
             remove_tool(username, t)
     except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
-        sys.exit(1)
+        err(e)
     console.print("Permissions updated.")
 
 
@@ -154,7 +149,6 @@ def tool():
 @tool.command("list")
 def tool_list():
     """List all registered tools."""
-    from rich.markdown import Markdown
 
     from mcc.loader import loader
 
@@ -187,31 +181,25 @@ def tool_call(tool, params, json_str):
 
     t = loader.get(tool)
     if not t:
-        console.print(f"[red]Error:[/red] tool `{tool}` not found", err=True)
-        sys.exit(1)
+        err(f" tool `{tool}` not found")
 
     kwargs: dict = {}
     if json_str:
         try:
             kwargs.update(json.loads(json_str))
         except json.JSONDecodeError as e:
-            console.print(f"[red]Error:[/red] invalid JSON — {e}", err=True)
-            sys.exit(1)
+            err(f"invalid JSON — {e}")
 
     for p in params:
         if "=" not in p:
-            console.print(
-                f"[red]Error:[/red] expected `key=value`, got `{p}`", err=True
-            )
-            sys.exit(1)
+            err(f"expected `key=value`, got `{p}`")
         key, _, value = p.partition("=")
         kwargs[key] = value
 
     try:
         result = asyncio.run(t.call(**kwargs))
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}", err=True)
-        sys.exit(1)
+        err(e)
 
     if result is not None:
         if isinstance(result, (dict, list)):

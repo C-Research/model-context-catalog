@@ -55,7 +55,8 @@ class TestSearch:
         _load("tools_public.yaml")
         result = await search("echo")
         assert "public.echo" in result
-        assert 'execute("public.echo"' in result
+        assert "message: str" in result
+        assert "Echoes back the provided message" in result
 
 
 class TestExecute:

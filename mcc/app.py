@@ -1,7 +1,5 @@
-import logging
 
 from fastmcp import FastMCP
-from fastmcp.server.lifespan import lifespan
 
 from pydantic import ValidationError
 
