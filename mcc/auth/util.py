@@ -3,18 +3,17 @@ from mcc.auth.db import get_user_by_email, get_user_by_username
 
 
 def can_access(user: dict | None, tool: ToolModel) -> bool:
-    """returns true if user can access tool (tool must have .name and .group)"""
-    if tool.group == "public":
+    """returns true if user can access tool (tool must have .name and .groups)"""
+    if "public" in tool.groups:
         return True
     if user is None:
         return False
-    groups = user.get("groups", [])
-    if "admin" in groups:
+    user_groups = user.get("groups", [])
+    if "admin" in user_groups:
         return True
-    if tool.group and tool.group in groups:
+    if any(g in user_groups for g in tool.groups):
         return True
-    tool_key = f"{tool.group}.{tool.name}" if tool.group else tool.name
-    if tool_key in user.get("tools", []):
+    if tool.key in user.get("tools", []):
         return True
     return False
 

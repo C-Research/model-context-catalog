@@ -94,7 +94,7 @@ def fmt_signature(tool: "ToolModel"):
 
 
 class ToolModel(BaseModel):
-    group: str | None = None
+    groups: list[str] = Field(default_factory=list)
     name: str = ""
     fn: str
     description: str = ""
@@ -131,7 +131,7 @@ class ToolModel(BaseModel):
 
     @property
     def key(self):
-        return f"{self.group}.{self.name}" if self.group else self.name
+        return ".".join(sorted(self.groups) + [self.name])
 
     @property
     def param_model(self) -> type[BaseModel]:

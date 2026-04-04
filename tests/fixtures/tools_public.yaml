@@ -1,4 +1,4 @@
-group: public
+groups: [public]
 tools:
   - name: echo
     fn: tests.example.echo

@@ -1,4 +1,4 @@
-group: admin
+groups: [admin]
 tools:
   - fn: mcc.auth.create_user
   - fn: mcc.auth.list_users

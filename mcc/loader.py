@@ -16,9 +16,9 @@ def load_file(path: str | Path) -> list[ToolModel]:
         raise ValueError(
             f"{path}: expected a dict with a 'tools' key, got {type(tool).__name__}"
         )
-    group: str | None = tool.get("group", None)
+    groups: list[str] = tool.get("groups", ["public"])
     return [
-        ToolModel(group=entry.pop("group", group), **entry) for entry in tool["tools"]
+        ToolModel(groups=entry.pop("groups", groups), **entry) for entry in tool["tools"]
     ]
 
 
@@ -39,7 +39,7 @@ class Loader(dict):
 
     def register(self, tool: ToolModel):
         if tool.key in self:
-            raise ValueError(f"Duplicate tool {tool.name} in group {tool.group}")
+            raise ValueError(f"Duplicate tool {tool.name} in groups {tool.groups}")
         self[tool.key] = tool
 
     def reload(self):

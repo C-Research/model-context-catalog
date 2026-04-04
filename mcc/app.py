@@ -8,7 +8,7 @@ from mcc.loader import loader
 from mcc.settings import settings, logger
 
 
-mcp = FastMCP("model-context-catalog", auth=get_auth())
+mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth())
 mcp.loader = loader  # type: ignore[attr-defined]
 
 logger.info("Starting up...")
@@ -29,7 +29,7 @@ async def search(query: str, group: str | None = None) -> str:
     for name, tool in loader.items():
         if not tool.can_access(user):
             continue
-        if group is not None and tool.group != group:
+        if group is not None and group not in tool.groups:
             continue
         if query_lower in name.lower() or (
             tool.description and query_lower in tool.description.lower()

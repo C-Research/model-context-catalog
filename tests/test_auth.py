@@ -162,34 +162,35 @@ class TestTools:
 
 
 class TestCanAccess:
-    def _tool(self, name: str = "echo", group: str | None = None) -> MagicMock:
+    def _tool(self, name: str = "echo", groups: list[str] | None = None) -> MagicMock:
         tool = MagicMock()
         tool.name = name
-        tool.group = group
+        tool.groups = groups or []
+        tool.key = ".".join(sorted(tool.groups) + [name])
         return tool
 
     def test_public_group_no_user(self):
-        assert can_access(None, self._tool(group="public")) is True
+        assert can_access(None, self._tool(groups=["public"])) is True
 
     def test_no_user_non_public(self):
-        assert can_access(None, self._tool(group="ops")) is False
+        assert can_access(None, self._tool(groups=["ops"])) is False
 
     def test_admin_bypasses(self):
         user = {"username": "admin", "groups": ["admin"], "tools": []}
-        assert can_access(user, self._tool(group="ops")) is True
+        assert can_access(user, self._tool(groups=["ops"])) is True
 
     def test_group_membership(self):
         user = {"username": "alice", "groups": ["ops"], "tools": []}
-        assert can_access(user, self._tool(group="ops")) is True
-        assert can_access(user, self._tool(group="dev")) is False
+        assert can_access(user, self._tool(groups=["ops"])) is True
+        assert can_access(user, self._tool(groups=["dev"])) is False
 
     def test_explicit_tool_grant(self):
         user = {"username": "alice", "groups": [], "tools": ["ops.echo"]}
-        assert can_access(user, self._tool(name="echo", group="ops")) is True
+        assert can_access(user, self._tool(name="echo", groups=["ops"])) is True
 
     def test_no_access(self):
         user = {"username": "alice", "groups": [], "tools": []}
-        assert can_access(user, self._tool(group="ops")) is False
+        assert can_access(user, self._tool(groups=["ops"])) is False
 
 
 class TestGetCurrentUser:
