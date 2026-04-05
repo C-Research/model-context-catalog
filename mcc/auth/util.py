@@ -8,8 +8,6 @@ from mcc.settings import logger, settings
 
 def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     """returns true if user can access tool"""
-    # if settings.auth == "dangerous":
-    #     return True
     if not tool.groups or "public" in tool.groups:
         return True
     if user is None:

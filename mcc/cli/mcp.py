@@ -30,8 +30,9 @@ def mcp_cmd():
 )
 def run(transport: str, host: Optional[str], port: Optional[int]):
     """Start the MCP server."""
-    from mcc.app import mcp
+    from mcc.app import mcp, banner
 
+    banner()
     kwargs = {"host": host, "port": port} if transport == "http" else {}
     mcp.run(transport=transport, **kwargs)
 

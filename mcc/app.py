@@ -20,13 +20,15 @@ async def lifespan(server):
 mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth(), lifespan=lifespan)
 mcp.loader = loader  # type: ignore[attr-defined]
 
-# logger.info("Starting up...")
-# for key, value in settings.as_dict().items():
-#     logger.debug("Setting %s=%s", key, value)
-# for path in loader.paths:
-#     logger.info("Tools from: %s", path)
-# for key, value in loader.items():
-#     logger.debug("Tool: %s", value.signature)
+
+def banner():
+    logger.info("Starting up...")
+    for key, value in settings.as_dict().items():
+        logger.debug("Setting %s=%s", key, value)
+    for path in loader.paths:
+        logger.info("Tools from: %s", path)
+    for key, value in loader.items():
+        logger.debug("Tool: %s", value.signature)
 
 
 @mcp.tool()
@@ -107,4 +109,5 @@ async def execute(name: str, params: Optional[dict] = None):
 
 
 if __name__ == "__main__":
+    banner()
     mcp.run()
