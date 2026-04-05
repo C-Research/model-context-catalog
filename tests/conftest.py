@@ -19,6 +19,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 from mcc.db import ToolIndex, UsersIndex  # noqa: E402
 from mcc.loader import loader, load_file as load  # noqa: E402
 from mcc.auth import create_user  # noqa: E402
+from mcc.auth.models import UserModel  # noqa: E402
+from mcc.middleware import current_user_var  # noqa: E402
 
 
 @pytest.fixture
@@ -43,8 +45,10 @@ async def users_idx():
 async def load_contrib(users_idx):
     loader.clear()
     await create_user("test", groups=["admin"])
+    current_user_var.set(UserModel(username="test", groups=["admin"]))
     yield lambda fn: loader.load(CONTRIB / fn)
     loader.clear()
+    current_user_var.set(None)
 
 
 @pytest.fixture
