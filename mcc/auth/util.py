@@ -1,16 +1,16 @@
-import logging
 from typing import Optional
 
 from mcc.auth.models import UserModel
 from mcc.models import ToolModel
 from mcc.auth.db import get_user_by_email, get_user_by_username
-
-logger = logging.getLogger("mcc.auth")
+from mcc.settings import logger, settings
 
 
 def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     """returns true if user can access tool"""
-    if "public" in tool.groups:
+    # if settings.auth == "dangerous":
+    #     return True
+    if not tool.groups or "public" in tool.groups:
         return True
     if user is None:
         return False
@@ -64,7 +64,7 @@ async def list_tools(text: bool = False) -> dict | str:
     user = await get_current_user()
     tools = {}
     for key, tool in loader.items():
-        if tool.can_access(user):
+        if tool.allows(user):
             tools[key] = tool
     if not text:
         return tools

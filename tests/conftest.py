@@ -1,11 +1,46 @@
 import os
+from pathlib import Path
 
-os.environ.setdefault("MCC_GITHUB_CLIENT_ID", "test-client-id")
-os.environ.setdefault("MCC_GITHUB_CLIENT_SECRET", "test-client-secret")
-os.environ.setdefault("MCC_BASE_URL", "http://localhost:8000")
-os.environ["MCC_AUTH"] = "dangerous"
+import pytest
 
-_base_user_index = os.environ.get("MCC_ELASTICSEARCH__USER_INDEX", "mcc-users")
-os.environ["MCC_ELASTICSEARCH__USER_INDEX"] = f"{_base_user_index}-test"
-_base_tool_index = os.environ.get("MCC_ELASTICSEARCH__TOOL_INDEX", "mcc-tools")
-os.environ["MCC_ELASTICSEARCH__TOOL_INDEX"] = f"{_base_tool_index}-test"
+
+os.environ.update(
+    {
+        "MCC_AUTH": "dangerous",
+        "MCC_ELASTICSEARCH__USER_INDEX": "mcc-users-test",
+        "MCC_ELASTICSEARCH__TOOL_INDEX": "mcc-tools-test",
+        "MCC_CONTRIB": "true",
+    }
+)
+CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
+
+
+from mcc.db import ToolIndex, UsersIndex  # noqa: E402
+from mcc.loader import loader  # noqa: E402
+from mcc.auth import create_user  # noqa: E402
+
+
+@pytest.fixture
+async def tool_idx():
+    async with ToolIndex() as idx:
+        await idx.drop()
+        await idx.create()
+        yield idx
+        await idx.drop()
+
+
+@pytest.fixture
+async def users_idx():
+    async with UsersIndex() as idx:
+        await idx.drop()
+        await idx.create()
+        yield idx
+        await idx.drop()
+
+
+@pytest.fixture
+async def load_contrib(users_idx):
+    loader.clear()
+    await create_user("test", groups=["admin"])
+    yield lambda fn: loader.load(CONTRIB / fn)
+    loader.clear()

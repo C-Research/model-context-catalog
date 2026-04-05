@@ -1,10 +1,12 @@
 import importlib
 import inspect
-import logging
 from typing import Any, Callable, Optional
+from functools import cached_property
+
 from pydantic import BaseModel, Field, create_model, model_validator
 
-logger = logging.getLogger("mcc.tools")
+from mcc.settings import logger
+
 
 TYPE_MAP: dict[str, type] = {
     "str": str,
@@ -68,14 +70,12 @@ class ToolModel(BaseModel):
     fn: str
     description: str = ""
     params: list[ParamModel] = Field(default_factory=list)
-    callable: Optional[Callable] = None
 
     @model_validator(mode="after")
     def introspect(self):
         """
         Finds __name__ for  name and __doc__ for description if not provided
         """
-        self.callable = self.resolve_fn()
         if not self.name:
             self.name = getattr(self.callable, "__name__", self.fn.rpartition(".")[-1])
         if not self.description:
@@ -84,7 +84,8 @@ class ToolModel(BaseModel):
             self.params = _params_from_signature(self.callable)
         return self
 
-    def resolve_fn(self) -> Callable:
+    @cached_property
+    def callable(self) -> Callable:
         if ":" in self.fn:
             module_path, attrs = self.fn.split(":", 1)
         else:
@@ -147,10 +148,11 @@ class ToolModel(BaseModel):
 
         return "\n".join(lines)
 
-    def can_access(self, user: Optional[dict]) -> bool:
-        from mcc.auth import can_access as auth_can_access
+    def allows(self, user: Optional[dict]) -> bool:
+        """Returns True if a user can access this tool"""
+        from mcc.auth import can_access
 
-        return auth_can_access(user, self)
+        return can_access(user, self)
 
     async def call(self, **kwargs: Any) -> Any:
         """

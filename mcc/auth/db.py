@@ -16,7 +16,7 @@ async def create_user(
     async with UsersIndex() as idx:
         if await idx.get(username):
             raise ValueError(f"User '{username}' already exists")
-        if email and await idx.find({"term": {"email": email}}):
+        if email and await idx.search({"term": {"email": email}}):
             raise ValueError(f"Email '{email}' already exists")
         user = UserModel(
             username=username, email=email, groups=groups or [], tools=tools or []
@@ -35,7 +35,7 @@ async def delete_user(username: str) -> None:
 
 async def list_users() -> list[UserModel]:
     async with UsersIndex() as idx:
-        docs = await idx.find({"match_all": {}})
+        docs = await idx.search({"match_all": {}})
         return [UserModel(**doc) for doc in docs]
 
 
@@ -47,7 +47,7 @@ async def get_user_by_username(username: str) -> Optional[UserModel]:
 
 async def get_user_by_email(email: str) -> Optional[UserModel]:
     async with UsersIndex() as idx:
-        docs = await idx.find({"term": {"email": email}})
+        docs = await idx.search({"term": {"email": email}})
         return UserModel(**docs[0]) if docs else None
 
 

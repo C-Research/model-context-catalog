@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytest_asyncio
 
+from mcc.auth.models import UserModel
 from mcc.auth import (
     add_group,
     add_tool,
@@ -15,62 +16,48 @@ from mcc.auth import (
     remove_group,
     remove_tool,
 )
-from mcc.db import UsersIndex
-from mcc.auth.models import UserModel
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _fresh_db():
-    async with UsersIndex() as idx:
-        await idx.drop()
-        await idx.create()
+async def _fresh_db(users_idx):
     yield
-    async with UsersIndex() as idx:
-        await idx.drop()
 
 
 class TestCreateUser:
-    @pytest.mark.asyncio
     async def test_creates_user_with_username(self):
         await create_user("alice")
         user = await get_user_by_username("alice")
         assert user is not None
         assert user.username == "alice"
 
-    @pytest.mark.asyncio
     async def test_creates_user_with_email(self):
         await create_user("alice", email="alice@example.com")
         user = await get_user_by_username("alice")
         assert user is not None
         assert user.email == "alice@example.com"
 
-    @pytest.mark.asyncio
     async def test_creates_user_without_email(self):
         await create_user("alice")
         user = await get_user_by_username("alice")
         assert user is not None
         assert user.email is None
 
-    @pytest.mark.asyncio
     async def test_duplicate_username_raises(self):
         await create_user("alice")
         with pytest.raises(ValueError, match="already exists"):
             await create_user("alice")
 
-    @pytest.mark.asyncio
     async def test_duplicate_email_raises(self):
         await create_user("alice", email="alice@example.com")
         with pytest.raises(ValueError, match="already exists"):
             await create_user("bob", email="alice@example.com")
 
-    @pytest.mark.asyncio
     async def test_admin_group(self):
         await create_user("alice", groups=["admin"])
         user = await get_user_by_username("alice")
         assert user is not None
         assert "admin" in user.groups
 
-    @pytest.mark.asyncio
     async def test_no_token_stored(self):
         await create_user("alice")
         user = await get_user_by_username("alice")
@@ -79,33 +66,28 @@ class TestCreateUser:
 
 
 class TestDeleteUser:
-    @pytest.mark.asyncio
     async def test_deletes_user(self):
         await create_user("alice")
         await delete_user("alice")
         assert await get_user_by_username("alice") is None
 
-    @pytest.mark.asyncio
     async def test_not_found_raises(self):
         with pytest.raises(ValueError, match="not found"):
             await delete_user("ghost")
 
 
 class TestGetUserByUsername:
-    @pytest.mark.asyncio
     async def test_found(self):
         await create_user("alice")
         user = await get_user_by_username("alice")
         assert user is not None
         assert user.username == "alice"
 
-    @pytest.mark.asyncio
     async def test_not_found(self):
         assert await get_user_by_username("ghost") is None
 
 
 class TestGetUserByEmail:
-    @pytest.mark.asyncio
     async def test_found(self):
         await create_user("alice", email="alice@example.com")
         user = await get_user_by_email("alice@example.com")
@@ -113,13 +95,11 @@ class TestGetUserByEmail:
         assert user.username == "alice"
         assert user.email == "alice@example.com"
 
-    @pytest.mark.asyncio
     async def test_not_found(self):
         assert await get_user_by_email("ghost@example.com") is None
 
 
 class TestGroups:
-    @pytest.mark.asyncio
     async def test_add_group(self):
         await create_user("alice")
         await add_group("alice", "ops")
@@ -127,7 +107,6 @@ class TestGroups:
         assert user is not None
         assert "ops" in user.groups
 
-    @pytest.mark.asyncio
     async def test_add_group_idempotent(self):
         await create_user("alice")
         await add_group("alice", "ops")
@@ -136,7 +115,6 @@ class TestGroups:
         assert user is not None
         assert user.groups.count("ops") == 1
 
-    @pytest.mark.asyncio
     async def test_remove_group(self):
         await create_user("alice")
         await add_group("alice", "ops")
@@ -145,7 +123,6 @@ class TestGroups:
         assert user is not None
         assert "ops" not in user.groups
 
-    @pytest.mark.asyncio
     async def test_remove_group_not_member(self):
         await create_user("alice")
         with pytest.raises(ValueError, match="not a member"):
@@ -153,7 +130,6 @@ class TestGroups:
 
 
 class TestTools:
-    @pytest.mark.asyncio
     async def test_add_tool(self):
         await create_user("alice")
         await add_tool("alice", "echo")
@@ -161,7 +137,6 @@ class TestTools:
         assert user is not None
         assert "echo" in user.tools
 
-    @pytest.mark.asyncio
     async def test_add_tool_idempotent(self):
         await create_user("alice")
         await add_tool("alice", "echo")
@@ -170,7 +145,6 @@ class TestTools:
         assert user is not None
         assert user.tools.count("echo") == 1
 
-    @pytest.mark.asyncio
     async def test_remove_tool(self):
         await create_user("alice")
         await add_tool("alice", "echo")
@@ -179,7 +153,6 @@ class TestTools:
         assert user is not None
         assert "echo" not in user.tools
 
-    @pytest.mark.asyncio
     async def test_remove_tool_not_present(self):
         await create_user("alice")
         with pytest.raises(ValueError, match="does not have tool"):
@@ -194,10 +167,10 @@ class TestCanAccess:
         tool.key = ".".join(sorted(tool.groups) + [name])
         return tool
 
-    def test_public_group_no_user(self):
-        assert can_access(None, self._tool(groups=["public"])) is True
+    def test_empty_groups_no_user(self):
+        assert can_access(None, self._tool(groups=[])) is True
 
-    def test_no_user_non_public(self):
+    def test_no_user_with_groups(self):
         assert can_access(None, self._tool(groups=["ops"])) is False
 
     def test_admin_bypasses(self):
@@ -219,7 +192,6 @@ class TestCanAccess:
 
 
 class TestGetCurrentUser:
-    @pytest.mark.asyncio
     async def test_resolves_via_email(self):
         await create_user("alice", email="alice@example.com")
         mock_token = MagicMock()
@@ -229,7 +201,6 @@ class TestGetCurrentUser:
         assert user is not None
         assert user.username == "alice"
 
-    @pytest.mark.asyncio
     async def test_falls_back_to_username(self):
         await create_user("alice")
         mock_token = MagicMock()
@@ -239,7 +210,6 @@ class TestGetCurrentUser:
         assert user is not None
         assert user.username == "alice"
 
-    @pytest.mark.asyncio
     async def test_email_takes_precedence_over_username(self):
         await create_user("alice", email="alice@example.com")
         await create_user("alice-other")
@@ -250,13 +220,11 @@ class TestGetCurrentUser:
         assert user is not None
         assert user.username == "alice"
 
-    @pytest.mark.asyncio
     async def test_unauthenticated(self):
         with patch("mcc.auth.backend.get_user_context", return_value=None):
             user = await get_current_user()
         assert user is None
 
-    @pytest.mark.asyncio
     async def test_no_matching_record(self):
         mock_token = MagicMock()
         mock_token.claims = {"email": None, "login": "unknown"}

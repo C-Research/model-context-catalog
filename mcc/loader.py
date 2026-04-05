@@ -18,9 +18,13 @@ def load_file(path: str | Path) -> list[ToolModel]:
         raise ValueError(
             f"{path}: expected a dict with a 'tools' key, got {type(tool).__name__}"
         )
-    groups: list[str] = tool.get("groups", ["public"])
+    parent_groups: list[str] = tool.get("groups", [])
     return [
-        ToolModel(groups=entry.pop("groups", groups), **entry) for entry in tool["tools"]
+        # fromkeys deduplicates while preserving order
+        ToolModel(
+            groups=list(dict.fromkeys(parent_groups + entry.pop("groups", []))), **entry
+        )
+        for entry in tool.get("tools", [])
     ]
 
 
@@ -57,9 +61,11 @@ class Loader(dict):
             self.load(path)
         await self.save()
 
-    async def search(self, query: str, group: Optional[str] = None, min_score: Optional[float] = None) -> list[tuple[ToolModel, float]]:
+    async def search(
+        self, query: str, min_score: Optional[float] = None
+    ) -> list[tuple[ToolModel, float]]:
         async with ToolIndex() as idx:
-            hits = await idx.search(query, group, min_score)
+            hits = await idx.search(query, min_score)
         return [(self[k], score) for k, score in hits if k in self]
 
     def list_all(self):

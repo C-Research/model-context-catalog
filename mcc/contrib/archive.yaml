@@ -1,0 +1,6 @@
+groups: [admin, archive]
+tools:
+  - fn: mcc.contrib.archive:list_archive
+    name: list
+  - fn: mcc.contrib.archive:extract
+  - fn: mcc.contrib.archive:create

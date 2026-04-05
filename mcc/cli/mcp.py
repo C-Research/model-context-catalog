@@ -17,14 +17,17 @@ def mcp_cmd():
 
 @mcp_cmd.command("serve")
 @click.option(
+    "-t",
     "--transport",
     type=click.Choice(["stdio", "http"]),
     default="stdio",
     show_default=True,
     help="Transport protocol.",
 )
-@click.option("--host", default="0.0.0.0", help="Host to bind (HTTP transports).")
-@click.option("--port", default=8000, type=int, help="Port to bind (HTTP transports).")
+@click.option("-h", "--host", default="0.0.0.0", help="Host to bind (HTTP transports).")
+@click.option(
+    "-p", "--port", default=8000, type=int, help="Port to bind (HTTP transports)."
+)
 def run(transport: str, host: Optional[str], port: Optional[int]):
     """Start the MCP server."""
     from mcc.app import mcp

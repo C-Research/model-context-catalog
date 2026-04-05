@@ -1,7 +1,7 @@
 tools:
   - fn: mcc.contrib.http:request
     groups: [admin, http]
-  - fn: mcc.contrib.subprocess:shell
+  - fn: mcc.contrib.subprocess:bash
     groups: [admin, proc]
   - fn: mcc.contrib.http:request
     name: responsible-get

@@ -20,19 +20,17 @@ async def lifespan(server):
 mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth(), lifespan=lifespan)
 mcp.loader = loader  # type: ignore[attr-defined]
 
-logger.info("Starting up...")
-for key, value in settings.as_dict().items():
-    logger.debug("Setting %s=%s", key, value)
-for path in loader.paths:
-    logger.info("Tools from: %s", path)
-for key, value in loader.items():
-    logger.debug("Tool: %s", value.signature)
+# logger.info("Starting up...")
+# for key, value in settings.as_dict().items():
+#     logger.debug("Setting %s=%s", key, value)
+# for path in loader.paths:
+#     logger.info("Tools from: %s", path)
+# for key, value in loader.items():
+#     logger.debug("Tool: %s", value.signature)
 
 
 @mcp.tool()
-async def search(
-    query: str, group: Optional[str] = None, min_score: Optional[float] = None
-) -> str:
+async def search(query: str, min_score: Optional[float] = None) -> str:
     """Search the tool catalog using natural language. Combines keyword and semantic
     similarity for best results.
 
@@ -49,28 +47,29 @@ async def search(
     Each result includes the tool key, groups, parameters with types and descriptions,
     return type, and a description. Use the tool key with execute() to invoke a tool.
 
+    To narrow by group, include the group name in your query (e.g. "admin shell command").
+
     Examples:
       search("run a shell command") → finds admin.shell
       search("make an http request") → finds public.request
-      search("reload tools", group="admin") → finds admin.reload, filtered to admin group
       search("shell", min_score=5.0) → only returns results scoring above 5.0
       search("zzz_nonexistent") → returns low-scoring noise; retry with min_score to confirm nothing matches
 
     Args:
-      query: Natural language description of what you're looking for.
-      group: Optional group name to restrict results to tools in that group.
+      query: Natural language description of what you're looking for. Include group
+             names in the query to narrow results (e.g. "admin tools", "public request").
       min_score: Optional minimum relevance score. Results below this threshold are
                  excluded. Observe scores from an initial search to pick a good value.
     """
     user = await get_current_user()
-    results = await loader.search(query, group, min_score)
+    results = await loader.search(query, min_score)
     accessible = [
         f"[{score:.2f}]\n{tool.signature}"
         for tool, score in results
-        if tool.can_access(user)
+        if tool.allows(user)
     ]
     if not accessible:
-        return "No tools matched your query."
+        return "No tools matched your query. Try expanding your query or reducing min_score"
     return "\n\n".join(accessible)
 
 
@@ -89,15 +88,16 @@ async def execute(name: str, params: Optional[dict] = None):
 
     Args:
       name: Exact tool key from search results.
-      params: Dict of parameter name → value. Omit or pass null for tools with no
-              required parameters.
+      params: Dict of parameter name → value. Omit or pass null for tools with no required parameters.
     """
     if name not in loader:
         return f"Unknown tool: {name}"
     tool = loader[name]
     user = await get_current_user()
-    if not tool.can_access(user):
-        return "Unauthorized"
+    if not tool.allows(user):
+        return (
+            "Unauthorized. Either was unable to authenticate or was denied permission"
+        )
     username = f"{user.username}<{user.email}>" if user else "anonymous"
     logger.info("%s calling %s with %s", username, tool.key, params)
     try:

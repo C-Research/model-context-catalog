@@ -1,0 +1,9 @@
+groups: [admin, system]
+tools:
+  - fn: mcc.contrib.system:get_env
+  - fn: mcc.contrib.system:list_env
+  - fn: mcc.contrib.system:info
+    name: platform
+  - fn: mcc.contrib.system:path
+    name: pythonpath
+  - fn: mcc.contrib.system:set_env

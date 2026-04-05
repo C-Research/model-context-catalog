@@ -1,0 +1,29 @@
+groups: [public, text]
+tools:
+  - fn: mcc.contrib.text:base64_encode
+  - fn: mcc.contrib.text:base64_decode
+  - fn: mcc.contrib.text:hash
+  - fn: mcc.contrib.text:diff
+
+  - name: regex_search
+    fn: re:findall
+    params:
+      - name: pattern
+        type: str
+      - name: string
+        type: str
+      - name: flags
+        type: int
+        default: 0
+  - name: regex_replace
+    fn: re:sub
+    params:
+      - name: pattern
+        type: str
+      - name: repl
+        type: str
+      - name: string
+        type: str
+      - name: flags
+        type: int
+        default: 0

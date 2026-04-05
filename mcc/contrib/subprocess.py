@@ -1,8 +1,14 @@
-from subprocess import check_output, STDOUT
+import asyncio
 
 
-def shell(command: str) -> str:
+async def bash(command: str) -> tuple[int, str, str]:
     """
-    Runs a shell command and returns both stdout/stderror as string output
+    Runs a bash command and returns (returncode, stdout, stderr)
     """
-    return check_output(command, shell=True, text=True, stderr=STDOUT)
+    proc = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    return proc.returncode, stdout.decode(), stderr.decode()

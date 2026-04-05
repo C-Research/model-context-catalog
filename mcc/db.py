@@ -65,7 +65,7 @@ class ESIndex:
         """Delete a document by id. Raises NotFoundError if missing."""
         await self._client.delete(index=self.index, id=id, refresh=refresh)
 
-    async def find(self, query: dict, size: int = 10000) -> list[dict]:
+    async def search(self, query: dict, size: int = 10000) -> list[dict]:
         """Run a raw ES query and return a list of _source dicts."""
         resp = await self._client.search(
             index=self.index, body={"query": query, "size": size}
@@ -125,7 +125,7 @@ class ToolIndex(ESIndex):
             },
         )
 
-    async def search(self, query: str, group: Optional[str] = None, min_score: Optional[float] = None) -> list[tuple[str, float]]:
+    async def search(self, query: str, min_score: Optional[float] = None) -> list[tuple[str, float]]:
         vector = await embed(query)
         text_query: dict = {
             "match": {"signature": {"query": query, "fuzziness": "AUTO"}}
@@ -136,10 +136,6 @@ class ToolIndex(ESIndex):
             "k": 10,
             "num_candidates": 50,
         }
-        if group is not None:
-            filter_clause: dict = {"term": {"groups": group}}
-            text_query = {"bool": {"must": text_query, "filter": filter_clause}}
-            knn["filter"] = filter_clause
         body: dict = {"query": text_query, "knn": knn, "size": 10000}
         if min_score is not None:
             body["min_score"] = min_score

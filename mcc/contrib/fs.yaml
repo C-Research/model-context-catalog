@@ -1,0 +1,14 @@
+groups: [admin, fs]
+tools:
+  - fn: mcc.contrib.fs:read_file
+    groups: [read]
+  - fn: mcc.contrib.fs:stat
+    groups: [read]
+
+  - fn: mcc.contrib.fs:list_dir
+    groups: [write]
+  - fn: mcc.contrib.fs:move
+    groups: [write]
+  - fn: mcc.contrib.fs:write_file
+    groups: [write]
+
