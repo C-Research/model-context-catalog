@@ -1,0 +1,3 @@
+tools:
+  - fn: mcc.contrib.http:request
+    groups: [admin, http]

@@ -1,11 +1,13 @@
 import importlib
 import inspect
+import os
 from typing import Any, Callable, Optional
 from functools import cached_property
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from mcc.settings import logger
+from mcc.exec import make_exec_callable
 
 
 TYPE_MAP: dict[str, type] = {
@@ -43,7 +45,7 @@ class ParamModel(BaseModel):
         return TYPE_MAP[self.type]
 
 
-def _params_from_signature(fn: Callable) -> list[ParamModel]:
+def params_from_signature(fn: Callable) -> list[ParamModel]:
     """
     Inspects a callable to populate parameters based on inspect annotations
     """
@@ -67,25 +69,44 @@ def _params_from_signature(fn: Callable) -> list[ParamModel]:
 class ToolModel(BaseModel):
     groups: list[str] = Field(default_factory=list)
     name: str = ""
-    fn: str
+    fn: str | None = None
+    exec: str | None = Field(default=None, alias="exec")
+    stdin: bool = False
+    timeout: int | None = None
+    limits: dict | None = None
     description: str = ""
     params: list[ParamModel] = Field(default_factory=list)
 
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def validate_fn_or_exec(self):
+        if self.fn and self.exec:
+            raise ValueError("Tool must specify either 'fn' or 'exec', not both")
+        if not self.fn and not self.exec:
+            raise ValueError("Tool must specify either 'fn' or 'exec'")
+        return self
+
     @model_validator(mode="after")
     def introspect(self):
-        """
-        Finds __name__ for  name and __doc__ for description if not provided
-        """
+        if self.exec:
+            if not self.name:
+                raise ValueError("Exec tools must specify a 'name'")
+            return self
+        assert self.fn is not None
         if not self.name:
             self.name = getattr(self.callable, "__name__", self.fn.rpartition(".")[-1])
         if not self.description:
             self.description = getattr(self.callable, "__doc__", "")
         if not self.params:
-            self.params = _params_from_signature(self.callable)
+            self.params = params_from_signature(self.callable)
         return self
 
     @cached_property
     def callable(self) -> Callable:
+        if self.exec:
+            return make_exec_callable(self.exec, self.stdin, self.timeout, self.limits)
+        assert self.fn is not None
         if ":" in self.fn:
             module_path, attrs = self.fn.split(":", 1)
         else:
@@ -137,11 +158,14 @@ class ToolModel(BaseModel):
                     spec += f": {param.description}"
                 lines.append(spec)
 
-        ret = "unknown"
-        hint = inspect.signature(self.callable).return_annotation
-        if hint is not inspect.Parameter.empty:
-            ret = getattr(hint, "__name__", str(hint))
-        lines.append(f"returns: {ret}")
+        if self.exec:
+            lines.append("returns: (returncode: int, stdout: str, stderr: str)")
+        else:
+            ret = "unknown"
+            hint = inspect.signature(self.callable).return_annotation
+            if hint is not inspect.Parameter.empty:
+                ret = getattr(hint, "__name__", str(hint))
+            lines.append(f"returns: {ret}")
 
         if self.description:
             lines.extend(["", self.description])

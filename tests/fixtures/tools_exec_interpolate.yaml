@@ -1,0 +1,7 @@
+tools:
+  - name: echo_interp
+    exec: "echo {message}"
+    params:
+      - name: message
+        type: str
+        required: true

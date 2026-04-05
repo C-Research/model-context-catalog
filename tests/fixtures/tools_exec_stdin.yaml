@@ -1,0 +1,8 @@
+tools:
+  - name: cat_stdin
+    exec: "cat"
+    stdin: true
+    params:
+      - name: message
+        type: str
+        required: true

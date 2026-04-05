@@ -1,0 +1,44 @@
+groups: [public]
+tools:
+  - fn: mcc.contrib.http:request
+    name: responsible-get
+    groups: [public, http]
+    params:
+      - name: method
+        type: str
+        override: GET
+      - name: responsible
+        type: bool
+        override: true
+      - name: url
+        type: str    
+  - name: jq
+    exec: echo {content} | jq {options} {filter}
+    params:
+      - name: filter
+        type: str
+        default: .content
+        description: filter expression
+      - name: content
+        type: str
+        description: source json content
+      - name: opts
+        type: str
+        default: ""
+        description: options for jq command
+    description: | 
+      jq is a tool for processing JSON inputs, applying the given filter to
+      its JSON text inputs and producing the filter's results as JSON on
+      standard output.
+
+  - name: man
+    exec: man {cmd} | cat 
+    description: The man utility finds and displays online manual documentation pages.
+    params:
+      - name: cmd
+        type: str
+        description: command to lookup
+
+  - name: uname
+    exec: uname -a
+    description: The uname command writes the name of the operating system implementation to standard output.

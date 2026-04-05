@@ -27,10 +27,12 @@ async def get_current_user() -> Optional[UserModel]:
 
     try:
         token = await get_user_context()
-    except Exception:
-        return None
+    except Exception as exc:
+        logger.exception("Eror when getting user context: %s", exc)
+        return
     if token is None:
-        return None
+        logger.exception("No token returned")
+        return
     if isinstance(token, UserModel):
         return token
     if hasattr(token, "claims"):
@@ -48,7 +50,7 @@ async def get_current_user() -> Optional[UserModel]:
         logger.warning(
             "User store unavailable, treating request as unauthenticated: %s", e
         )
-    return None
+    return
 
 
 async def list_tools(text: bool = False) -> dict | str:

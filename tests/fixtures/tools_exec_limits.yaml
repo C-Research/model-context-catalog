@@ -1,0 +1,6 @@
+tools:
+  - name: limited
+    exec: "echo limited"
+    limits:
+      mem_mb: 256
+      cpu_sec: 5

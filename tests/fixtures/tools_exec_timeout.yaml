@@ -1,0 +1,4 @@
+tools:
+  - name: slow
+    exec: "sleep 10"
+    timeout: 1

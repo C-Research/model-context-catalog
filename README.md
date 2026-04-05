@@ -74,6 +74,49 @@ tools:
         override: true     # always injected at call time, hidden from callers
 ```
 
+### Exec Tools (External Commands)
+
+Run any command — Node, Go, shell scripts — as a catalog tool:
+
+```yaml
+tools:
+  # Interpolation mode (default): params formatted into command string
+  - name: grep
+    exec: "grep -rn {pattern} {path}"
+    params:
+      - name: pattern
+        type: str
+        required: true
+      - name: path
+        type: str
+        default: "."
+
+  # Stdin mode: params sent as JSON on stdin
+  - name: lint
+    exec: "node tools/lint.js"
+    stdin: true
+    timeout: 30
+    params:
+      - name: file
+        type: str
+        required: true
+
+  # With resource limits (unix only)
+  - name: sandbox
+    exec: "python3 untrusted.py"
+    stdin: true
+    timeout: 10
+    limits:
+      mem_mb: 256
+      cpu_sec: 5
+      fsize_mb: 50
+      nofile: 128
+```
+
+Exec tools always return `(returncode, stdout, stderr)`. Params must be declared in YAML (no signature to introspect).
+
+> **⚠ Security**: With `stdin: false` (the default), parameters are interpolated directly into the shell command. Do not expose exec tools with user-controlled params to untrusted callers without additional input validation.
+
 Register it in `settings.local.yaml`:
 ```yaml
 default:

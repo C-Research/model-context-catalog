@@ -1,0 +1,3 @@
+tools:
+  - exec: "echo hello"
+    description: "An exec tool with no explicit name"

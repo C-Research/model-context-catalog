@@ -5,6 +5,8 @@ import rich_click as click
 
 from mcc.cli import console, err
 
+from mcc.loader import loader
+
 
 @click.group()
 def tool():
@@ -12,15 +14,26 @@ def tool():
 
 
 @tool.command("list")
-def tool_list():
+@click.option("-l", "--long", is_flag=True, help="Show full signature")
+def tool_list(long):
     """List all registered tools."""
     from mcc.loader import loader
 
-    md = loader.list_all()
-    if not md:
-        console.print("[dim]No tools loaded.[/dim]")
+    if long:
+        console.print(loader.list_all())
         return
-    console.print(md)
+    for key in sorted(loader):
+        console.print(key)
+
+
+@tool.command()
+@click.argument("tool")
+def info(tool):
+    """Prints the signature of a given tool key"""
+    t = loader.get(tool)
+    if not t:
+        err(f" tool `{tool}` not found")
+    console.print(t.signature)
 
 
 @tool.command("call")
@@ -40,7 +53,6 @@ def tool_call(tool, params, json_str):
 
         mcc tool call my.tool --json '{"name": "foo", "count": 3}'
     """
-    from mcc.loader import loader
 
     t = loader.get(tool)
     if not t:

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Tool catalog defined in YAML
 The system SHALL read tool definitions from a YAML file (default `tools.yaml`). The file SHALL be a dict with a required `tools` key (list of tool entries) and an optional `groups` key (`list[str]`). Each entry SHALL define either `fn` (dotted Python import path) or `exec` (shell command string), plus `name` (string, unique within its groups) and `description` (string). The `parameters` field is optional and defaults to an empty list. A per-tool `groups` key overrides the file-level `groups` for that entry. Optional fields `stdin` (bool, default false) and `timeout` (int, seconds) apply only to exec tools.
@@ -26,22 +26,3 @@ The system SHALL read tool definitions from a YAML file (default `tools.yaml`). 
 #### Scenario: Duplicate tool name and groups raises error
 - **WHEN** two entries share the same `name` and the same `groups` set (across one or more loaded files), producing an identical key
 - **THEN** loader raises a `ValueError` at startup
-
-### Requirement: Parameter definitions
-Each parameter entry SHALL include `name`. The `type` field is optional and defaults to `str` if omitted. The `required` field is optional and defaults to `false` if omitted. The `description` field is optional. An optional `default` field MAY be provided for non-required parameters.
-
-#### Scenario: Omitted type defaults to str
-- **WHEN** a parameter entry has no `type` field
-- **THEN** the parameter is treated as type `str`
-
-#### Scenario: Omitted required defaults to false
-- **WHEN** a parameter entry has no `required` field
-- **THEN** the parameter is treated as optional
-
-#### Scenario: Unsupported type raises error
-- **WHEN** a parameter specifies a type not in `{str, int, float, bool, list, dict}`
-- **THEN** loader raises a `ValueError` at startup
-
-#### Scenario: Optional parameter with default
-- **WHEN** a parameter has `required: false` and a `default` value
-- **THEN** execute uses the default when that parameter is omitted from the call

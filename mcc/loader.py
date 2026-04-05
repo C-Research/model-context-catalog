@@ -69,7 +69,7 @@ class Loader(dict):
         return [(self[k], score) for k, score in hits if k in self]
 
     def list_all(self):
-        return "\n\n".join([tool.signature for tool in self.values()])
+        return "\n\n".join([self[key].signature for key in sorted(self)])
 
 
 loader = Loader()
