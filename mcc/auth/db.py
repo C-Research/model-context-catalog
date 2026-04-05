@@ -1,98 +1,96 @@
-from tinydb import TinyDB, where
+from elasticsearch import NotFoundError
 
-from mcc.settings import settings
-
-db = TinyDB(settings.USERS_DB)
-users = db.table("users")
+from mcc.auth.models import UserModel
+from mcc.db import UsersIndex
 
 
-def create_user(
+async def create_user(
     username: str,
     email: str | None = None,
     tools: list[str] | None = None,
     groups: list[str] | None = None,
 ) -> None:
     """creates a user and assigns their tools/groups perms"""
-    if users.search(where("username") == username):
-        raise ValueError(f"User '{username}' already exists")
-    if email and users.search(where("email") == email):
-        raise ValueError(f"Email '{email}' already exists")
-    users.insert(
-        {
-            "username": username,
-            "email": email,
-            "groups": groups or [],
-            "tools": tools or [],
-        }
-    )
+    async with UsersIndex() as _users:
+        if await _users.get(username):
+            raise ValueError(f"User '{username}' already exists")
+        if email and await _users.search({"term": {"email": email}}):
+            raise ValueError(f"Email '{email}' already exists")
+        user = UserModel(
+            username=username, email=email, groups=groups or [], tools=tools or []
+        )
+        await _users.put(username, user.model_dump())
 
 
-def delete_user(username: str) -> None:
+async def delete_user(username: str) -> None:
     """deletes a user from the db"""
-    removed = users.remove(where("username") == username)
-    if not removed:
-        raise ValueError(f"User '{username}' not found")
+    async with UsersIndex() as _users:
+        try:
+            await _users.delete(username)
+        except NotFoundError:
+            raise ValueError(f"User '{username}' not found")
 
 
-def list_users() -> list[dict]:
-    return [dict(doc) for doc in users.all()]
+async def list_users() -> list[UserModel]:
+    async with UsersIndex() as _users:
+        docs = await _users.search({"match_all": {}})
+        return [UserModel(**doc) for doc in docs]
 
 
-def get_user_by_username(username: str) -> dict | None:
-    results = users.search(where("username") == username)
-    if not results:
-        return None
-    return dict(results[0])
+async def get_user_by_username(username: str) -> UserModel | None:
+    async with UsersIndex() as _users:
+        doc = await _users.get(username)
+        return UserModel(**doc) if doc else None
 
 
-def get_user_by_email(email: str) -> dict | None:
-    results = users.search(where("email") == email)
-    if not results:
-        return None
-    return dict(results[0])
+async def get_user_by_email(email: str) -> UserModel | None:
+    async with UsersIndex() as _users:
+        docs = await _users.search({"term": {"email": email}})
+        return UserModel(**docs[0]) if docs else None
 
 
-def add_group(username: str, group: str) -> None:
+async def _update_user(username: str, user: UserModel) -> None:
+    async with UsersIndex() as _users:
+        await _users.put(username, user.model_dump())
+
+
+async def add_group(username: str, group: str) -> None:
     """adds a user to a group"""
-    results = users.search(where("username") == username)
-    if not results:
+    user = await get_user_by_username(username)
+    if user is None:
         raise ValueError(f"User '{username}' not found")
-    groups = results[0]["groups"]
-    if group not in groups:
-        users.update({"groups": groups + [group]}, where("username") == username)
+    if group not in user.groups:
+        user.groups = user.groups + [group]
+        await _update_user(username, user)
 
 
-def remove_group(username: str, group: str) -> None:
+async def remove_group(username: str, group: str) -> None:
     """removes a user from a group"""
-    results = users.search(where("username") == username)
-    if not results:
+    user = await get_user_by_username(username)
+    if user is None:
         raise ValueError(f"User '{username}' not found")
-    groups = results[0]["groups"]
-    if group not in groups:
+    if group not in user.groups:
         raise ValueError(f"User '{username}' is not a member of group '{group}'")
-    users.update(
-        {"groups": [g for g in groups if g != group]}, where("username") == username
-    )
+    user.groups = [g for g in user.groups if g != group]
+    await _update_user(username, user)
 
 
-def add_tool(username: str, tool: str) -> None:
+async def add_tool(username: str, tool: str) -> None:
     """adds a tool permission to the user"""
-    results = users.search(where("username") == username)
-    if not results:
+    user = await get_user_by_username(username)
+    if user is None:
         raise ValueError(f"User '{username}' not found")
-    tools = results[0]["tools"]
-    if tool not in tools:
-        users.update({"tools": tools + [tool]}, where("username") == username)
+    if tool not in user.tools:
+        user.tools = user.tools + [tool]
+        await _update_user(username, user)
 
 
-def remove_tool(username: str, tool: str) -> None:
+async def remove_tool(username: str, tool: str) -> None:
     """removes a tool permission from the user"""
-    results = users.search(where("username") == username)
-    if not results:
+    user = await get_user_by_username(username)
+    if user is None:
         raise ValueError(f"User '{username}' not found")
-    tools = results[0]["tools"]
-    if tool not in tools:
+    if tool not in user.tools:
         raise ValueError(f"User '{username}' does not have tool '{tool}'")
-    users.update(
-        {"tools": [t for t in tools if t != tool]}, where("username") == username
-    )
+    user.tools = [t for t in user.tools if t != tool]
+    await _update_user(username, user)

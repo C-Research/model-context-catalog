@@ -1,8 +1,8 @@
 from mcc.auth.db import list_users
 
 
-def get_user_context():
-    for user in list_users():
-        if user["group"] == "admin":
+async def get_user_context():
+    for user in await list_users():
+        if "admin" in user.groups:
             return user
-    raise ValueError("no admin users created")
+    return None

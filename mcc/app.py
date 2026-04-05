@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastmcp import FastMCP
 
 from pydantic import ValidationError
@@ -8,7 +10,13 @@ from mcc.loader import loader
 from mcc.settings import settings, logger
 
 
-mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth())
+@asynccontextmanager
+async def lifespan(server):
+    await loader.save()
+    yield
+
+
+mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth(), lifespan=lifespan)
 mcp.loader = loader  # type: ignore[attr-defined]
 
 logger.info("Starting up...")
@@ -24,20 +32,11 @@ for key, value in loader.items():
 async def search(query: str, group: str | None = None) -> str:
     """Search the tool catalog by name or description. Optionally filter by group."""
     user = await get_current_user()
-    query_lower = query.lower()
-    results = []
-    for name, tool in loader.items():
-        if not tool.can_access(user):
-            continue
-        if group is not None and group not in tool.groups:
-            continue
-        if query_lower in name.lower() or (
-            tool.description and query_lower in tool.description.lower()
-        ):
-            results.append(tool.signature)
-    if not results:
+    results = await loader.search(query, group)
+    accessible = [tool.signature for tool in results if tool.can_access(user)]
+    if not accessible:
         return "No tools matched your query."
-    return "\n\n".join(results)
+    return "\n\n".join(accessible)
 
 
 @mcp.tool()
@@ -49,7 +48,7 @@ async def execute(name: str, params: dict | None = None):
     user = await get_current_user()
     if not tool.can_access(user):
         return "Unauthorized"
-    username = f"{user['username']}<{user.get('email')}>" if user else "anonymous"
+    username = f"{user.username}<{user.email}>" if user else "anonymous"
     logger.info("%s Calling %s with %s", username, tool.key, params)
     try:
         return await tool.call(**params or {})

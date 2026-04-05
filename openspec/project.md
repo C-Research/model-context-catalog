@@ -44,7 +44,7 @@ FastMCP server entry point. Exposes two MCP tools:
 Bootstraps the loader on startup and wires in the auth backend.
 
 ### `mcc/loader.py`
-`Loader` (a dict subclass) reads YAML tool definition files and registers `ToolModel` instances by key (`group.name` or `name`). Supports recursive directory loading, uniqueness enforcement, and hot `reload()`.
+`Loader` (a dict subclass) reads YAML tool definition files and registers `ToolModel` instances by key (`sorted(groups).name`, e.g. `admin.my_tool` or `admin.data.my_tool`). Supports recursive directory loading, uniqueness enforcement, and hot `reload()`.
 
 `load_file(path)` handles the YAML → list of ToolModels conversion.
 
@@ -63,8 +63,10 @@ Two Pydantic models:
 
 **`ToolModel`** — a complete tool entry:
 - `fn` — dotted import path to the callable (`module.path:attr` or `module.path.attr`)
+- `groups` — list of group membership strings; defaults to `["public"]` at load time if unspecified
 - `params` — auto-introspected from signature if not provided in YAML
 - `name` / `description` — auto-populated from `__name__` / `__doc__` if omitted
+- `key` — `".".join(sorted(groups) + [name])`, used as the registry identifier
 - `call(**kwargs)` — validates caller args, injects overrides, executes (sync or async)
 - `signature` — formatted string shown to the LLM
 - `param_model` — dynamically created Pydantic model for input validation
@@ -90,9 +92,9 @@ Key knobs: `auth`, `contrib`, `tools` (list of extra YAML paths), `users_db`, `l
 | `dangerous.py` | No-auth dev mode — auto-selects first admin user |
 
 **Permission hierarchy** (first match wins):
-1. Tool in `public` group → always allowed
+1. `"public"` in tool's `groups` → always allowed
 2. User in `admin` group → always allowed
-3. User's `groups` contains the tool's group → allowed
+3. Tool's `groups` and user's `groups` intersect → allowed
 4. Tool key in user's `tools` list → allowed
 5. Otherwise → denied
 
@@ -120,7 +122,7 @@ Help text and output use Rich — tables for listings, syntax-highlighted JSON f
 
 ```
 YAML file
-  └─ group: mygroup
+  └─ groups: [mygroup]             ← list; omit to default to [public]
      tools:
        - fn: mymodule:my_fn         ← required
          name: my-tool              ← optional, defaults to __name__
@@ -136,6 +138,7 @@ YAML file
          ↓  load_file()
          ↓  ToolModel (Pydantic validates, resolves callable)
          ↓  Loader.register("mygroup.my-tool", tool)
+         ↓  key = ".".join(sorted(groups) + [name])
 
 execute("mygroup.my-tool", {"arg": "hello"})
   ↓  can_access(user, tool)
@@ -161,7 +164,7 @@ MCP request (with token)
 
 1. Create a YAML file:
 ```yaml
-group: myteam
+groups: [myteam]
 tools:
   - fn: mypackage.mymodule:my_function
 ```

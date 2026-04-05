@@ -8,10 +8,10 @@ The `search` function SHALL be registered on the FastMCP app instance using the 
 - **THEN** `search` is listed as an available MCP tool
 
 ### Requirement: Search matches against name and description
-The `search` MCP tool SHALL accept a `query` string and an optional `group` string parameter. When `group` is provided, only tools whose `group` field matches exactly SHALL be candidates for query matching. Query matching (case-insensitive substring against `name` and `description`) SHALL run only against the candidate set. When `group` is not provided, all registered tools are candidates.
+The `search` MCP tool SHALL accept a `query` string and an optional `group` string parameter. Matching SHALL be performed via `loader.search(query, group)` which delegates to `ToolIndex` using a `multi_match` ES query across `name` (boosted 2×) and `description` with `fuzziness: AUTO`. When `group` is provided, only tools whose `groups` field contains that value SHALL be candidates. The local loader dict SHALL NOT be iterated during search.
 
 #### Scenario: Query matches tool name
-- **WHEN** query is `"weather"` and a tool named `get_weather` exists
+- **WHEN** query is `"weather"` and a tool named `get_weather` is indexed
 - **THEN** that tool is included in the results
 
 #### Scenario: Query matches description only
@@ -19,16 +19,12 @@ The `search` MCP tool SHALL accept a `query` string and an optional `group` stri
 - **THEN** those tools are included in the results
 
 #### Scenario: No matches returns informative message
-- **WHEN** query matches no tool name or description in the candidate set
+- **WHEN** query matches no indexed tool
 - **THEN** search returns `"No tools matched your query."`
 
 #### Scenario: Group filter restricts candidate set
-- **WHEN** `group="ops"` is provided and two tools exist — one in group `ops`, one in group `finance`
+- **WHEN** `group="ops"` is provided and two tools exist — one with `groups=["ops"]`, one with `groups=["finance"]`
 - **THEN** only the `ops` tool is a candidate, regardless of query
-
-#### Scenario: Group filter with empty query returns all tools in group
-- **WHEN** `group="ops"` is provided and `query=""` (empty string)
-- **THEN** all tools in group `ops` are returned
 
 #### Scenario: Group filter with no matching tools returns informative message
 - **WHEN** `group="nonexistent"` is provided
@@ -36,7 +32,11 @@ The `search` MCP tool SHALL accept a `query` string and an optional `group` stri
 
 #### Scenario: No group filter searches all tools
 - **WHEN** `group` is not provided
-- **THEN** all registered tools are candidates for query matching
+- **THEN** all indexed tools are candidates for query matching
+
+#### Scenario: Fuzzy query matches despite minor typo
+- **WHEN** query is `"wether"` (typo) and a tool named `get_weather` is indexed
+- **THEN** `get_weather` is included in the results
 
 ### Requirement: Search results include call signature
 Each result SHALL be formatted as two lines: `<name> — <description>` followed by an indented `execute("<name>", {<sig>})` call. The signature SHALL list each parameter as `name: type` (required) or `name?: type = default` (optional), joined by `, `.
@@ -54,7 +54,7 @@ The `search` MCP tool SHALL only return tools the caller is authorized to access
 
 #### Scenario: Unauthenticated caller sees only public tools
 - **WHEN** search is called with no bearer token
-- **THEN** only tools with `group: public` appear in results
+- **THEN** only tools with `"public"` in their `groups` appear in results
 
 #### Scenario: Authenticated user sees public tools plus their permitted tools
 - **WHEN** search is called by a user in group `ops` with explicit access to `special_tool`

@@ -1,3 +1,5 @@
+import asyncio
+
 from fastmcp.server.dependencies import get_access_token as fast_token
 
 from mcc.auth.github_pat import get_user_context as pat_token
@@ -17,7 +19,7 @@ providers = {
 }
 
 
-def get_user_context():
+async def get_user_context():
     """
     Displays full user context from auth provider.
 
@@ -25,7 +27,10 @@ def get_user_context():
     """
     if settings.auth not in backends:
         raise ValueError(f"auth backed {settings.auth} not supported")
-    return backends[settings.auth]()
+    backend = backends[settings.auth]
+    if asyncio.iscoroutinefunction(backend):
+        return await backend()
+    return backend()
 
 
 def get_auth():

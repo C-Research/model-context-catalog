@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+from asyncio import run as arun
 
 import rich_click as click
 from rich.console import Console
@@ -16,6 +17,7 @@ from mcc.auth import (
     remove_group,
     remove_tool,
 )
+from mcc.loader import loader
 
 click.rich_click.USE_MARKDOWN = True
 click.rich_click.USE_RICH_MARKUP = True
@@ -31,6 +33,7 @@ def err(msg):
 @click.group()
 def cli():
     """**MCC** — Model Context Catalog management CLI."""
+    arun(loader.save())
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +54,7 @@ def user():
 def user_add(username, email, groups, tools):
     """Create a new user."""
     try:
-        create_user(username, email, list(tools), list(groups))
+        arun(create_user(username, email, list(tools), list(groups)))
     except ValueError as e:
         err(e)
     msg = f"User **{username}** added"
@@ -67,7 +70,7 @@ def user_add(username, email, groups, tools):
 @user.command("list")
 def user_list():
     """List all users."""
-    users = list_users()
+    users = arun(list_users())
     if not users:
         console.print("[dim]No users found.[/dim]")
         return
@@ -80,10 +83,10 @@ def user_list():
 
     for u in users:
         table.add_row(
-            u["username"],
-            u.get("email") or "[dim]—[/dim]",
-            ", ".join(u.get("groups") or []),
-            ", ".join(u.get("tools") or []),
+            u.username,
+            u.email or "[dim]—[/dim]",
+            ", ".join(u.groups),
+            ", ".join(u.tools),
         )
 
     console.print(table)
@@ -94,7 +97,7 @@ def user_list():
 def user_remove(username):
     """Remove an existing user."""
     try:
-        delete_user(username)
+        arun(delete_user(username))
     except ValueError as e:
         err(e)
     console.print(f"User **{username}** removed.")
@@ -110,9 +113,9 @@ def user_grant(username, groups, tools):
         err("at least one `--group` or `--tool` is required.")
     try:
         for g in groups:
-            add_group(username, g)
+            arun(add_group(username, g))
         for t in tools:
-            add_tool(username, t)
+            arun(add_tool(username, t))
     except ValueError as e:
         err(e)
     console.print("Permissions updated.")
@@ -128,9 +131,9 @@ def user_revoke(username, groups, tools):
         err("at least one `--group` or `--tool` is required.")
     try:
         for g in groups:
-            remove_group(username, g)
+            arun(remove_group(username, g))
         for t in tools:
-            remove_tool(username, t)
+            arun(remove_tool(username, t))
     except ValueError as e:
         err(e)
     console.print("Permissions updated.")

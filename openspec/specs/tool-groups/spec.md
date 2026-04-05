@@ -1,34 +1,57 @@
 ## ADDED Requirements
 
-### Requirement: File-level group key in YAML
-A YAML tool file MAY include a top-level `group` key (string). When present, its value SHALL be assigned as the group for every tool defined in that file's `tools` list. When absent or null, tools in that file are ungrouped (`group: None`).
+### Requirement: Tools belong to one or more groups
+A tool SHALL have a `groups` field of type `list[str]`. A tool MAY belong to multiple groups simultaneously. There is no limit on the number of groups a tool can belong to.
 
-#### Scenario: File with group key assigns group to all tools
-- **WHEN** a YAML file has `group: ops` and defines two tools
-- **THEN** both tools are registered with `group = "ops"`
+#### Scenario: Tool with a single group
+- **WHEN** a tool is loaded from a file with `groups: [ops]`
+- **THEN** `tool.groups == ["ops"]`
 
-#### Scenario: File without group key leaves tools ungrouped
-- **WHEN** a YAML file has no `group` key and defines a tool
-- **THEN** that tool is registered with `group = None`
+#### Scenario: Tool with multiple groups
+- **WHEN** a tool entry specifies `groups: [admin, data]`
+- **THEN** `tool.groups == ["admin", "data"]` (or any order — membership is a set)
 
-#### Scenario: File with null group leaves tools ungrouped
-- **WHEN** a YAML file has `group: null` and defines a tool
-- **THEN** that tool is registered with `group = None`
+### Requirement: Default groups when none specified
+When a tool is loaded and no `groups` is defined (neither at the file level nor on the tool entry), the loader SHALL assign `groups = ["public"]` as the default.
 
-### Requirement: Group stored in registry entry
-Each registry entry SHALL include a `group` field of type `str | None`. This field is set at load time from the file-level group and is immutable after registration.
+#### Scenario: File with no groups key defaults all tools to public
+- **WHEN** a YAML file has no `groups` key and defines a tool
+- **THEN** that tool is registered with `groups = ["public"]`
 
-#### Scenario: Registry entry contains group field
-- **WHEN** a tool from a file with `group: finance` is loaded
-- **THEN** `loader["tool_name"]["group"]` returns `"finance"`
+#### Scenario: Tool entry with no groups inherits file-level groups
+- **WHEN** a YAML file has `groups: [ops]` and a tool entry has no `groups` key
+- **THEN** that tool is registered with `groups = ["ops"]`
 
-#### Scenario: Registry entry group is None for ungrouped tool
-- **WHEN** a tool from a file with no group key is loaded
-- **THEN** `loader["tool_name"]["group"]` returns `None`
+#### Scenario: Tool entry groups override file-level groups
+- **WHEN** a YAML file has `groups: [ops]` and a tool entry specifies `groups: [admin, data]`
+- **THEN** that tool is registered with `groups = ["admin", "data"]`
 
-### Requirement: One group per tool
-A tool SHALL belong to at most one group. There is no mechanism to assign multiple groups to a single tool.
+### Requirement: Tool key derived from sorted groups and name
+The tool's registry key SHALL be computed as `".".join(sorted(groups) + [name])`. This ensures the key is deterministic regardless of the order groups are declared, and that two tools with the same name but different group sets get distinct keys.
 
-#### Scenario: Tool has exactly one group
-- **WHEN** a tool is loaded from a file with `group: ops`
-- **THEN** the tool has exactly one group value: `"ops"`
+#### Scenario: Single-group key
+- **WHEN** a tool named `list_users` has `groups = ["admin"]`
+- **THEN** its key is `"admin.list_users"`
+
+#### Scenario: Multi-group key is sorted
+- **WHEN** a tool named `my_tool` has `groups = ["data", "admin"]`
+- **THEN** its key is `"admin.data.my_tool"` (groups sorted alphabetically)
+
+#### Scenario: Same key regardless of groups declaration order
+- **WHEN** one tool declares `groups: [data, admin]` and another declares `groups: [admin, data]` with the same name
+- **THEN** both produce the same key and the second registration raises a `ValueError`
+
+#### Scenario: Ungrouped tool key is just the name
+- **WHEN** a tool named `echo` has `groups = []`
+- **THEN** its key is `"echo"`
+
+### Requirement: Group membership used for access control
+The `can_access` function SHALL check whether `"public"` is in `tool.groups` (unrestricted access) or whether any element of `tool.groups` appears in the user's `groups` list (group-based access).
+
+#### Scenario: Tool accessible when user shares any group
+- **WHEN** a tool has `groups = ["ops", "data"]` and a user has `groups = ["data"]`
+- **THEN** `can_access` returns `True`
+
+#### Scenario: Tool inaccessible when user shares no groups
+- **WHEN** a tool has `groups = ["ops", "data"]` and a user has `groups = ["finance"]`
+- **THEN** `can_access` returns `False` (unless admin or explicit tool grant)

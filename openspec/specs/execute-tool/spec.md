@@ -34,10 +34,10 @@ The `execute` tool SHALL validate the provided `params` dict against the tool's 
 - **THEN** the function is called with `**validated.model_dump()` as keyword arguments
 
 ### Requirement: RBAC enforcement before dispatch
-The `execute` MCP tool SHALL check whether the caller is authorized to execute the requested tool before dispatching. Authorization SHALL be determined by `can_access(user, tool_name, tool_entry)`: returns `True` if the tool's group is `"public"`, or if the user is not `None` and the tool's group is in `user["groups"]`, or if the tool's name is in `user["tools"]`. If the caller is not authorized, `execute` SHALL return `"Unauthorized"` without dispatching the function.
+The `execute` MCP tool SHALL check whether the caller is authorized to execute the requested tool before dispatching. Authorization SHALL be determined by `can_access(user, tool)`: returns `True` if `"public"` is in `tool.groups`, or if the user is in `admin` group, or if any of `tool.groups` appears in `user["groups"]`, or if `tool.key` is in `user["tools"]`. If the caller is not authorized, `execute` SHALL return `"Unauthorized"` without dispatching the function.
 
 #### Scenario: Public tool accessible without auth
-- **WHEN** execute is called for a tool with `group: public` and no bearer token was provided
+- **WHEN** execute is called for a tool with `"public"` in its `groups` and no bearer token was provided
 - **THEN** the tool is dispatched normally
 
 #### Scenario: Authorized user can execute tool in their group

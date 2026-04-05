@@ -4,6 +4,7 @@ import yaml
 
 from mcc.models import ToolModel
 from mcc.settings import settings
+from mcc.db import ToolIndex
 
 
 def load_file(path: str | Path) -> list[ToolModel]:
@@ -42,10 +43,23 @@ class Loader(dict):
             raise ValueError(f"Duplicate tool {tool.name} in groups {tool.groups}")
         self[tool.key] = tool
 
-    def reload(self):
+    async def save(self) -> None:
+        async with ToolIndex() as idx:
+            await idx.drop()
+            await idx.create()
+            for tool in self.values():
+                await idx.put(tool)
+
+    async def reload(self):
         self.clear()
         for path in self.paths:
             self.load(path)
+        await self.save()
+
+    async def search(self, query: str, group: str | None = None) -> list[ToolModel]:
+        async with ToolIndex() as idx:
+            keys = await idx.search(query, group)
+        return [self[k] for k in keys if k in self]
 
     def list_all(self):
         return "\n\n".join([tool.signature for tool in self.values()])

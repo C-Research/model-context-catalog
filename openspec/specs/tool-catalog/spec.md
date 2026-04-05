@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Tool catalog defined in YAML
-The system SHALL read tool definitions from a YAML file (default `tools.yaml`). The file SHALL be a dict with a required `tools` key (list of tool entries) and an optional `group` key (string). Each entry SHALL define: `name` (string, unique), `fn` (dotted Python import path), and `description` (string). The `parameters` field is optional and defaults to an empty list.
+The system SHALL read tool definitions from a YAML file (default `tools.yaml`). The file SHALL be a dict with a required `tools` key (list of tool entries) and an optional `groups` key (`list[str]`). Each entry SHALL define: `name` (string, unique within its groups), `fn` (dotted Python import path), and `description` (string). The `parameters` field is optional and defaults to an empty list. A per-tool `groups` key overrides the file-level `groups` for that entry.
 
 #### Scenario: Valid catalog loads without error
 - **WHEN** `tools.yaml` contains a dict with `tools` list and valid tool entries with supported types
@@ -23,8 +23,8 @@ The system SHALL read tool definitions from a YAML file (default `tools.yaml`). 
 - **WHEN** `tools.yaml` root dict is missing the `tools` key
 - **THEN** loader raises a `ValueError` at startup
 
-#### Scenario: Duplicate tool name raises error
-- **WHEN** two entries share the same `name` (across one or more loaded files)
+#### Scenario: Duplicate tool name and groups raises error
+- **WHEN** two entries share the same `name` and the same `groups` set (across one or more loaded files), producing an identical key
 - **THEN** loader raises a `ValueError` at startup
 
 ### Requirement: Parameter definitions
