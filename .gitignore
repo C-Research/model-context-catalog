@@ -16,3 +16,4 @@ settings.local.toml
 .env
 settings.local.yaml
 elastic-start-local/
+/site

@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcc"
+name = "model-context-catalog"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -14,7 +14,6 @@ dependencies = [
     "fastembed>=0.4.0",
     "fastmcp>=3.2.0",
     "envyaml>=1.10",
-    "pyyaml>=6.0",
     "rich-click>=1.8",
 ]
 
@@ -27,6 +26,7 @@ include = ["mcc*"]
 [dependency-groups]
 dev = [
     "ipdb>=0.13.13",
+    "zensical>=0.0.31",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
