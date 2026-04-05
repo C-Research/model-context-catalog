@@ -1,11 +1,6 @@
-import asyncio
-import json
-import sys
 from asyncio import run as arun
 
 import rich_click as click
-from rich.console import Console
-from rich.table import Table
 
 from mcc.auth import (
     add_group,
@@ -16,31 +11,11 @@ from mcc.auth import (
     remove_group,
     remove_tool,
 )
-from mcc.loader import loader
 
-click.rich_click.USE_MARKDOWN = True
-click.rich_click.USE_RICH_MARKUP = True
-
-console = Console(markup=True)
-
-
-def err(msg):
-    console.print(f"[red]Error: {msg}[/red]", markup=True)
-    sys.exit(1)
+from mcc.cli import console, err
 
 
 @click.group()
-def cli():
-    """**MCC** — Model Context Catalog management CLI."""
-    arun(loader.save())
-
-
-# ---------------------------------------------------------------------------
-# user group
-# ---------------------------------------------------------------------------
-
-
-@cli.group()
 def user():
     """Manage users and their permissions."""
 
@@ -69,6 +44,8 @@ def user_add(username, email, groups, tools):
 @user.command("list")
 def user_list():
     """List all users."""
+    from rich.table import Table
+
     users = arun(list_users())
     if not users:
         console.print("[dim]No users found.[/dim]")
@@ -136,75 +113,3 @@ def user_revoke(username, groups, tools):
     except ValueError as e:
         err(e)
     console.print("Permissions updated.")
-
-
-# ---------------------------------------------------------------------------
-# tool group
-# ---------------------------------------------------------------------------
-
-
-@cli.group()
-def tool():
-    """Browse and call catalog tools."""
-
-
-@tool.command("list")
-def tool_list():
-    """List all registered tools."""
-
-    from mcc.loader import loader
-
-    md = loader.list_all()
-    if not md:
-        console.print("[dim]No tools loaded.[/dim]")
-        return
-    console.print(md)
-    # console.print(Markdown(md))
-
-
-@tool.command("call")
-@click.argument("tool")
-@click.argument("params", nargs=-1)
-@click.option("--json", "json_str", default=None, help="JSON object of parameters")
-def tool_call(tool, params, json_str):
-    """Look up a tool by key and call it.
-
-    Accepts parameters as `key=value` pairs and/or a `--json` blob.
-
-    **Examples:**
-
-        mcc tool call admin.list_users
-
-        mcc tool call my.tool name=foo count=3
-
-        mcc tool call my.tool --json '{"name": "foo", "count": 3}'
-    """
-    from mcc.loader import loader
-
-    t = loader.get(tool)
-    if not t:
-        err(f" tool `{tool}` not found")
-
-    kwargs: dict = {}
-    if json_str:
-        try:
-            kwargs.update(json.loads(json_str))
-        except json.JSONDecodeError as e:
-            err(f"invalid JSON — {e}")
-
-    for p in params:
-        if "=" not in p:
-            err(f"expected `key=value`, got `{p}`")
-        key, _, value = p.partition("=")
-        kwargs[key] = value
-
-    try:
-        result = asyncio.run(t.call(**kwargs))
-    except Exception as e:
-        err(e)
-
-    if result is not None:
-        if isinstance(result, (dict, list)):
-            console.print_json(json.dumps(result, default=str))
-        else:
-            console.print(result)

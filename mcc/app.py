@@ -30,7 +30,9 @@ for key, value in loader.items():
 
 
 @mcp.tool()
-async def search(query: str, group: Optional[str] = None, min_score: Optional[float] = None) -> str:
+async def search(
+    query: str, group: Optional[str] = None, min_score: Optional[float] = None
+) -> str:
     """Search the tool catalog using natural language. Combines keyword and semantic
     similarity for best results.
 
@@ -105,4 +107,4 @@ async def execute(name: str, params: Optional[dict] = None):
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http")
+    mcp.run()
