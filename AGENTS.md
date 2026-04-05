@@ -15,7 +15,7 @@ All tests must pass. Tests are async-first (`asyncio_mode = "auto"`). Do not moc
 Lint and format with:
 
 ```bash
-uv run ruff check mcc/ tests/
+uv run ruff check --fix mcc/ tests/
 uv run ruff format mcc/ tests/
 ```
 

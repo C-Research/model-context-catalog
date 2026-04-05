@@ -34,7 +34,7 @@ def run(transport: str, host: Optional[str], port: Optional[int]):
 
     banner()
     kwargs = {"host": host, "port": port} if transport == "http" else {}
-    mcp.run(transport=transport, **kwargs)
+    mcp.run(transport=transport, **kwargs)  # type: ignore[arg-type]  # click.Choice doesn't narrow to Literal
 
 
 @mcp_cmd.group("install")
@@ -56,8 +56,10 @@ def common_options(fn):
 def do_install(dest: str, **kwargs):
     from fastmcp.cli.cli import app
 
+    install_cmd = app["install"][dest].default_command
+    assert install_cmd is not None, f"No default_command for install target '{dest}'"
     arun(
-        app["install"][dest].default_command(
+        install_cmd(
             _SERVER_SPEC,
             server_name=app.name,
             with_editable=[_EDITABLE],

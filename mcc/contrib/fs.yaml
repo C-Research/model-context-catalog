@@ -4,9 +4,9 @@ tools:
     groups: [read]
   - fn: mcc.contrib.fs:stat
     groups: [read]
-
   - fn: mcc.contrib.fs:list_dir
-    groups: [write]
+    groups: [read]
+
   - fn: mcc.contrib.fs:move
     groups: [write]
   - fn: mcc.contrib.fs:write_file

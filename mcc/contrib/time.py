@@ -21,5 +21,7 @@ def delta(
 ) -> str:
     """Add a time delta to an ISO 8601 datetime string and return the result."""
     parsed = datetime.fromisoformat(dt)
-    result = parsed + timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+    result = parsed + timedelta(
+        days=days, hours=hours, minutes=minutes, seconds=seconds
+    )
     return result.isoformat()

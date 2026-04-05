@@ -2,12 +2,12 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastmcp import FastMCP
-
+from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import ValidationError
 
-from mcc.auth import get_current_user
 from mcc.auth.backend import get_auth
 from mcc.loader import loader
+from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
 from mcc.settings import settings, logger
 
 
@@ -19,6 +19,9 @@ async def lifespan(server):
 
 mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth(), lifespan=lifespan)
 mcp.loader = loader  # type: ignore[attr-defined]
+mcp.add_middleware(AuthMiddleware())
+mcp.add_middleware(LoggingMiddleware())
+mcp.add_middleware(TimingMiddleware(logger))
 
 
 def banner():
@@ -63,7 +66,7 @@ async def search(query: str, min_score: Optional[float] = None) -> str:
       min_score: Optional minimum relevance score. Results below this threshold are
                  excluded. Observe scores from an initial search to pick a good value.
     """
-    user = await get_current_user()
+    user = current_user_var.get(None)
     results = await loader.search(query, min_score)
     accessible = [
         f"[{score:.2f}]\n{tool.signature}"
@@ -95,17 +98,85 @@ async def execute(name: str, params: Optional[dict] = None):
     if name not in loader:
         return f"Unknown tool: {name}"
     tool = loader[name]
-    user = await get_current_user()
+    user = current_user_var.get(None)
     if not tool.allows(user):
-        return (
-            "Unauthorized. Either was unable to authenticate or was denied permission"
-        )
-    username = f"{user.username}<{user.email}>" if user else "anonymous"
-    logger.info("%s calling %s with %s", username, tool.key, params)
+        return "Unauthorized"
     try:
         return await tool.call(**params or {})
     except ValidationError as e:
         return f"Validation error for tool '{name}': {e}"
+
+
+# --- Resources ---
+
+
+@mcp.resource("catalog://tools")
+async def catalog_tools() -> str:
+    """List all tools the current user can access."""
+    user = current_user_var.get(None)
+    accessible = [tool.signature for tool in loader.values() if tool.allows(user)]
+    return "\n\n".join(accessible) if accessible else "No accessible tools."
+
+
+@mcp.resource("catalog://tools/{key}")
+async def catalog_tool_by_key(key: str) -> str:
+    """Get a single tool's signature by key."""
+    if key not in loader:
+        return f"Tool '{key}' not found."
+    tool = loader[key]
+    user = current_user_var.get(None)
+    if not tool.allows(user):
+        return f"Tool '{key}' not found."
+    return tool.signature
+
+
+@mcp.resource("user://me")
+async def user_me() -> dict:
+    """Current user's identity, groups, and specific tool grants (not comprehensive list)."""
+    user = current_user_var.get(None)
+    if user is None:
+        return {"username": "anonymous", "email": None, "groups": [], "tools": []}
+    return {
+        "username": user.username,
+        "email": user.email,
+        "groups": user.groups,
+        "tools": user.tools,
+    }
+
+
+# --- Prompts ---
+
+
+@mcp.prompt
+def find_and_run(task: str) -> str:
+    """Find a tool for a task and execute it."""
+    return (
+        f"Search the tool catalog for a tool that can: {task}. "
+        "Review the results, pick the best match, and execute it with appropriate parameters."
+    )
+
+
+@mcp.prompt
+def explain_tool(key: str) -> str:
+    """Explain what a tool does, its parameters, and when to use it."""
+    return (
+        f"Read the tool catalog entry for '{key}' and explain:\n"
+        "1. What the tool does\n"
+        "2. What parameters it accepts (required vs optional)\n"
+        "3. When you would use this tool"
+    )
+
+
+@mcp.prompt
+def debug_error(key: str, error: str) -> str:
+    """Diagnose a tool execution error and suggest fixes."""
+    return (
+        f"The tool '{key}' returned this error:\n\n{error}\n\n"
+        "Diagnose what went wrong and suggest:\n"
+        "1. How to fix the parameters or input\n"
+        "2. Whether a different tool would be more appropriate\n"
+        "3. Any other troubleshooting steps"
+    )
 
 
 if __name__ == "__main__":

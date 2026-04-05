@@ -1,7 +1,9 @@
 import importlib
 import inspect
-import os
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from mcc.auth.models import UserModel
 from functools import cached_property
 
 from pydantic import BaseModel, Field, create_model, model_validator
@@ -172,7 +174,7 @@ class ToolModel(BaseModel):
 
         return "\n".join(lines)
 
-    def allows(self, user: Optional[dict]) -> bool:
+    def allows(self, user: Optional["UserModel"]) -> bool:
         """Returns True if a user can access this tool"""
         from mcc.auth import can_access
 

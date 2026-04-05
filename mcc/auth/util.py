@@ -3,7 +3,7 @@ from typing import Optional
 from mcc.auth.models import UserModel
 from mcc.models import ToolModel
 from mcc.auth.db import get_user_by_email, get_user_by_username
-from mcc.settings import logger, settings
+from mcc.settings import logger
 
 
 def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:

@@ -9,10 +9,10 @@ UAS = {
 async def request(
     method: str,
     url: str,
-    params: dict = None,
-    headers: dict = None,
-    json: dict = None,
-    content: str = None,
+    params: dict | None = None,
+    headers: dict | None = None,
+    json: dict | None = None,
+    content: str | None = None,
     responsible: bool = True,
 ) -> dict:
     """

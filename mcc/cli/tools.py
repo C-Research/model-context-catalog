@@ -33,6 +33,7 @@ def info(tool):
     t = loader.get(tool)
     if not t:
         err(f" tool `{tool}` not found")
+        return
     console.print(t.signature)
 
 
@@ -57,6 +58,7 @@ def tool_call(tool, params, json_str):
     t = loader.get(tool)
     if not t:
         err(f" tool `{tool}` not found")
+        return
 
     kwargs: dict = {}
     if json_str:
@@ -68,13 +70,16 @@ def tool_call(tool, params, json_str):
     for p in params:
         if "=" not in p:
             err(f"expected `key=value`, got `{p}`")
+            return
         key, _, value = p.partition("=")
         kwargs[key] = value
 
+    result = None
     try:
         result = asyncio.run(t.call(**kwargs))
     except Exception as e:
         err(e)
+        return
 
     if result is not None:
         if isinstance(result, (dict, list)):

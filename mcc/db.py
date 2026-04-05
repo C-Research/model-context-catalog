@@ -115,8 +115,8 @@ class ToolIndex(ESIndex):
         }
     }
 
-    async def put(self, tool: ToolModel) -> None:
-        await super().put(
+    async def index_tool(self, tool: ToolModel) -> None:
+        await self.put(
             tool.key,
             {
                 "signature": tool.signature,
@@ -125,7 +125,9 @@ class ToolIndex(ESIndex):
             },
         )
 
-    async def search(self, query: str, min_score: Optional[float] = None) -> list[tuple[str, float]]:
+    async def query(
+        self, query: str, min_score: Optional[float] = None
+    ) -> list[tuple[str, float]]:
         vector = await embed(query)
         text_query: dict = {
             "match": {"signature": {"query": query, "fuzziness": "AUTO"}}

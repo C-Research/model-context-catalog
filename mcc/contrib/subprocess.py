@@ -1,7 +1,7 @@
 import asyncio
 
 
-async def bash(command: str) -> tuple[int, str, str]:
+async def bash(command: str) -> tuple[int | None, str, str]:
     """
     Runs a bash command and returns (returncode, stdout, stderr)
     """

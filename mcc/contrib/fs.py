@@ -8,7 +8,7 @@ async def read_file(path: str, mode: str = "r") -> str:
     """
     Read the contents of a file and return as a string.
     """
-    async with aiofiles.open(path, mode=mode) as f:
+    async with aiofiles.open(path, mode=mode) as f:  # type: ignore[call-overload]  # mode is always a text mode str
         return await f.read()
 
 
@@ -18,19 +18,19 @@ async def write_file(path: str, content: str, mode: str = "w") -> None:
     Use mode=a for appending to files
     """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    async with aiofiles.open(path, mode=mode) as f:
+    async with aiofiles.open(path, mode=mode) as f:  # type: ignore[call-overload]  # mode is always a text mode str
         await f.write(content)
 
 
-async def list_dir(path: str, pattern: str = "*", recursive=False) -> list[str]:
+async def list_dir(path: str, pattern: str = "*", recursive=False) -> list[Path]:
     """
     List entries in a directory matching a glob pattern.
     Use recursive scan to find entries in any subfolders
     """
-    path = Path(path)
-    if not path.is_dir():
-        raise ValueError(f"Dir {path} not found")
-    globber = path.rglob if recursive else path.glob
+    dirpath = Path(path)
+    if not dirpath.is_dir():
+        raise ValueError(f"Dir {dirpath} not found")
+    globber = dirpath.rglob if recursive else dirpath.glob
     return list(globber(pattern))
 
 
@@ -39,25 +39,25 @@ def move(source: str, destination: str) -> str:
     Move or rename a file or directory.
     Returns the destination path.
     """
-    source = Path(source)
-    if not source.exists():
-        raise FileNotFoundError(f"Path {source} not found")
-    return str(source.move(destination))
+    source_path = Path(source)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Path {source_path} not found")
+    return str(source_path.move(destination))
 
 
 def stat(path: str) -> dict:
     """
     Return metadata for a path: size, mtime, atime, ctime, is_file, is_dir, exists.
     """
-    path = Path(path)
-    if not path.exists():
-        return {"exists": False, "path": path}
-    result = path.stat()
+    fpath = Path(path)
+    if not fpath.exists():
+        return {"exists": False, "path": str(fpath)}
+    result = fpath.stat()
     return {
         "exists": True,
-        "path": str(path.resolve()),
-        "is_file": path.is_file(),
-        "is_dir": path.is_dir(),
+        "path": str(fpath.resolve()),
+        "is_file": fpath.is_file(),
+        "is_dir": fpath.is_dir(),
         "size": result.st_size,
         "mtime": datetime.fromtimestamp(result.st_mtime).isoformat(),
         "atime": datetime.fromtimestamp(result.st_atime).isoformat(),
