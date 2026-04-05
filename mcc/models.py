@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field, create_model, model_validator
 
 logger = logging.getLogger("mcc.tools")
@@ -62,44 +62,13 @@ def _params_from_signature(fn: Callable) -> list[ParamModel]:
     return params
 
 
-def fmt_signature(tool: "ToolModel"):
-    """
-    Formats the signature block of a tool as markdown
-    """
-    parts = []
-    for param in tool.params:
-        if param.has_override:
-            continue
-        if param.required:
-            parts.append(f"{param.name}: {param.type}")
-        else:
-            parts.append(f"{param.name}?: {param.type} = {param.default}")
-    sig = ", ".join(parts)
-
-    ret = ""
-    if tool.callable:
-        hint = inspect.signature(tool.callable).return_annotation
-        if hint is not inspect.Parameter.empty:
-            ret = f"{getattr(hint, '__name__', str(hint))}"
-
-    lines = [f"## {tool.key}"]
-    if sig:
-        lines.append(f"params: `{sig}`")
-    if ret:
-        lines.append(f"returns: `{ret}`")
-    if tool.description:
-        desc = tool.description.strip("\n")
-        lines.append(f"```\n{desc}\n```")
-    return "\n".join(lines)
-
-
 class ToolModel(BaseModel):
     groups: list[str] = Field(default_factory=list)
     name: str = ""
     fn: str
     description: str = ""
     params: list[ParamModel] = Field(default_factory=list)
-    callable: Callable | None = None
+    callable: Optional[Callable] = None
 
     @model_validator(mode="after")
     def introspect(self):
@@ -147,9 +116,38 @@ class ToolModel(BaseModel):
 
     @property
     def signature(self) -> str:
-        return fmt_signature(self)
+        """
+        Formats the signature block of a tool as markdown
+        """
+        lines = [f"## {self.key}"]
 
-    def can_access(self, user: dict | None) -> bool:
+        if self.groups:
+            lines.append(f"groups: {', '.join(sorted(self.groups))}")
+
+        visible = [p for p in self.params if not p.has_override]
+        if visible:
+            lines.append("params:")
+            for param in visible:
+                if param.required:
+                    spec = f"  - {param.name} ({param.type}, required)"
+                else:
+                    spec = f"  - {param.name} ({param.type}, default: {param.default})"
+                if param.description:
+                    spec += f": {param.description}"
+                lines.append(spec)
+
+        ret = "unknown"
+        hint = inspect.signature(self.callable).return_annotation
+        if hint is not inspect.Parameter.empty:
+            ret = getattr(hint, "__name__", str(hint))
+        lines.append(f"returns: {ret}")
+
+        if self.description:
+            lines.extend(["", self.description])
+
+        return "\n".join(lines)
+
+    def can_access(self, user: Optional[dict]) -> bool:
         from mcc.auth import can_access as auth_can_access
 
         return auth_can_access(user, self)

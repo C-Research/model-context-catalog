@@ -1,0 +1,4 @@
+tools:
+  - name: echo
+    fn: tests.example.echo
+    description: $MCC_TEST_DESCRIPTION

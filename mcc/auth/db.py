@@ -1,3 +1,5 @@
+from typing import Optional
+
 from elasticsearch import NotFoundError
 
 from mcc.auth.models import UserModel
@@ -6,52 +8,52 @@ from mcc.db import UsersIndex
 
 async def create_user(
     username: str,
-    email: str | None = None,
-    tools: list[str] | None = None,
-    groups: list[str] | None = None,
+    email: Optional[str] = None,
+    tools: Optional[list[str]] = None,
+    groups: Optional[list[str]] = None,
 ) -> None:
     """creates a user and assigns their tools/groups perms"""
-    async with UsersIndex() as _users:
-        if await _users.get(username):
+    async with UsersIndex() as idx:
+        if await idx.get(username):
             raise ValueError(f"User '{username}' already exists")
-        if email and await _users.search({"term": {"email": email}}):
+        if email and await idx.find({"term": {"email": email}}):
             raise ValueError(f"Email '{email}' already exists")
         user = UserModel(
             username=username, email=email, groups=groups or [], tools=tools or []
         )
-        await _users.put(username, user.model_dump())
+        await idx.put(username, user.model_dump())
 
 
 async def delete_user(username: str) -> None:
     """deletes a user from the db"""
-    async with UsersIndex() as _users:
+    async with UsersIndex() as idx:
         try:
-            await _users.delete(username)
+            await idx.delete(username)
         except NotFoundError:
             raise ValueError(f"User '{username}' not found")
 
 
 async def list_users() -> list[UserModel]:
-    async with UsersIndex() as _users:
-        docs = await _users.search({"match_all": {}})
+    async with UsersIndex() as idx:
+        docs = await idx.find({"match_all": {}})
         return [UserModel(**doc) for doc in docs]
 
 
-async def get_user_by_username(username: str) -> UserModel | None:
-    async with UsersIndex() as _users:
-        doc = await _users.get(username)
+async def get_user_by_username(username: str) -> Optional[UserModel]:
+    async with UsersIndex() as idx:
+        doc = await idx.get(username)
         return UserModel(**doc) if doc else None
 
 
-async def get_user_by_email(email: str) -> UserModel | None:
-    async with UsersIndex() as _users:
-        docs = await _users.search({"term": {"email": email}})
+async def get_user_by_email(email: str) -> Optional[UserModel]:
+    async with UsersIndex() as idx:
+        docs = await idx.find({"term": {"email": email}})
         return UserModel(**docs[0]) if docs else None
 
 
 async def _update_user(username: str, user: UserModel) -> None:
-    async with UsersIndex() as _users:
-        await _users.put(username, user.model_dump())
+    async with UsersIndex() as idx:
+        await idx.put(username, user.model_dump())
 
 
 async def add_group(username: str, group: str) -> None:

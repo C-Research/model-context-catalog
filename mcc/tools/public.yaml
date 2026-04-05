@@ -1,5 +1,6 @@
-groups: [public]
 tools:
   - fn: mcc.auth.get_current_user
+    groups: [public, auth, users]
   - fn: mcc.auth.list_tools
+    groups: [public, auth, tools]
 

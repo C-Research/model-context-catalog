@@ -6,7 +6,6 @@ from asyncio import run as arun
 import rich_click as click
 from rich.console import Console
 from rich.table import Table
-from rich.markdown import Markdown
 
 from mcc.auth import (
     add_group,
@@ -159,8 +158,8 @@ def tool_list():
     if not md:
         console.print("[dim]No tools loaded.[/dim]")
         return
-
-    console.print(Markdown(md))
+    console.print(md)
+    # console.print(Markdown(md))
 
 
 @tool.command("call")

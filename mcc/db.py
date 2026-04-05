@@ -1,8 +1,28 @@
-from elasticsearch import AsyncElasticsearch
+import asyncio
+from typing import Optional
 
-from mcc.auth.models import UserModel
+from elasticsearch import AsyncElasticsearch
+from fastembed import TextEmbedding
+
 from mcc.models import ToolModel
 from mcc.settings import settings
+
+_embedding_model: Optional[TextEmbedding] = None
+
+
+def _get_model() -> TextEmbedding:
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+    return _embedding_model
+
+
+async def embed(text: str) -> list[float]:
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None, lambda: next(iter(_get_model().embed([text])))
+    )
+    return result.tolist()
 
 
 class ESIndex:
@@ -30,7 +50,7 @@ class ESIndex:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self._client.close()
 
-    async def get(self, id: str) -> dict | None:
+    async def get(self, id: str) -> Optional[dict]:
         """Return _source for the document, or None if not found."""
         resp = await self._client.options(ignore_status=404).get(
             index=self.index, id=id
@@ -45,8 +65,8 @@ class ESIndex:
         """Delete a document by id. Raises NotFoundError if missing."""
         await self._client.delete(index=self.index, id=id, refresh=refresh)
 
-    async def search(self, query: dict, size: int = 10000) -> list[dict]:
-        """Run a query and return a list of _source dicts."""
+    async def find(self, query: dict, size: int = 10000) -> list[dict]:
+        """Run a raw ES query and return a list of _source dicts."""
         resp = await self._client.search(
             index=self.index, body={"query": query, "size": size}
         )
@@ -65,7 +85,7 @@ class ESIndex:
 
 
 class UsersIndex(ESIndex):
-    index = settings.ELASTICSEARCH.USER_INDEX
+    index = settings.ELASTICSEARCH__USER_INDEX
     mapping = {
         "mappings": {
             "properties": {
@@ -79,13 +99,18 @@ class UsersIndex(ESIndex):
 
 
 class ToolIndex(ESIndex):
-    index = settings.ELASTICSEARCH.TOOL_INDEX
+    index = settings.ELASTICSEARCH__TOOL_INDEX
     mapping = {
         "mappings": {
             "properties": {
-                "name": {"type": "text"},
-                "description": {"type": "text"},
+                "signature": {"type": "text"},
                 "groups": {"type": "keyword"},
+                "embedding": {
+                    "type": "dense_vector",
+                    "dims": 384,
+                    "index": True,
+                    "similarity": "cosine",
+                },
             }
         }
     }
@@ -93,25 +118,30 @@ class ToolIndex(ESIndex):
     async def put(self, tool: ToolModel) -> None:
         await super().put(
             tool.key,
-            {"name": tool.name, "description": tool.description, "groups": tool.groups},
+            {
+                "signature": tool.signature,
+                "groups": tool.groups,
+                "embedding": await embed(tool.signature),
+            },
         )
 
-    async def search(self, query: str, group: str | None = None) -> list[str]:
-        es_query: dict = {
-            "multi_match": {
-                "query": query,
-                "fields": ["name^2", "description"],
-                "fuzziness": "AUTO",
-            }
+    async def search(self, query: str, group: Optional[str] = None, min_score: Optional[float] = None) -> list[tuple[str, float]]:
+        vector = await embed(query)
+        text_query: dict = {
+            "match": {"signature": {"query": query, "fuzziness": "AUTO"}}
+        }
+        knn: dict = {
+            "field": "embedding",
+            "query_vector": vector,
+            "k": 10,
+            "num_candidates": 50,
         }
         if group is not None:
-            es_query = {
-                "bool": {
-                    "must": es_query,
-                    "filter": {"term": {"groups": group}},
-                }
-            }
-        resp = await self._client.search(
-            index=self.index, body={"query": es_query, "size": 10000}
-        )
-        return [hit["_id"] for hit in resp["hits"]["hits"]]
+            filter_clause: dict = {"term": {"groups": group}}
+            text_query = {"bool": {"must": text_query, "filter": filter_clause}}
+            knn["filter"] = filter_clause
+        body: dict = {"query": text_query, "knn": knn, "size": 10000}
+        if min_score is not None:
+            body["min_score"] = min_score
+        resp = await self._client.search(index=self.index, body=body)
+        return [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]

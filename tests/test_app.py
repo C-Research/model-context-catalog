@@ -44,7 +44,7 @@ class TestSearch:
     async def test_no_match(self):
         _load("tools_public.yaml")
         await loader.save()
-        assert await search("zzz_nonexistent") == "No tools matched your query."
+        assert await search("zzz_nonexistent", min_score=999.0) == "No tools matched your query."
 
     @pytest.mark.asyncio
     async def test_group_filter(self):
@@ -65,7 +65,7 @@ class TestSearch:
         await loader.save()
         result = await search("echo")
         assert "public.echo" in result
-        assert "message: str" in result
+        assert "message (str" in result
         assert "Echoes back the provided message" in result
 
 

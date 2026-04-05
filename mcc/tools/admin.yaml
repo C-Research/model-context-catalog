@@ -1,14 +1,34 @@
-groups: [admin]
+x-groups:
+  users:  &users  [admin, auth, users]
+  groups: &groups [admin, auth, groups]
+  tools:  &tools  [admin, auth, tools]
+  loader:     &loader      [admin, loader]
+
 tools:
-  - fn: mcc.auth.create_user
-  - fn: mcc.auth.list_users
-  - fn: mcc.auth.get_user_by_username
-  - fn: mcc.auth.get_user_by_email
-  - fn: mcc.auth.add_group
-  - fn: mcc.auth.delete_user
-  - fn: mcc.auth.remove_group
-  - fn: mcc.auth.add_tool
-  - fn: mcc.auth.remove_tool
-  - fn: mcc.loader:loader.reload
   - fn: mcc.auth.backend:get_user_context
+    groups: *users
+  - fn: mcc.auth.create_user
+    groups: *users
+  - fn: mcc.auth.list_users
+    groups: *users
+  - fn: mcc.auth.delete_user
+    groups: *users
+  - fn: mcc.auth.get_user_by_username
+    groups: *users
+  - fn: mcc.auth.get_user_by_email
+    groups: *users
+
+  - fn: mcc.auth.remove_group
+    groups: *groups
+  - fn: mcc.auth.add_group
+    groups: *groups
+
+  - fn: mcc.auth.add_tool
+    groups: *tools
+  - fn: mcc.auth.remove_tool
+    groups: *tools
+
+  - fn: mcc.loader:loader.reload
+    groups: *loader
   - fn: mcc.loader:loader.list_all
+    groups: *loader

@@ -44,7 +44,7 @@ class TestToolIndex:
         async with ToolIndex() as idx:
             await idx.put(tool)
             results = await idx.search("echo")
-        assert tool.key in results
+        assert tool.key in [k for k, _ in results]
 
     @pytest.mark.asyncio
     async def test_search_by_name(self, _fresh_tool_index):
@@ -52,7 +52,7 @@ class TestToolIndex:
         async with ToolIndex() as idx:
             await idx.put(tool)
             results = await idx.search("greet")
-        assert tool.key in results
+        assert tool.key in [k for k, _ in results]
 
     @pytest.mark.asyncio
     async def test_search_by_description(self, _fresh_tool_index):
@@ -60,7 +60,7 @@ class TestToolIndex:
         async with ToolIndex() as idx:
             await idx.put(tool)
             results = await idx.search("hello")
-        assert tool.key in results
+        assert tool.key in [k for k, _ in results]
 
     @pytest.mark.asyncio
     async def test_search_group_filter(self, _fresh_tool_index):
@@ -71,10 +71,12 @@ class TestToolIndex:
             await idx.put(admin_tool)
             public_results = await idx.search("echo", group="public")
             admin_results = await idx.search("echo", group="admin")
-        assert public_tool.key in public_results
-        assert admin_tool.key not in public_results
-        assert admin_tool.key in admin_results
-        assert public_tool.key not in admin_results
+        public_keys = [k for k, _ in public_results]
+        admin_keys = [k for k, _ in admin_results]
+        assert public_tool.key in public_keys
+        assert admin_tool.key not in public_keys
+        assert admin_tool.key in admin_keys
+        assert public_tool.key not in admin_keys
 
     @pytest.mark.asyncio
     async def test_search_fuzzy(self, _fresh_tool_index):
@@ -82,7 +84,7 @@ class TestToolIndex:
         async with ToolIndex() as idx:
             await idx.put(tool)
             results = await idx.search("calculatr")  # typo
-        assert tool.key in results
+        assert tool.key in [k for k, _ in results]
 
     @pytest.mark.asyncio
     async def test_search_no_results(self, _fresh_tool_index):
@@ -98,7 +100,7 @@ class TestLoaderSave:
         await loader.save()
         async with ToolIndex() as idx:
             results = await idx.search("echo")
-        assert "public.echo" in results
+        assert "public.echo" in [k for k, _ in results]
 
     @pytest.mark.asyncio
     async def test_stale_tools_removed_after_save(self, _fresh_tool_index):
@@ -109,8 +111,9 @@ class TestLoaderSave:
         await loader.save()
         async with ToolIndex() as idx:
             results = await idx.search("echo")
-        assert "public.echo" not in results
-        assert "example.echo" in results
+        keys = [k for k, _ in results]
+        assert "public.echo" not in keys
+        assert "example.echo" in keys
 
 
 class TestLoaderSearch:
@@ -120,8 +123,10 @@ class TestLoaderSearch:
         await loader.save()
         results = await loader.search("echo")
         assert len(results) == 1
-        assert isinstance(results[0], ToolModel)
-        assert results[0].key == "public.echo"
+        tool, score = results[0]
+        assert isinstance(tool, ToolModel)
+        assert tool.key == "public.echo"
+        assert isinstance(score, float)
 
     @pytest.mark.asyncio
     async def test_skips_keys_not_in_loader(self, _fresh_tool_index):
@@ -130,4 +135,4 @@ class TestLoaderSearch:
             await idx.put(ghost)
         # ghost is in ES but not in loader — should be skipped
         results = await loader.search("ghost")
-        assert all(t.key != "public.ghost" for t in results)
+        assert all(tool.key != "public.ghost" for tool, _ in results)

@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Optional
 
-import yaml
+from envyaml import EnvYAML
 
 from mcc.models import ToolModel
 from mcc.settings import settings
@@ -12,8 +13,8 @@ def load_file(path: str | Path) -> list[ToolModel]:
         path = Path(path)
     if not path.is_file():
         raise ValueError(f"Tool file {path} not found")
-    tool = yaml.safe_load(path.read_text())
-    if not isinstance(tool, dict) or "tools" not in tool:
+    tool = EnvYAML(path, strict=False)
+    if "tools" not in tool:
         raise ValueError(
             f"{path}: expected a dict with a 'tools' key, got {type(tool).__name__}"
         )
@@ -56,10 +57,10 @@ class Loader(dict):
             self.load(path)
         await self.save()
 
-    async def search(self, query: str, group: str | None = None) -> list[ToolModel]:
+    async def search(self, query: str, group: Optional[str] = None, min_score: Optional[float] = None) -> list[tuple[ToolModel, float]]:
         async with ToolIndex() as idx:
-            keys = await idx.search(query, group)
-        return [self[k] for k in keys if k in self]
+            hits = await idx.search(query, group, min_score)
+        return [(self[k], score) for k, score in hits if k in self]
 
     def list_all(self):
         return "\n\n".join([tool.signature for tool in self.values()])

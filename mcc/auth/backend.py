@@ -1,4 +1,4 @@
-import asyncio
+import inspect
 
 from fastmcp.server.dependencies import get_access_token as fast_token
 
@@ -27,10 +27,10 @@ async def get_user_context():
     """
     if settings.auth not in backends:
         raise ValueError(f"auth backed {settings.auth} not supported")
-    backend = backends[settings.auth]
-    if asyncio.iscoroutinefunction(backend):
-        return await backend()
-    return backend()
+    backend = backends[settings.auth]()
+    if inspect.isawaitable(backend):
+        return await backend
+    return backend
 
 
 def get_auth():

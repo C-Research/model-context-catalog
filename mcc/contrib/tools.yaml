@@ -1,11 +1,11 @@
 tools:
   - fn: mcc.contrib.http:request
-    groups: [admin]
+    groups: [admin, http]
   - fn: mcc.contrib.subprocess:shell
-    groups: [admin]
+    groups: [admin, proc]
   - fn: mcc.contrib.http:request
     name: responsible-get
-    groups: [public]
+    groups: [public, http]
     params:
       - name: method
         type: str

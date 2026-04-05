@@ -1,9 +1,9 @@
+import os
 from pathlib import Path
 
 import pytest
 
 from mcc.loader import Loader, load_file
-from mcc.models import ToolModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -112,7 +112,7 @@ class TestParamOverride:
         assert "flag" not in self.tool.param_model.model_fields
 
     def test_override_param_excluded_from_signature(self):
-        assert "flag:" not in self.tool.signature and "flag?" not in self.tool.signature
+        assert "- flag" not in self.tool.signature
 
     @pytest.mark.asyncio
     async def test_override_value_is_injected(self):
@@ -129,3 +129,15 @@ class TestParamOverride:
         from mcc.models import ParamModel
         p = ParamModel(name="x")
         assert p.has_override is False
+
+
+class TestEnvVarSubstitution:
+    def test_env_var_substituted_in_description(self, monkeypatch):
+        monkeypatch.setenv("MCC_TEST_DESCRIPTION", "Injected from environment")
+        tools = load_file(FIXTURES / "tools_env_var.yaml")
+        assert tools[0].description == "Injected from environment"
+
+    def test_missing_env_var_leaves_literal(self, monkeypatch):
+        monkeypatch.delenv("MCC_TEST_DESCRIPTION", raising=False)
+        tools = load_file(FIXTURES / "tools_env_var.yaml")
+        assert tools[0].description == "$MCC_TEST_DESCRIPTION"

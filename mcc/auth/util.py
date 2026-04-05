@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from mcc.auth.models import UserModel
 from mcc.models import ToolModel
@@ -7,7 +8,7 @@ from mcc.auth.db import get_user_by_email, get_user_by_username
 logger = logging.getLogger("mcc.auth")
 
 
-def can_access(user: UserModel | None, tool: ToolModel) -> bool:
+def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     """returns true if user can access tool"""
     if "public" in tool.groups:
         return True
@@ -22,7 +23,7 @@ def can_access(user: UserModel | None, tool: ToolModel) -> bool:
     return False
 
 
-async def get_current_user() -> UserModel | None:
+async def get_current_user() -> Optional[UserModel]:
     """resolves auth identity to a UserModel; prefers email, falls back to login"""
     from mcc.auth.backend import get_user_context
 
@@ -36,8 +37,6 @@ async def get_current_user() -> UserModel | None:
         return token
     if hasattr(token, "claims"):
         token = token.claims
-    if not hasattr(token, "get"):
-        return None
     try:
         email = token.get("email") or None
         if email:
@@ -48,7 +47,9 @@ async def get_current_user() -> UserModel | None:
         if login:
             return await get_user_by_username(login)
     except Exception as e:
-        logger.warning("User store unavailable, treating request as unauthenticated: %s", e)
+        logger.warning(
+            "User store unavailable, treating request as unauthenticated: %s", e
+        )
     return None
 
 
