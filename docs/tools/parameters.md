@@ -11,7 +11,11 @@ Parameters define the inputs a tool accepts. They're validated before execution 
 | `required` | no | Whether the caller must supply a value (default: `true`) |
 | `default` | no | Default value used when the param is not required |
 | `description` | no | Shown to the LLM in the tool signature — be specific |
+| `example` | no | A concrete example value shown to the LLM alongside the description |
 | `override` | no | Always injects this value; hidden from the LLM and callers |
+
+!!! tip "Description and example directly affect LLM behavior"
+    The LLM has no other context for what a parameter means or what values are valid — only what you write here. Vague or missing descriptions cause the LLM to guess, leading to incorrect calls or repeated failures. Write `description` as if explaining to a colleague who has never seen your system, and use `example` to anchor the expected format for anything non-obvious (dates, IDs, query syntax, etc.).
 
 ```yaml
 params:
@@ -19,6 +23,7 @@ params:
     type: str
     required: true
     description: Natural language search query
+    example: "recent errors in auth service"
 
   - name: limit
     type: int

@@ -4,8 +4,11 @@ import json
 import rich_click as click
 
 from mcc.cli import console, err
-
 from mcc.loader import loader
+from mcc.middleware import current_user_var
+from mcc.auth.models import UserModel
+
+_CLI_USER = UserModel(username="cli", groups=["admin"])
 
 
 @click.group()
@@ -13,7 +16,7 @@ def tool():
     """Browse and call catalog tools."""
 
 
-@tool.command("list")
+@tool.command("list", aliases=["ls"])
 @click.option("-l", "--long", is_flag=True, help="Show full signature")
 def tool_list(long):
     """List all registered tools."""
@@ -35,7 +38,7 @@ def info(tool):
     console.print(t.signature)
 
 
-@tool.command("call")
+@tool.command("call", aliases=["exec"])
 @click.argument("tool")
 @click.argument("params", nargs=-1)
 @click.option("--json", "json_str", default=None, help="JSON object of parameters")
@@ -56,7 +59,7 @@ def tool_call(tool, params, json_str, pretty):
 
     t = loader.get(tool)
     if not t:
-        err(f" tool `{tool}` not found in loaded tools: {loader.keys}")
+        err(f" tool `{tool}` not found in loaded tools: {','.join(loader)}")
         return
 
     kwargs: dict = {}
@@ -70,21 +73,33 @@ def tool_call(tool, params, json_str, pretty):
         if "=" not in p:
             err(f"expected `key=value`, got `{p}`")
             return
-        key, _, value = p.partition("=")
+        key, _, value = p.rpartition("=")
         kwargs[key] = value
 
-    result = None
+    async def _execute():
+        current_user_var.set(_CLI_USER)
+        if not t.allows(_CLI_USER):
+            err(f"tool `{tool}` is not accessible")
+            return None
+        return await t.call(**kwargs)
+
     try:
-        result = asyncio.run(t.call(**kwargs))
+        result = asyncio.run(_execute())
     except Exception as e:
         err(e)
         return
 
-    if result is not None:
-        if not pretty:
-            print(result)
-            return
-        if isinstance(result, (dict, list)):
-            console.print_json(json.dumps(result, default=str))
-        else:
-            console.print(result)
+    if isinstance(result, tuple):
+        # exception
+        console.print(result[1]) if pretty else print(result[1])
+        err(result[2], result[0])
+    try:
+        result = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    printer = print
+    if pretty:
+        printer = (
+            console.print_json if isinstance(result, [list, dict]) else console.print
+        )
+    printer(result)

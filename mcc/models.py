@@ -42,6 +42,7 @@ class ParamModel(BaseModel):
     required: bool = False
     default: Any = None
     description: str = ""
+    example: str = ""
     override: Any = Field(default_factory=lambda: ...)
 
     @property
@@ -73,6 +74,7 @@ class ToolModel(BaseModel):
     env_file: str | None = None
     env_passthrough: bool = False
     description: str = ""
+    example: str = ""
     params: list[ParamModel] | None = None
     return_type: str | None = None
 
@@ -124,7 +126,12 @@ class ToolModel(BaseModel):
                     f"Failed to introspect '{self.fn}' with {self.python!r}:"
                     f" {result.stderr}"
                 )
-            items = json.loads(result.stdout)
+            try:
+                items = json.loads(result.stdout)
+            except (json.JSONDecodeError, ValueError):
+                raise ValueError(
+                    "Unable to parse JSON output. This is probably because of something in the tool writing to stdout"
+                )
             info = items[0]
             if "error" in info:
                 raise ValueError(f"Failed to introspect '{self.fn}':\n{info['error']}")
@@ -140,6 +147,14 @@ class ToolModel(BaseModel):
             attrs = self.fn.split(":", 1)[-1] if ":" in self.fn else self.fn
             self.name = attrs.rsplit(".", 1)[-1]
         return self
+
+    @property
+    def visible_params(self):
+        return [param for param in self.params if not param.has_override]
+
+    @property
+    def hidden_params(self):
+        return [param for param in self.params if param.has_override]
 
     @cached_property
     def callable(self) -> Callable:
@@ -174,9 +189,7 @@ class ToolModel(BaseModel):
     @property
     def param_model(self) -> type[BaseModel]:
         fields: dict = {}
-        for param in self.params:
-            if param.has_override:
-                continue
+        for param in self.visible_params:
             fields[param.name] = (
                 param.py_type,
                 ... if param.required else param.default,
@@ -191,29 +204,38 @@ class ToolModel(BaseModel):
         lines = [f"## {self.key}"]
 
         if self.groups:
-            lines.append(f"groups: {', '.join(sorted_groups(self.groups))}")
+            lines.append(f"groups: {','.join(sorted_groups(self.groups))}")
 
-        visible = [p for p in self.params if not p.has_override]
-        if visible:
+        if self.visible_params:
             lines.append("params:")
-            for param in visible:
-                if param.required:
-                    spec = f"  - {param.name} ({param.type}, required)"
-                else:
-                    spec = f"  - {param.name} ({param.type}, default: {param.default})"
-                if param.description:
-                    spec += f": {param.description}"
-                lines.append(spec)
+        else:
+            lines.append("no parameters")
+        for param in self.visible_params:
+            if param.required:
+                spec = f"  - {param.name} type: {param.type} required"
+            else:
+                spec = f"  - {param.name} type: {param.type} default: {param.default}"
+            if param.description:
+                spec += f": {param.description}"
+            if param.example:
+                spec += f" (example: {param.example})"
+            lines.append(spec)
 
         if self.exec:
-            lines.append(
-                "returns: str  # stdout on success, (code: int, stdout: str, stderr: str) on error"
+            lines.extend(
+                [
+                    "returns: str  # stdout on success",
+                    "returns: list [code: int, stdout: str, stderr: str] # on error",
+                ]
             )
         else:
             lines.append(f"returns: {self.return_type or 'unknown'}")
 
         if self.description:
             lines.extend(["", self.description])
+
+        if self.example:
+            lines.extend(["", f"example: {self.example}"])
 
         return "\n".join(lines)
 
@@ -231,9 +253,8 @@ class ToolModel(BaseModel):
         """
         validated = self.param_model(**kwargs)
         call_kwargs = validated.model_dump()
-        for param in self.params:
-            if param.has_override:
-                call_kwargs[param.name] = param.override
+        for param in self.hidden_params:
+            call_kwargs[param.name] = param.override
         try:
             result = self.callable(**call_kwargs)
             if inspect.isawaitable(result):

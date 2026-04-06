@@ -13,6 +13,7 @@ tools:
   - fn: mymodule:my_fn  # python callable (fn: or exec: required, not both)
     name: my-tool       # optional for fn, required for exec
     description: "..."  # optional for fn, recommended for exec
+    example: "..."      # optional — shown to the LLM as a usage example
     params:             # optional for fn (introspected), required for exec
       - name: arg
         type: str
@@ -35,9 +36,14 @@ tools:
 
 Omit `groups` entirely to default to `[public]` (accessible to all users).
 
-## `name` and `description`
+## `name`, `description`, and `example`
 
-For `fn` tools both fields are optional — MCC introspects them from the callable. For `exec` tools, `name` is required and `description` should be set manually since there's no callable to inspect.
+For `fn` tools `name` and `description` are optional — MCC introspects them from the callable. For `exec` tools, `name` is required and `description` should be set manually since there's no callable to inspect.
+
+`example` is optional for all tool types. Use it to give the LLM a concrete usage example shown directly in the tool signature.
+
+!!! tip "Description and example directly affect LLM behavior"
+    The tool signature is the only information the LLM has about what a tool does and when to use it. A missing or vague description causes the LLM to misuse the tool or skip it entirely. A good `description` explains the tool's purpose and when to reach for it; a good `example` shows a realistic invocation so the LLM can pattern-match against it.
 
 ```yaml
 tools:
@@ -45,6 +51,7 @@ tools:
   - name: compress              # exec tools must declare name explicitly
     exec: "gzip {{ file | quote }}"
     description: Compress a file with gzip
+    example: "compress file=/var/log/app.log"
 ```
 
 ## `params`
@@ -57,6 +64,7 @@ params:
     type: str
     required: true
     description: The message to send
+    example: "Hello, world!"
   - name: retries
     type: int
     default: 3

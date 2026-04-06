@@ -22,7 +22,11 @@ class LoggingMiddleware(Middleware):
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         user = current_user_var.get(None)
-        username = f"{user.username}<{user.email}>" if user else "anonymous"
+        username = "anonymous"
+        if user:
+            username = user.username
+            if user.email:
+                username = f"{username}<{user.email}>"
         tool_name = context.message.name
         params = context.message.arguments
 

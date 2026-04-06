@@ -13,9 +13,9 @@ click.rich_click.USE_RICH_MARKUP = True
 console = Console(markup=True)
 
 
-def err(msg):
+def err(msg, exit=1):
     console.print(f"[red]Error: {msg}[/red]", markup=True)
-    sys.exit(1)
+    sys.exit(exit)
 
 
 @click.group()

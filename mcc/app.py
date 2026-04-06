@@ -86,6 +86,8 @@ async def execute(name: str, params: Optional[dict] = None):
     The tool key is shown in search() results (e.g. "admin.shell", "public.request").
     Pass parameters as a dict matching the tool's declared parameter names and types.
     Required parameters must be included; optional parameters may be omitted.
+    LLMs should not try to execute arbitrary tools by name as they might not exist.
+    Instead use search first
 
     Examples:
       execute("admin.shell", {"command": "ls -la"})

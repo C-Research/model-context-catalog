@@ -6,29 +6,7 @@ MCC is written in Python FastMCP and uses Elastic Search for a data store and fa
 
 ## How it works
 
-```
-┌──────────────────────────────────────────────────────┐
-│                    MCP Client  (LLM)                 │
-└───────────────────────┬──────────────────────────────┘
-                        │ HTTP | STDIO (MCP)
-┌───────────────────────▼─────────────────────────────-┐
-│                    MCC Server                        │
-│                                                      │
-│         search(query)        execute(name, params)   │
-│               │                       │              │
-│         ┌─────▼───────────────────────▼─────┐        │
-│         │         Auth / RBAC               │        │
-│         │   (resolves user from request,    │        │
-│         │    filters by group membership)   │        │
-│         └─────┬───────────────────────┬─────┘        │
-│               │                       │              │
-│     ┌─────────▼──────-┐     ┌──────────▼─────────┐   │
-│     │  Elasticsearch  │     │   Tool Execution   │   │
-│     │  (semantic +    │     │   (python funcs    │   │
-│     │  keyword search)│     │    + exec tools)   │   │
-│     └─────────────────┘     └────────────────────┘   │
-└──────────────────────────────────────────────────────┘
-```
+![mcc_architecture_diagram](mcc_architecture_diagram.svg)
 
 The MCP client uses just two tools:
 
