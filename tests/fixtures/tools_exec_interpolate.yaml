@@ -1,6 +1,6 @@
 tools:
   - name: echo_interp
-    exec: "echo {message}"
+    exec: "echo {{ message | quote }}"
     params:
       - name: message
         type: str

@@ -1,18 +1,18 @@
 site_name: Model Context Catalog
 site_description: A permission-controlled MCP tool catalog for LLM clients
-repo_url: https://github.com/your-org/mcc
-repo_name: mcc
-
+repo_url: https://github.com/opensanctions/followthemoney
 theme:
   name: material
   palette:
     - scheme: default
+      media: "(prefers-color-scheme: light)"
       toggle:
-        icon: material/brightness-7
+        icon: lucide/moon
         name: Switch to dark mode
     - scheme: slate
+      media: "(prefers-color-scheme: dark)"
       toggle:
-        icon: material/brightness-4
+        icon: lucide/sun
         name: Switch to light mode
   features:
     - navigation.sections
@@ -32,13 +32,22 @@ markdown_extensions:
   - toc:
       permalink: true
 
+plugins:
+  - offline
+
+extra_css:
+  - stylesheets/claude.css
 nav:
   - Home: index.md
+  - MCP Interface: mcp.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
   - Tools:
-    - YAML Format: tools/yaml-format.md
+    - Tool Format: tools/yaml-format.md
+    - Python Tools: tools/python.md
+    - Exec Tools: tools/exec.md
     - Parameters: tools/parameters.md
     - Environment Variables: tools/env-vars.md
   - Auth & Permissions:
@@ -49,4 +58,11 @@ nav:
     - mcc user: cli/user.md
     - mcc tool: cli/tool.md
     - mcc mcp: cli/mcp.md
-  - Contrib Tools: contrib.md
+  - Contrib Tools:
+    - Overview: contrib/index.md
+    - HTTP: contrib/http.md
+    - Filesystem: contrib/fs.md
+    - System: contrib/system.md
+    - Text: contrib/text.md
+    - Time: contrib/time.md
+    - Archives: contrib/archive.md

@@ -1,33 +1,34 @@
 # mcc user
 
-Manage users in the MCC user store.
+Manage users and their permissions.
 
-## Commands
 
-### `mcc user add`
+## `add`
 
 Create a new user.
 
 ```bash
-mcc user add <username> [--email EMAIL]
+mcc user add -u <username> [--email EMAIL] [-g GROUP ...] [-t TOOL ...]
 ```
 
-**Arguments:**
+**Options:**
 
-| Argument | Description |
-|----------|-------------|
-| `username` | Unique username (typically GitHub login) |
-| `--email` | User's email address |
+| Option | Description |
+|--------|-------------|
+| `-u`, `--username` | GitHub username (required) |
+| `-e`, `--email` | User's email address |
+| `-g`, `--group` | Group to grant (repeatable) |
+| `-t`, `--tool` | Tool key to grant (repeatable) |
 
 **Example:**
 
 ```bash
-mcc user add alice --email alice@example.com
+mcc user add -u alice --email alice@example.com -g engineering
 ```
 
 ---
 
-### `mcc user list`
+## `list`
 
 List all users with their groups and tool grants.
 
@@ -37,7 +38,7 @@ mcc user list
 
 ---
 
-### `mcc user remove`
+## `remove`
 
 Delete a user.
 
@@ -47,14 +48,15 @@ mcc user remove <username>
 
 ---
 
-### `mcc user grant`
+## `grant`
 
 Grant a user group membership or an explicit tool permission.
 
 ```bash
-mcc user grant <username> -g <group>
-mcc user grant <username> -t <tool-key>
+mcc user grant <username> [-g GROUP ...] [-t TOOL ...]
 ```
+
+At least one `-g` or `-t` is required. Both flags are repeatable.
 
 **Examples:**
 
@@ -62,15 +64,17 @@ mcc user grant <username> -t <tool-key>
 mcc user grant alice -g engineering        # group membership
 mcc user grant alice -g admin              # full admin access
 mcc user grant alice -t admin.shell        # specific tool
+mcc user grant alice -g data -g ml         # multiple groups at once
 ```
 
 ---
 
-### `mcc user revoke`
+## `revoke`
 
-Remove a group membership or tool grant from a user.
+Remove group membership or tool grants from a user.
 
 ```bash
-mcc user revoke <username> -g <group>
-mcc user revoke <username> -t <tool-key>
+mcc user revoke <username> [-g GROUP ...] [-t TOOL ...]
 ```
+
+At least one `-g` or `-t` is required. Both flags are repeatable.

@@ -4,7 +4,19 @@ import shlex
 import sys
 from typing import Any, Callable
 
+from jinja2 import Environment, StrictUndefined
+
 from mcc.settings import logger
+
+
+def _quote_filter(value: Any) -> str:
+    if isinstance(value, list):
+        return " ".join(shlex.quote(str(v)) for v in value)
+    return shlex.quote(str(value))
+
+
+_jinja_env = Environment(undefined=StrictUndefined)
+_jinja_env.filters["quote"] = _quote_filter
 
 
 _LIMIT_SIGNALS = {
@@ -49,9 +61,10 @@ def make_exec_callable(
     """Generate an async closure that runs cmd as a subprocess."""
     preexec_fn = _build_preexec_fn(limits or {})
 
-    async def _exec(**kwargs: Any) -> tuple[int, str, str]:
-        safe = {k: shlex.quote(str(v)) for k, v in kwargs.items()}
-        run_cmd = cmd.format(**safe)
+    template = _jinja_env.from_string(cmd)
+
+    async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
+        run_cmd = template.render(**kwargs)
         logger.debug("exec: %s | %s", json.dumps(kwargs), run_cmd)
         stdin_pipe = asyncio.subprocess.PIPE if use_stdin else None
 
@@ -79,6 +92,8 @@ def make_exec_callable(
 
         code = proc.returncode or 0
         out = stdout.decode()
+        if code == 0:
+            return out
         err = stderr.decode()
 
         if code < 0 and limits:

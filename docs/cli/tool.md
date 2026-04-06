@@ -1,25 +1,46 @@
 # mcc tool
 
-Inspect and invoke tools from the command line.
+Browse and call catalog tools.
 
-## Commands
 
-### `mcc tool list`
+## `list`
 
-List all registered tools with their groups and descriptions.
+List all registered tools.
 
 ```bash
-mcc tool list
+mcc tool list [-l]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-l`, `--long` | Show full signatures instead of just keys |
+
+---
+
+## `info`
+
+Print the full signature of a tool by key.
+
+```bash
+mcc tool info <tool-key>
+```
+
+**Example:**
+
+```bash
+mcc tool info admin.shell
 ```
 
 ---
 
-### `mcc tool call`
+## `call`
 
 Invoke a tool by key and print the result.
 
 ```bash
-mcc tool call <tool-key> [--params JSON]
+mcc tool call <tool-key> [key=value ...] [--json JSON]
 ```
 
 **Arguments:**
@@ -27,14 +48,16 @@ mcc tool call <tool-key> [--params JSON]
 | Argument | Description |
 |----------|-------------|
 | `tool-key` | Exact tool key (e.g. `admin.shell`, `public.request`) |
-| `--params` | JSON string of parameters |
+| `key=value` | Parameters as positional `key=value` pairs (repeatable) |
+| `--json` | Parameters as a JSON object string |
 
 **Examples:**
 
 ```bash
-mcc tool call admin.shell --params '{"command": "ls -la"}'
-mcc tool call public.request --params '{"url": "https://example.com"}'
-mcc tool call admin.reload
+mcc tool call admin.auth.users.list_users
+mcc tool call admin.shell command="ls -la"
+mcc tool call my.tool name=foo count=3
+mcc tool call my.tool --json '{"name": "foo", "count": 3}'
 ```
 
-Output is syntax-highlighted JSON.
+Output is syntax-highlighted JSON for dicts and lists, plain text otherwise.

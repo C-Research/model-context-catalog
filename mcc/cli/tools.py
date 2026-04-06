@@ -41,7 +41,8 @@ def info(tool):
 @click.argument("tool")
 @click.argument("params", nargs=-1)
 @click.option("--json", "json_str", default=None, help="JSON object of parameters")
-def tool_call(tool, params, json_str):
+@click.option("--pretty", is_flag=True, default=False, help="Pretty print rich output")
+def tool_call(tool, params, json_str, pretty):
     """Look up a tool by key and call it.
 
     Accepts parameters as `key=value` pairs and/or a `--json` blob.
@@ -57,7 +58,7 @@ def tool_call(tool, params, json_str):
 
     t = loader.get(tool)
     if not t:
-        err(f" tool `{tool}` not found")
+        err(f" tool `{tool}` not found in loaded tools: {loader.keys}")
         return
 
     kwargs: dict = {}
@@ -82,6 +83,9 @@ def tool_call(tool, params, json_str):
         return
 
     if result is not None:
+        if not pretty:
+            print(result)
+            return
         if isinstance(result, (dict, list)):
             console.print_json(json.dumps(result, default=str))
         else:

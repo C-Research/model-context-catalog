@@ -24,6 +24,14 @@ TYPE_MAP: dict[str, type] = {
 REVERSE_TYPE_MAP: dict[type, str] = {v: k for k, v in TYPE_MAP.items()}
 
 
+def sorted_groups(groups: list[str]) -> list[str]:
+    """Sorts a list of groups always putting reserved public and admin at the beginning"""
+    priority = ["public", "admin"]
+    head = [g for g in priority if g in groups]
+    tail = [g for g in groups if g not in priority]
+    return head + tail
+
+
 class ParamModel(BaseModel):
     name: str
     type: str = "str"
@@ -124,7 +132,7 @@ class ToolModel(BaseModel):
 
     @property
     def key(self):
-        return ".".join(sorted(self.groups) + [self.name])
+        return ".".join(sorted_groups(self.groups) + [self.name])
 
     @property
     def param_model(self) -> type[BaseModel]:
@@ -146,7 +154,7 @@ class ToolModel(BaseModel):
         lines = [f"## {self.key}"]
 
         if self.groups:
-            lines.append(f"groups: {', '.join(sorted(self.groups))}")
+            lines.append(f"groups: {', '.join(sorted_groups(self.groups))}")
 
         visible = [p for p in self.params if not p.has_override]
         if visible:
@@ -161,7 +169,9 @@ class ToolModel(BaseModel):
                 lines.append(spec)
 
         if self.exec:
-            lines.append("returns: (returncode: int, stdout: str, stderr: str)")
+            lines.append(
+                "returns: str  # stdout on success, (code: int, stdout: str, stderr: str) on error"
+            )
         else:
             ret = "unknown"
             hint = inspect.signature(self.callable).return_annotation

@@ -122,11 +122,11 @@ async def catalog_tools() -> str:
 async def catalog_tool_by_key(key: str) -> str:
     """Get a single tool's signature by key."""
     if key not in loader:
-        return f"Tool '{key}' not found."
+        return f"Tool '{key}' not found in loader."
     tool = loader[key]
     user = current_user_var.get(None)
     if not tool.allows(user):
-        return f"Tool '{key}' not found."
+        return f"Tool '{key}' not found or not allowed by user."
     return tool.signature
 
 

@@ -32,7 +32,7 @@ execute("public.request", {"url": "https://api.example.com/data"})
 
 Executes an arbitrary shell command. Restricted to the `admin` group.
 
-!!! danger
+!!! danger "Makes system calls"
     This tool runs commands with the same privileges as the MCC server process. Only grant it to trusted users.
 
 **Parameters:**

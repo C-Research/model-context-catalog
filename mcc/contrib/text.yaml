@@ -27,3 +27,22 @@ tools:
       - name: flags
         type: int
         default: 0
+  
+  - name: jq
+    exec: echo {{ content | quote }} | jq {{ opts }} {{ filter | quote }}
+    params:
+      - name: filter
+        type: str
+        default: .content
+        description: filter expression
+      - name: content
+        type: str
+        description: source json content
+      - name: opts
+        type: str
+        default: ""
+        description: options for jq command
+    description: | 
+      jq is a tool for processing JSON inputs, applying the given filter to
+      its JSON text inputs and producing the filter's results as JSON on
+      standard output.

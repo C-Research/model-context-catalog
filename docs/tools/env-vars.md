@@ -30,9 +30,6 @@ export API_BASE_URL=https://api.internal.example.com
 
 If a referenced variable is not set in the environment, MCC leaves the literal string as-is (e.g. `$INTERNAL_API_KEY`). No error is raised.
 
-!!! tip
+!!! tip "Always hidden"
     Use overrides for injecting env vars into tool calls. This keeps secrets out of YAML and out of the LLM's view.
 
-## `.env` file support
-
-EnvYAML (the library MCC uses for YAML parsing) also supports loading from a `.env` file. Place a `.env` in your working directory and variables defined there will be available for substitution.

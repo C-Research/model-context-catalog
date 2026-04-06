@@ -1,5 +1,8 @@
 # Auth Backends
 
+!!! warning "Under construction"
+    This is a work in progress as this is still alpha software and not tested against any prod OAuth2 providers yet
+
 MCC supports multiple authentication backends. Configure one in `settings.local.toml`.
 
 ## GitHub OAuth
@@ -32,7 +35,10 @@ auth = "github_pat"
 
 Clients pass the PAT as a bearer token. MCC resolves it to a GitHub identity, then looks up the user in the store.
 
-## Dangerous (dev mode)
+## Dangerous
+
+!!! danger "Dev only"
+    this mode grants admin access to any request. Do not expose the server publicly when using this backend.
 
 No authentication — automatically uses the first admin user in the database. **Never use in production.**
 
@@ -43,5 +49,3 @@ auth = "dangerous"
 
 Useful for local development and testing without setting up OAuth.
 
-!!! danger
-    `dangerous` mode grants admin access to any request. Do not expose the server publicly when using this backend.

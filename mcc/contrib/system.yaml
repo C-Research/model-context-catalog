@@ -15,3 +15,15 @@ tools:
     params:
       - name: source
         type: str
+
+  - name: man
+    exec: man {{ cmd | quote }} | cat
+    description: The man utility finds and displays online manual documentation pages.
+    params:
+      - name: cmd
+        type: str
+        description: command to lookup
+
+  - name: uname
+    exec: uname -a
+    description: The uname command writes the name of the operating system implementation to standard output.

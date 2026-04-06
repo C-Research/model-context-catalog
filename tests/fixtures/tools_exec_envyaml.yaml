@@ -1,0 +1,7 @@
+tools:
+  - name: greet_env
+    exec: "echo ${GREET_PREFIX} {{ name | quote }}"
+    params:
+      - name: name
+        type: str
+        required: true

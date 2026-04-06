@@ -2,32 +2,28 @@
 
 Tools are defined in YAML files. Each file declares a list of tools, optionally scoped to one or more groups.
 
+!!! tip "Be explicit"
+    Fill out as much detail in the tool and parameter descriptions as all info is sent to the LLM for context on how to use it.
+
 ## Basic structure
 
 ```yaml
-groups: [mygroup]          # optional — defaults to [public]
+groups: [mygroup]       # optional — defaults to [public]
 tools:
-  - fn: mymodule:my_fn     # required — dotted import path to the callable
-    name: my-tool          # optional — defaults to function __name__
-    description: "..."     # optional — defaults to function __doc__
-    params:                # optional — introspected from signature if omitted
+  - fn: mymodule:my_fn  # python callable (fn: or exec: required, not both)
+    name: my-tool       # optional for fn, required for exec
+    description: "..."  # optional for fn, recommended for exec
+    params:             # optional for fn (introspected), required for exec
       - name: arg
         type: str
         required: true
 ```
 
-## `fn` — the callable
-
-Points at any importable Python callable using either colon or dot notation:
-
-```yaml
-fn: mypackage.mymodule:my_function   # colon separator (preferred)
-fn: mypackage.mymodule.my_function   # dot separator also works
-```
+Each tool uses either `fn` to call a Python callable or `exec` to run a shell command — see [Python Tools](python.md) and [Exec Tools](exec.md) respectively.
 
 ## `groups`
 
-Controls which users can access the tools in this file. Can be set at the file level or overridden per tool:
+Controls which users can access the tools in this file. Can be set at the file level and overridden per tool:
 
 ```yaml
 groups: [engineering]     # all tools in this file default to [engineering]
@@ -41,24 +37,37 @@ Omit `groups` entirely to default to `[public]` (accessible to all users).
 
 ## `name` and `description`
 
-Both are optional and auto-populated from the function:
+For `fn` tools both fields are optional — MCC introspects them from the callable. For `exec` tools, `name` is required and `description` should be set manually since there's no callable to inspect.
 
 ```yaml
 tools:
-  - fn: mymodule:send_email
-    # name defaults to "send_email"
-    # description defaults to send_email.__doc__
+  - fn: mymodule:send_email     # name → "send_email", description → __doc__
+  - name: compress              # exec tools must declare name explicitly
+    exec: "gzip {{ file | quote }}"
+    description: Compress a file with gzip
 ```
+
+## `params`
+
+Params define what the tool accepts. For `fn` tools they're introspected automatically. For `exec` tools they must be declared explicitly.
+
+```yaml
+params:
+  - name: message
+    type: str
+    required: true
+    description: The message to send
+  - name: retries
+    type: int
+    default: 3
+    description: Number of retry attempts
+```
+
+See [Parameters](parameters.md) for types, defaults, and overrides.
 
 ## Tool key
 
-Each registered tool gets a key derived from its groups and name:
-
-```
-key = ".".join(sorted(groups) + [name])
-```
-
-Examples:
+Each tool gets a key derived from its groups and name. `public` and `admin` sort to the front:
 
 | groups | name | key |
 |--------|------|-----|
@@ -70,14 +79,11 @@ Use the key with `execute()`.
 
 ## Loading multiple files
 
-Register additional YAML files in `settings.local.toml`:
+Register YAML files or directories in `settings.local.yaml`:
 
-```toml
-[default]
-tools = [
-  "mytools.yaml",
-  "path/to/more_tools.yaml",
-]
+```yaml
+tools:
+  - mytools.yaml
+  - path/to/more_tools.yaml
+  - path/to/tools_dir        # loads all *.yaml files in this directory
 ```
-
-MCC also recursively loads all `*.yaml` files from any directory path you provide.

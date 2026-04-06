@@ -1,24 +1,31 @@
 # Model Context Catalog
 
-MCC is an MCP (Model Context Protocol) server that acts as a permission-controlled catalog of Python tools. It lets you expose arbitrary Python functions to Claude and other LLM clients through a unified `search` / `execute` interface, with authentication and RBAC built in.
+MCC is an MCP server that acts as a permission-controlled catalog of tools. It exposes pre-defined **Python functions and shell commands** to Claude and other LLM clients through a unified `search` / `execute` interface, with authentication and group based access controls built in.
 
 ## How it works
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   MCP Client (Claude)               │
-└───────────────────────┬─────────────────────────────┘
-                        │ HTTP (MCP protocol)
-┌───────────────────────▼─────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
+│                   MCP Client (Claude)                │
+└───────────────────────┬──────────────────────────────┘
+                        │ HTTP | STDIO (MCP protocol)
+┌───────────────────────▼─────────────────────────────-┐
 │                    MCC Server                        │
 │                                                      │
-│   search(query, group)    execute(name, params)      │
-└──────────┬────────────────────────┬─────────────────┘
-           │                        │
-    ┌──────▼──────┐         ┌───────▼───────┐
-    │  Tool Catalog│         │  Auth / RBAC  │
-    │  (YAML files)│         │  (ES + groups)│
-    └─────────────┘         └───────────────┘
+│         search(query)        execute(name, params)   │
+│               │                       │              │
+│         ┌─────▼───────────────────────▼─────┐        │
+│         │         Auth / RBAC               │        │
+│         │   (resolves user from request,    │        │
+│         │    filters by group membership)   │        │
+│         └─────┬───────────────────────┬─────┘        │
+│               │                       │              │
+│     ┌─────────▼──────-┐     ┌──────────▼─────────┐   │
+│     │  Elasticsearch  │     │   Tool Execution   │   │
+│     │  (semantic +    │     │   (python funcs    │   │
+│     │  keyword search)│     │    + exec tools)   │   │
+│     └─────────────────┘     └────────────────────┘   │
+└──────────────────────────────────────────────────────┘
 ```
 
 The LLM uses two tools:
@@ -26,17 +33,32 @@ The LLM uses two tools:
 - **`search(query)`** — finds tools by natural language (hybrid keyword + semantic search), returns signatures with relevance scores
 - **`execute(name, params)`** — runs a tool by key, validates params, checks permissions
 
+## Why only two tools?
+
+Most MCP servers expose every capability as a separate named tool. MCC takes the opposite approach: the catalog itself is the interface, and the LLM navigates it dynamically.
+
+**The problem with many tools:** LLM context windows fill up with tool definitions. With 30+ tools loaded, a significant portion of every request is spent just describing what's available — before any actual work happens. Tool selection also degrades as the list grows; models struggle to choose well from large flat lists.
+
+**The catalog approach:** `search` and `execute` give the model a two-step interface to an arbitrarily large collection of tools. The model asks "what can help me here?" before acting, rather than scanning a fixed manifest. You can register hundreds of tools without bloating the context — only the ones the model actually finds and uses consume tokens.
+
+This also makes the catalog self-documenting. The model learns about tools on demand, in the context where it needs them, rather than loading all descriptions upfront.
+
 ## Key features
 
-- Define tools in YAML — point at any Python callable
-- Group-based access control with per-user overrides
-- Hybrid semantic + keyword search powered by Elasticsearch
-- Auth via GitHub OAuth, GitHub PAT, or dev mode
-- Hot reload without restarting the server
-- Environment variable substitution in YAML configs
+- **Two tool types**: point at any Python callable (`fn:`) which runs in the server's interpreter or wrap any shell command (`exec:`) which can run any interpreter
+- **Tool spec templates**: can interpolate env vars `${MYVAR}` at load time and then `{{ param | quote }}` at execute time for safe shell interpolation, with conditionals and list expansion
+- **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elasticsearch and FastEmbed
+- **Group-based access control** tools specs define `groups` and users are stored in ES. users can be granted tool access via `groups`  or specific `tools`
+- **Auth backends**: GitHub OAuth, GitHub PAT, or dev mode (`dangerous`)
+- **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
+- **Hot reload** catalog tool defs without restarting the server
+- **MCP resources and prompts** for catalog browsing and guided workflows
 
 ## Next steps
 
 - [Installation](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
+- [MCP Interface](mcp.md)
 - [YAML Tool Format](tools/yaml-format.md)
+- [Exec Tools](tools/exec.md)
+- [Contrib Tools](contrib/index.md)

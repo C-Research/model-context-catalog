@@ -1,3 +1,45 @@
 tools:
   - fn: mcc.contrib.http:request
     groups: [admin, http]
+  - fn: mcc.contrib.http:request
+    name: responsible-get
+    groups: [public, http]
+    params:
+      - name: method
+        type: str
+        override: GET
+      - name: responsible
+        type: bool
+        override: true
+      - name: url
+        type: str  
+  - exec: curl -s -o -  "http://ip-api.com/json/{{ query }}?fields={{ fields | join(',') }}"
+    name: geolocate
+    description: returns geolocation data about where the speicifc address originates from using ip-api.com
+    groups: [public, http]
+    params:
+      - name: query
+        description: can be a single IPv4/IPv6 address or a domain name. If you don't supply a query the current IP address will be used.
+        type: str
+      - name: fields
+        type: list
+        default: []
+        description: Specific fields to only return eg status,message,query,country,city
+
+  - name: dnsdumpster
+    description: DNSDumpster.com is a FREE domain name service (DNS) research tool that can discover hosts related to a domain. Finding visible hosts from the attackers perspective is an important part of the security assessment process.
+    exec: >
+      curl -s -o - -H 'X-API-Key: ${DNSDUMPSTER_API_KEY}' 'https://api.dnsdumpster.com/domain/{{ domain }}' 
+    groups: [public, http]
+    params:
+      - name: domain
+        type: str
+        required: true
+        description: domain name or ip address to search
+  # - fn: mcc.contrib.http:request
+  #   groups: [public, http]
+  #   params:
+  #     - name: method
+  #       type: str
+  #       override: GET
+  #     - name: url

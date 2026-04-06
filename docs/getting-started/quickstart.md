@@ -23,11 +23,11 @@ def greet(name: str) -> str:
 
 ## 2. Register it
 
-In `settings.local.toml`:
+In `settings.local.yaml`:
 
-```toml
-[default]
-tools = ["mytools.yaml"]
+```yaml
+tools:
+  - mytools.yaml
 ```
 
 ## 3. Start the server
