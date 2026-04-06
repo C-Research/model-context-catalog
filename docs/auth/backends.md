@@ -1,13 +1,14 @@
 # Auth Backends
 
-!!! warning "Under construction"
-    This is a work in progress as this is still alpha software and not tested against any prod OAuth2 providers yet
 
 MCC supports multiple authentication backends. Configure one in `settings.local.toml`.
 
 ## GitHub OAuth
 
 Authenticates users via GitHub OAuth 2.0. The GitHub login is used as the username.
+
+!!! warning "Under construction"
+    This is a work in progress as OAuth2 providers are still untested 
 
 ```toml
 [default]
@@ -35,17 +36,29 @@ auth = "github_pat"
 
 Clients pass the PAT as a bearer token. MCC resolves it to a GitHub identity, then looks up the user in the store.
 
-## Dangerous
+## dev-admin
 
 !!! danger "Dev only"
-    this mode grants admin access to any request. Do not expose the server publicly when using this backend.
+    This mode grants admin access to any request. Do not expose the server publicly when using this backend.
 
-No authentication — automatically uses the first admin user in the database. **Never use in production.**
+No authentication — automatically selects the first admin user in the database. If no admin user exists, falls back to a dummy user with `groups: [admin]`. **Never use in production.**
 
 ```toml
 [default]
-auth = "dangerous"
+auth = "dev-admin"
 ```
 
 Useful for local development and testing without setting up OAuth.
+
+## dev-public
+
+
+No authentication — automatically selects the first public user in the database. If no public user exists, falls back to a dummy user with `groups: [public]`. 
+```toml
+[default]
+auth = "dev-public"
+```
+
+Useful for testing the public tool surface without granting admin access.
+OK to use in prod but will be limited to only public tools
 

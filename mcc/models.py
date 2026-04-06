@@ -1,5 +1,10 @@
-import importlib
 import inspect
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
@@ -9,7 +14,8 @@ from functools import cached_property
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from mcc.settings import logger
-from mcc.exec import make_exec_callable
+from mcc.exec import make_exec_callable, make_py_callable
+from mcc.exec import _build_env
 
 
 TYPE_MAP: dict[str, type] = {
@@ -20,8 +26,6 @@ TYPE_MAP: dict[str, type] = {
     "list": list,
     "dict": dict,
 }
-
-REVERSE_TYPE_MAP: dict[type, str] = {v: k for k, v in TYPE_MAP.items()}
 
 
 def sorted_groups(groups: list[str]) -> list[str]:
@@ -55,37 +59,22 @@ class ParamModel(BaseModel):
         return TYPE_MAP[self.type]
 
 
-def params_from_signature(fn: Callable) -> list[ParamModel]:
-    """
-    Inspects a callable to populate parameters based on inspect annotations
-    """
-    params: list[ParamModel] = []
-    for param in inspect.signature(fn).parameters.values():
-        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-            continue
-        annotation = param.annotation if param.annotation is not param.empty else str
-        has_default = param.default is not param.empty
-        params.append(
-            ParamModel(
-                name=param.name,
-                type=REVERSE_TYPE_MAP.get(annotation, "str"),
-                required=not has_default,
-                default=param.default if has_default else None,
-            )
-        )
-    return params
-
-
 class ToolModel(BaseModel):
     groups: list[str] = Field(default_factory=list)
     name: str = ""
     fn: str | None = None
     exec: str | None = Field(default=None, alias="exec")
+    python: str | None = None
     stdin: bool = False
     timeout: int | None = None
     limits: dict | None = None
+    cwd: str | None = None
+    env: dict[str, str] | None = None
+    env_file: str | None = None
+    env_passthrough: bool = False
     description: str = ""
-    params: list[ParamModel] = Field(default_factory=list)
+    params: list[ParamModel] | None = None
+    return_type: str | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -95,6 +84,15 @@ class ToolModel(BaseModel):
             raise ValueError("Tool must specify either 'fn' or 'exec', not both")
         if not self.fn and not self.exec:
             raise ValueError("Tool must specify either 'fn' or 'exec'")
+        if self.python and self.exec:
+            raise ValueError("'python' can only be used with 'fn', not 'exec'")
+        if self.fn and not self.python:
+            self.python = sys.executable
+        if self.python:
+            resolved = shutil.which(self.python)
+            if resolved is None:
+                raise ValueError(f"Python interpreter not found: {self.python!r}")
+            self.python = resolved
         return self
 
     @model_validator(mode="after")
@@ -102,33 +100,72 @@ class ToolModel(BaseModel):
         if self.exec:
             if not self.name:
                 raise ValueError("Exec tools must specify a 'name'")
+            if self.params is None:
+                self.params = []
             return self
         assert self.fn is not None
-        if not self.name:
-            self.name = getattr(self.callable, "__name__", self.fn.rpartition(".")[-1])
-        if not self.description:
-            self.description = getattr(self.callable, "__doc__", "")
-        if not self.params:
-            self.params = params_from_signature(self.callable)
+        assert self.python is not None
+        if self.params is None:
+            pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
+
+            run_kwargs: dict = {"capture_output": True, "text": True, "timeout": 30}
+            if self.cwd is not None:
+                run_kwargs["cwd"] = self.cwd
+            merged_env = _build_env(self.env, self.env_file)
+            introspect_env = dict(merged_env if merged_env is not None else os.environ)
+            introspect_env["MCC_SKIP_AUTOLOAD"] = "1"
+            run_kwargs["env"] = introspect_env
+            result = subprocess.run(
+                [self.python, pyrunner_path, "introspect", self.fn],
+                **run_kwargs,
+            )
+            if result.returncode != 0:
+                raise ValueError(
+                    f"Failed to introspect '{self.fn}' with {self.python!r}:"
+                    f" {result.stderr}"
+                )
+            items = json.loads(result.stdout)
+            info = items[0]
+            if "error" in info:
+                raise ValueError(f"Failed to introspect '{self.fn}':\n{info['error']}")
+            if not self.name:
+                self.name = info["name"]
+            if not self.description:
+                self.description = info["doc"]
+            if not self.return_type:
+                self.return_type = info.get("return_type")
+            self.params = [ParamModel(**p) for p in info["params"]]
+        elif not self.name:
+            # params explicitly declared; derive name from path string
+            attrs = self.fn.split(":", 1)[-1] if ":" in self.fn else self.fn
+            self.name = attrs.rsplit(".", 1)[-1]
         return self
 
     @cached_property
     def callable(self) -> Callable:
         if self.exec:
-            return make_exec_callable(self.exec, self.stdin, self.timeout, self.limits)
-        assert self.fn is not None
-        if ":" in self.fn:
-            module_path, attrs = self.fn.split(":", 1)
-        else:
-            module_path, _, attrs = self.fn.rpartition(".")
-        if not module_path or not attrs:
-            raise ImportError(
-                f"Invalid fn path '{self.fn}': use 'module:attr.attr' or 'module.attr'"
+            return make_exec_callable(
+                self.exec,
+                self.stdin,
+                self.timeout,
+                self.limits,
+                self.cwd,
+                self.env,
+                self.env_file,
+                self.env_passthrough,
             )
-        obj: Any = importlib.import_module(module_path)
-        for attr in attrs.split("."):
-            obj = getattr(obj, attr)
-        return obj
+        assert self.fn is not None
+        assert self.python is not None
+        return make_py_callable(
+            self.fn,
+            self.python,
+            self.timeout,
+            self.limits,
+            self.cwd,
+            self.env,
+            self.env_file,
+            self.env_passthrough,
+        )
 
     @property
     def key(self):
@@ -173,11 +210,7 @@ class ToolModel(BaseModel):
                 "returns: str  # stdout on success, (code: int, stdout: str, stderr: str) on error"
             )
         else:
-            ret = "unknown"
-            hint = inspect.signature(self.callable).return_annotation
-            if hint is not inspect.Parameter.empty:
-                ret = getattr(hint, "__name__", str(hint))
-            lines.append(f"returns: {ret}")
+            lines.append(f"returns: {self.return_type or 'unknown'}")
 
         if self.description:
             lines.extend(["", self.description])

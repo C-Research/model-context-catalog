@@ -1,3 +1,4 @@
+import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -102,7 +103,14 @@ async def execute(name: str, params: Optional[dict] = None):
     if not tool.allows(user):
         return "Unauthorized"
     try:
-        return await tool.call(**params or {})
+        result = await tool.call(**params or {})
+        # fn tools return JSON-encoded strings via subprocess; parse for natural values
+        if isinstance(result, str):
+            try:
+                return json.loads(result)
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return result
     except ValidationError as e:
         return f"Validation error for tool '{name}': {e}"
 

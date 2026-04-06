@@ -1,6 +1,7 @@
 site_name: Model Context Catalog
 site_description: A permission-controlled MCP tool catalog for LLM clients
 repo_url: https://github.com/opensanctions/followthemoney
+repo_name: model-context-catalog
 theme:
   name: material
   palette:
@@ -35,6 +36,8 @@ markdown_extensions:
 plugins:
   - offline
 
+copyright: "&copy; 2025 C4ADS"
+
 extra_css:
   - stylesheets/claude.css
 nav:
@@ -44,20 +47,18 @@ nav:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - Configuration: getting-started/configuration.md
+    - CLI Reference: cli.md
   - Tools:
     - Tool Format: tools/yaml-format.md
     - Python Tools: tools/python.md
     - Exec Tools: tools/exec.md
     - Parameters: tools/parameters.md
     - Environment Variables: tools/env-vars.md
+    - Resource Limits: tools/limits.md
   - Auth & Permissions:
     - Overview: auth/overview.md
     - Users & Groups: auth/users-groups.md
     - Auth Backends: auth/backends.md
-  - CLI Reference:
-    - mcc user: cli/user.md
-    - mcc tool: cli/tool.md
-    - mcc mcp: cli/mcp.md
   - Contrib Tools:
     - Overview: contrib/index.md
     - HTTP: contrib/http.md

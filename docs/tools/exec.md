@@ -1,6 +1,6 @@
 # Exec Tools
 
-Any shell command can be wrapped as a catalog tool using the `exec:` field. No Python code required — just declare the command, describe the parameters, and MCC handles validation, interpolation, and execution.
+Any shell command can be wrapped as a catalog tool using the `exec:` field. No Python code required — declare the command, describe the parameters, and MCC handles validation, interpolation, and execution.
 
 ## Basic structure
 
@@ -15,35 +15,57 @@ tools:
         required: true
 ```
 
-Use `exec:` instead of `fn:`. The `name` field is required for exec tools (there's no callable to introspect).
+Use `exec:` instead of `fn:`. The `name` field is required for exec tools (there is no callable to introspect it from).
 
-## Return value
+---
 
-All exec tools return a tuple:
+## How it works
+
+When an exec tool is called:
+
+1. **Validate** — MCC validates parameters against the declared `params`.
+2. **Render** — The command string is rendered as a Jinja2 template with the validated parameter values.
+3. **Execute** — The rendered command is run via `/bin/sh -c <cmd>` as an async subprocess.
+4. **Return** — stdout is returned on success; `(returncode, stdout, stderr)` on failure.
+
+### Return value
+
+On **success** (exit code 0) the tool returns a string — the subprocess stdout.
+
+On **failure** (non-zero exit code) the tool returns a tuple:
 
 ```python
 (returncode: int, stdout: str, stderr: str)
 ```
 
-- `returncode` is the called process' return code. A zero returncode means success. Non-zero means the command failed
-- `stdout` text of standard output
-- `stderr` text of standard error
+```yaml
+# returns "hello\n" on success
+- name: greet
+  exec: echo hello
+
+# returns (-1, "", "timeout after 5s") if killed
+- name: slow
+  exec: sleep 999
+  timeout: 5
+```
+
+---
 
 ## Templating
 
-Exec commands are [Jinja2](https://jinja.palletsprojects.com/) templates. Parameters are available as template variables.
+Exec commands are [Jinja2](https://jinja.palletsprojects.com/) templates. Validated parameter values are available as template variables.
 
 ### The `| quote` filter
 
 !!! warning "Quoting is your responsibility"
-    No automatic quoting is applied. Every user-supplied value interpolated into the command should go through `quote`. If not quoted there is a possibility of shell injection exploits to expose secrets or do RCE.
+    No automatic quoting is applied. Every user-supplied value interpolated into the command should go through `| quote`. Without it, values containing spaces, semicolons, or shell metacharacters can break the command or enable injection.
 
     ```yaml
-    # Unsafe:
-    exec: grep {{ pattern }} {{ path }}
-
     # Safe:
     exec: grep {{ pattern | quote }} {{ path | quote }}
+    
+    # Unsafe:
+    exec: grep {{ pattern }} {{ path }}
     ```
 
 The `| quote` filter applies [`shlex.quote`](https://docs.python.org/3/library/shlex.html#shlex.quote) to safely escape values for shell interpolation.
@@ -85,11 +107,11 @@ tools:
 
 ### Missing variables
 
-If a template references a variable that isn't provided, an `UndefinedError` is raised **before** the subprocess runs. There is no silent empty-string substitution.
+If a template references a variable that was not provided, an `UndefinedError` is raised **before** the subprocess runs. There is no silent empty-string substitution.
 
-### Environment variables
+### `${VAR}` — load-time substitution
 
-[EnvYAML](https://github.com/thesimj/envyaml) resolves `${VAR}` environment variable references at **load time**, before any Jinja rendering. The two compose cleanly:
+[EnvYAML](https://github.com/thesimj/envyaml) resolves `${VAR}` references at **load time**, before any Jinja rendering. Use this to embed server-side configuration into the command:
 
 ```yaml
 tools:
@@ -101,19 +123,30 @@ tools:
         required: true
 ```
 
-At load time, `${LOG_DIR}` is replaced with the environment variable value. At call time, Jinja renders `{{ file | quote }}`. They never interfere.
+At load time `${LOG_DIR}` is substituted from the environment. At call time Jinja renders `{{ file | quote }}`. They never interfere.
 
-
+---
 
 ## Stdin mode
 
-Set `stdin: true` to send all validated parameters as a JSON object on stdin instead of interpolating into the command string. Useful for tools that read structured input:
+Set `stdin: true` to deliver all validated parameters as a JSON object on stdin instead of interpolating them into the command string. The Jinja template is still rendered for the command itself, but params arrive via stdin as a JSON blob.
+
+Useful for tools that read structured input or when parameters contain characters that are awkward to quote:
 
 ```yaml
 tools:
-  - name: python
+  - name: process_json
+    exec: python -c 'import sys, json; json.load(sys.stdin)["key"]'
+    stdin: true
+    params:
+      - name: key
+        type: str
+        required: true
+
+  - name: python_eval
     exec: >
-      python {% if verbose %}-vvv{% endif %} -c 'import sys, json; print(json.load(sys.stdin)["source"])'
+      python {% if verbose %}-v {% endif %}-c
+      'import sys, json; exec(json.load(sys.stdin)["source"])'
     stdin: true
     params:
       - name: source
@@ -124,37 +157,43 @@ tools:
         default: false
 ```
 
-When `stdin: true`, the Jinja template is still rendered (for the command itself), but params are delivered via stdin as a JSON blob.
+Stdin and Jinja templating compose: the command is rendered from params at call time, then params are also sent as `{"key": "value", ...}` on stdin.
 
-## Timeout
+---
 
-Set a maximum runtime in seconds:
+## Runtime options
+
+All common runtime fields (`cwd`, `env`, `env_file`, `env_passthrough`, `timeout`, `limits`) are documented in [YAML Tool Format → Runtime options](yaml-format.md#runtime-options). Below are `exec`-specific notes and examples.
+
+### Working directory
 
 ```yaml
 tools:
-  - name: slow_job
-    exec: python -c 'import time; time.sleep(99999)'
-    timeout: 30
+  - name: build
+    exec: make all
+    cwd: /srv/myproject
+    timeout: 300
 ```
 
-On timeout, the process is killed and the tool returns `(-1, "", "timeout after 30s")`.
+### Environment variables
 
-## Resource limits
+Exec tools have two separate env mechanisms that operate at different times. See [Environment Variables → Exec tools](env-vars.md#exec-tools-two-mechanisms) for the full reference including load-time `${VAR}` substitution, call-time `env:`/`env_file:`, and `PATH` handling with `env_passthrough: false`.
 
-On Unix, constrain subprocess resource usage:
+### Timeout and resource limits
+
+`timeout:` sets a wall-clock deadline in seconds; `limits:` caps CPU, memory, and other OS resources. See [Resource Limits](limits.md) for the full reference.
 
 ```yaml
 tools:
-  - name: sandbox
-    exec: python {{ script | quote }}
+  - name: render
+    exec: ffmpeg -i {{ input | quote }} {{ output | quote }}
+    timeout: 600
     limits:
-      mem_mb: 256      # max memory (RLIMIT_AS)
-      cpu_sec: 10      # max CPU time (RLIMIT_CPU)
-      fsize_mb: 50     # max file write size (RLIMIT_FSIZE)
-      nofile: 64       # max open file descriptors
+      mem_mb: 2048
+      cpu_sec: 300
     params:
-      - name: script
+      - name: input
         type: str
-        required: true
+      - name: output
+        type: str
 ```
-

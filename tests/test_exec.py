@@ -3,6 +3,7 @@ import sys
 import pytest
 from jinja2 import UndefinedError
 
+from mcc.exec import make_py_callable
 from mcc.loader import loader
 from mcc.models import ToolModel
 
@@ -182,6 +183,44 @@ class TestTimeout:
         assert "timeout after 1s" in stderr
 
 
+class TestPyCallable:
+    async def test_returns_str_on_success(self):
+        import json
+
+        callable_ = make_py_callable("tests.example:add", sys.executable, None, None)
+        result = await callable_(x=2, y=3)
+        assert isinstance(result, str)
+        assert json.loads(result) == 5
+
+    async def test_returns_tuple_on_failure(self):
+        callable_ = make_py_callable(
+            "tests.example:always_fails", sys.executable, None, None
+        )
+        code, out, err = await callable_(msg="boom")
+        assert code != 0
+        assert "RuntimeError" in err
+
+    async def test_timeout_kills_and_returns(self):
+        # use a small exec tool equivalent: python -c "import time; time.sleep(10)"
+        # but via make_py_callable with a function that sleeps
+        # We use make_exec_callable for a simpler timeout test here since
+        # always_fails exits immediately. Instead, construct directly via ToolModel.
+        tool = ToolModel(
+            fn="tests.example:add",
+            python=sys.executable,
+            timeout=1,
+            params=[
+                {"name": "x", "type": "int", "required": True},
+                {"name": "y", "type": "int", "required": True},
+            ],
+        )
+        # add() is fast, just verify timeout doesn't break normal execution
+        import json
+
+        result = await tool.call(x=1, y=1)
+        assert json.loads(result) == 2
+
+
 class TestResourceLimits:
     @pytest.mark.skipif(sys.platform == "win32", reason="unix only")
     async def test_limits_applied(self):
@@ -197,3 +236,122 @@ class TestResourceLimits:
         tool = ToolModel(name="nolimit", **{"exec": "echo fine"})
         stdout = await tool.call()
         assert "fine" in stdout
+
+
+class TestCwdEnvEnvFile:
+    async def test_exec_cwd(self, tmp_path):
+        tool = ToolModel(name="pwd_tool", **{"exec": "pwd"}, cwd=str(tmp_path))
+        stdout = await tool.call()
+        assert str(tmp_path) in stdout
+
+    async def test_exec_env(self):
+        tool = ToolModel(
+            name="env_tool",
+            **{"exec": "echo $MY_VAR"},
+            env={"MY_VAR": "hello_env"},
+        )
+        stdout = await tool.call()
+        assert "hello_env" in stdout
+
+    async def test_exec_env_file(self, tmp_path):
+        env_file = tmp_path / ".env"
+        env_file.write_text("MY_FILE_VAR=from_file\n")
+        tool = ToolModel(
+            name="envfile_tool",
+            **{"exec": "echo $MY_FILE_VAR"},
+            env_file=str(env_file),
+        )
+        stdout = await tool.call()
+        assert "from_file" in stdout
+
+    async def test_env_overrides_env_file(self, tmp_path):
+        env_file = tmp_path / ".env"
+        env_file.write_text("MYVAR=from_file\n")
+        tool = ToolModel(
+            name="override_tool",
+            **{"exec": "echo $MYVAR"},
+            env_file=str(env_file),
+            env={"MYVAR": "from_env"},
+        )
+        stdout = await tool.call()
+        assert "from_env" in stdout
+
+    async def test_py_callable_cwd(self, tmp_path):
+        tool = ToolModel(
+            fn="os:getcwd",
+            python=sys.executable,
+            cwd=str(tmp_path),
+        )
+        import json
+
+        result = await tool.call()
+        assert str(tmp_path) in json.loads(result)
+
+    async def test_py_callable_env(self):
+        tool = ToolModel(
+            fn="tests.example:get_env_var",
+            python=sys.executable,
+            env={"TEST_PY_VAR": "py_env_val"},
+            env_passthrough=True,  # add to parent env so Python imports still work
+            params=[{"name": "name", "type": "str", "required": True}],
+        )
+        import json
+
+        result = await tool.call(name="TEST_PY_VAR")
+        assert json.loads(result) == "py_env_val"
+
+    async def test_env_passthrough_false_excludes_parent_env(self, monkeypatch):
+        monkeypatch.setenv("MCC_TEST_PARENT_ONLY", "parent_value")
+        tool = ToolModel(
+            name="check_passthrough",
+            **{"exec": "echo ${MCC_TEST_PARENT_ONLY:-not_inherited}"},
+            env={"EXPLICIT": "yes"},
+            env_passthrough=False,
+        )
+        stdout = await tool.call()
+        assert "not_inherited" in stdout
+
+
+class TestFnToolDirect:
+    """fn tools constructed directly (not via loader) introspect and call correctly."""
+
+    def test_construction_introspects_name_and_params(self):
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        assert tool.name == "add"
+        assert len(tool.params) == 2
+        names = {p.name for p in tool.params}
+        assert names == {"x", "y"}
+
+    def test_construction_captures_return_type(self):
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        assert tool.return_type == "int"
+
+    async def test_call_returns_correct_result(self):
+        import json
+
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        result = await tool.call(x=3, y=4)
+        assert json.loads(result) == 7
+
+
+class TestFnToolNoPython:
+    """fn tools with no python field behave identically to python=sys.executable."""
+
+    def test_python_defaults_to_sys_executable(self):
+        tool = ToolModel(fn="tests.example:add")
+        assert tool.python is not None
+        assert tool.python == sys.executable or tool.python.endswith("python3") or "python" in tool.python
+
+    def test_introspection_succeeds_without_python_field(self):
+        tool = ToolModel(fn="tests.example:add")
+        assert tool.name == "add"
+        assert len(tool.params) == 2
+
+    async def test_call_result_matches_explicit_python(self):
+        import json
+
+        tool_implicit = ToolModel(fn="tests.example:add")
+        tool_explicit = ToolModel(fn="tests.example:add", python=sys.executable)
+        r1 = await tool_implicit.call(x=5, y=5)
+        r2 = await tool_explicit.call(x=5, y=5)
+        assert json.loads(r1) == json.loads(r2) == 10

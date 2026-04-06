@@ -87,3 +87,83 @@ tools:
   - path/to/more_tools.yaml
   - path/to/tools_dir        # loads all *.yaml files in this directory
 ```
+
+---
+
+## Runtime options
+
+The following fields apply to both `fn` and `exec` tools. They control the subprocess environment and execution constraints. Tool-specific options (`python:` for fn, `stdin:` for exec) are covered in their respective pages.
+
+### Quick reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cwd` | `str` | inherit | Working directory for the subprocess |
+| `timeout` | `int` | none | Kill subprocess after N seconds |
+| `env` | `dict` | `{}` | Explicit environment variables |
+| `env_file` | `str` | none | Path to a `.env` file to source |
+| `env_passthrough` | `bool` | `false` | Inherit the parent process environment |
+| `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) |
+
+---
+
+### `cwd`
+
+Set the working directory for the subprocess. Defaults to the MCC server's working directory.
+
+```yaml
+tools:
+  - name: build
+    exec: make all
+    cwd: /srv/myproject
+
+  - fn: mypackage.jobs:run
+    cwd: /data/workspace
+```
+
+Useful when a tool reads relative paths or relies on a specific project root.
+
+---
+
+### `timeout`
+
+Kill the subprocess after N seconds. Without it, long-running tools run indefinitely.
+
+```yaml
+tools:
+  - name: report
+    exec: python generate_report.py
+    timeout: 120    # 2 minutes
+
+  - fn: mypackage.jobs:run_analysis
+    timeout: 30
+```
+
+On timeout the process is killed and the tool returns `(-1, "", "timeout after Ns")`.
+
+---
+
+### `env`, `env_file`, and `env_passthrough`
+
+Control what environment variables the subprocess receives. See [Environment Variables](env-vars.md) for the full reference — including `env:` key/value pairs, `env_file:` dotenv files, combining them, and the `env_passthrough` flag that controls whether the subprocess inherits the parent environment.
+
+---
+
+### `limits`
+
+Unix only. Cap CPU time, memory, file sizes, and open file descriptors via `setrlimit`. See [Resource Limits](limits.md) for a full reference of each field, what it measures, and how violations are reported.
+
+```yaml
+tools:
+  - name: sandbox
+    exec: python {{ script | quote }}
+    limits:
+      mem_mb: 256      # max virtual memory
+      cpu_sec: 10      # max CPU time in seconds
+      fsize_mb: 50     # max file write size
+      nofile: 64       # max open file descriptors
+    params:
+      - name: script
+        type: str
+        required: true
+```

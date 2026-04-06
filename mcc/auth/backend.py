@@ -4,18 +4,20 @@ from fastmcp.server.dependencies import get_access_token as fast_token
 
 from mcc.auth.github_pat import get_user_context as pat_token
 from mcc.auth.github_oauth import get_provider
-from mcc.auth.dangerous import get_user_context as danger
+from mcc.auth.dev import get_admin_context as dev_admin, get_public_context as dev_public
 from mcc.settings import settings
 
 backends = {
     "github_oauth": fast_token,
     "github_pat": pat_token,
-    "dangerous": danger,
+    "dev-admin": dev_admin,
+    "dev-public": dev_public,
 }
 providers = {
     "github_oauth": get_provider,
     "github_pat": None,
-    "dangerous": None,
+    "dev-admin": None,
+    "dev-public": None,
 }
 
 

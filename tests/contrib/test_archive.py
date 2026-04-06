@@ -60,8 +60,11 @@ class TestCreateAndList:
     async def test_unsupported_format(self, tmp_path):
         f = tmp_path / "not_an_archive.txt"
         f.write_text("hello")
-        with pytest.raises(ValueError, match="Unsupported"):
-            await execute("admin.archive.list", {"path": str(f)})
+        # fn tools run in a subprocess; errors come back as (code, stdout, stderr)
+        result = await execute("admin.archive.list", {"path": str(f)})
+        code, _, stderr = result
+        assert code != 0
+        assert "Unsupported" in stderr
 
 
 class TestExtract:

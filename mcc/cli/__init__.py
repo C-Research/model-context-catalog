@@ -5,6 +5,7 @@ import rich_click as click
 from rich.console import Console
 
 from mcc.loader import loader
+from mcc.settings import settings
 
 click.rich_click.USE_MARKDOWN = True
 click.rich_click.USE_RICH_MARKUP = True
@@ -18,9 +19,24 @@ def err(msg):
 
 
 @click.group()
-def cli():
+@click.option("-t", "--tool", multiple=True, help="Tool files to load on startup")
+@click.option(
+    "-c", "--config", multiple=True, help="MCC config files to load into Dynaconf"
+)
+@click.option(
+    "-e",
+    "--env",
+    default=None,
+    help="Dynaconf environment to use eg development/production",
+)
+def cli(tool, config, env):
     """**MCC** — Model Context Catalog management CLI."""
     arun(loader.save())
+    if env is not None:
+        settings.setenv(env)
+    loader.load(*tool)
+    for path in config:
+        settings.load_file(path)
 
 
 from mcc.cli.tools import tool  # noqa: E402

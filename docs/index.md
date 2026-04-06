@@ -2,13 +2,15 @@
 
 MCC is an MCP server that acts as a permission-controlled catalog of tools. It exposes pre-defined **Python functions and shell commands** to Claude and other LLM clients through a unified `search` / `execute` interface, with authentication and group based access controls built in.
 
+MCC is written in Python FastMCP and uses Elastic Search for a data store and fastembed for semantic search
+
 ## How it works
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                   MCP Client (Claude)                │
+│                    MCP Client  (LLM)                 │
 └───────────────────────┬──────────────────────────────┘
-                        │ HTTP | STDIO (MCP protocol)
+                        │ HTTP | STDIO (MCP)
 ┌───────────────────────▼─────────────────────────────-┐
 │                    MCC Server                        │
 │                                                      │
@@ -28,7 +30,7 @@ MCC is an MCP server that acts as a permission-controlled catalog of tools. It e
 └──────────────────────────────────────────────────────┘
 ```
 
-The LLM uses two tools:
+The MCP client uses just two tools:
 
 - **`search(query)`** — finds tools by natural language (hybrid keyword + semantic search), returns signatures with relevance scores
 - **`execute(name, params)`** — runs a tool by key, validates params, checks permissions
@@ -50,6 +52,7 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elasticsearch and FastEmbed
 - **Group-based access control** tools specs define `groups` and users are stored in ES. users can be granted tool access via `groups`  or specific `tools`
 - **Auth backends**: GitHub OAuth, GitHub PAT, or dev mode (`dangerous`)
+- **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
 - **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
 - **Hot reload** catalog tool defs without restarting the server
 - **MCP resources and prompts** for catalog browsing and guided workflows
@@ -59,6 +62,4 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - [Installation](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
 - [MCP Interface](mcp.md)
-- [YAML Tool Format](tools/yaml-format.md)
-- [Exec Tools](tools/exec.md)
-- [Contrib Tools](contrib/index.md)
+

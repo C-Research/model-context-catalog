@@ -1,10 +1,16 @@
+import json
+import sys
+import textwrap
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from mcc.loader import Loader, load_file
+from mcc.models import ToolModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
+CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
 
 
 class TestLoadFile:
@@ -88,7 +94,7 @@ class TestLoader:
         loader = Loader()
         loader.load(FIXTURES / "tools_async.yaml")
         result = await loader["async_echo"].call(message="hello")
-        assert result == ["hello"]
+        assert json.loads(result) == ["hello"]
 
 
 class TestParamOverride:
@@ -114,12 +120,12 @@ class TestParamOverride:
 
     async def test_override_value_is_injected(self):
         result = await self.tool.call(message="hello")
-        assert result == {"message": "hello", "flag": True}
+        assert json.loads(result) == {"message": "hello", "flag": True}
 
     async def test_override_silently_replaces_caller_value(self):
         # caller passing flag should be silently ignored — override wins
         result = await self.tool.call(message="hello", flag=False)
-        assert result == {"message": "hello", "flag": True}
+        assert json.loads(result) == {"message": "hello", "flag": True}
 
     def test_no_override_is_default(self):
         from mcc.models import ParamModel
@@ -138,3 +144,141 @@ class TestEnvVarSubstitution:
         monkeypatch.delenv("MCC_TEST_DESCRIPTION", raising=False)
         tools = load_file(FIXTURES / "tools_env_var.yaml")
         assert tools[0].description == "$MCC_TEST_DESCRIPTION"
+
+
+class TestIsolatedPython:
+    def test_params_auto_populated_via_introspection(self):
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        assert len(tool.params) == 2
+        names = {p.name for p in tool.params}
+        assert names == {"x", "y"}
+        assert all(p.type == "int" for p in tool.params)
+        assert all(p.required for p in tool.params)
+
+    def test_name_populated_via_introspection(self):
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        assert tool.name == "add"
+
+    def test_description_populated_from_docstring(self):
+        tool = ToolModel(fn="tests.example:documented_tool", python=sys.executable)
+        assert "docstring" in tool.description.lower()
+
+    def test_explicit_params_skip_introspection(self):
+        tool = ToolModel(
+            fn="tests.example:add",
+            python=sys.executable,
+            name="my_add",
+            params=[{"name": "x", "type": "str", "required": True}],
+        )
+        assert len(tool.params) == 1
+        assert tool.params[0].type == "str"
+
+    def test_unknown_interpreter_raises(self):
+        with pytest.raises(ValueError, match="not found"):
+            ToolModel(fn="tests.example:add", python="/nonexistent/python999")
+
+    def test_python_with_exec_raises(self):
+        with pytest.raises(ValueError, match="'python' can only be used with 'fn'"):
+            ToolModel(
+                name="bad",
+                **{"exec": "echo hi"},
+                python=sys.executable,
+            )
+
+    async def test_call_returns_json_result(self):
+        tool = ToolModel(fn="tests.example:add", python=sys.executable)
+        result = await tool.call(x=10, y=32)
+        assert json.loads(result) == 42
+
+    async def test_async_fn_end_to_end(self):
+        tool = ToolModel(fn="tests.example:async_add", python=sys.executable)
+        result = await tool.call(x=7, y=3)
+        assert json.loads(result) == 10
+
+
+class TestBatchIntrospectOptimization:
+    def _mock_introspect_result(self, *entries):
+        """Build a mock subprocess.CompletedProcess for a batch introspect call."""
+        mock = MagicMock()
+        mock.returncode = 0
+        mock.stderr = ""
+        mock.stdout = json.dumps(list(entries))
+        return mock
+
+    def test_single_interpreter_calls_subprocess_once(self, tmp_path):
+        yaml_file = tmp_path / "tools.yaml"
+        yaml_file.write_text(
+            textwrap.dedent("""\
+                tools:
+                  - fn: tests.example:add
+                  - fn: tests.example:echo
+            """)
+        )
+
+        mock_result = self._mock_introspect_result(
+            {
+                "fn_path": "tests.example:add",
+                "name": "add",
+                "doc": "",
+                "params": [
+                    {"name": "x", "type": "int", "required": True, "default": None, "description": ""},
+                    {"name": "y", "type": "int", "required": True, "default": None, "description": ""},
+                ],
+                "return_type": "int",
+            },
+            {
+                "fn_path": "tests.example:echo",
+                "name": "echo",
+                "doc": "",
+                "params": [
+                    {"name": "message", "type": "str", "required": True, "default": None, "description": ""},
+                ],
+                "return_type": "list[str]",
+            },
+        )
+
+        with patch("mcc.loader.subprocess.run", return_value=mock_result) as mock_run:
+            tools = load_file(yaml_file)
+
+        assert mock_run.call_count == 1
+        cmd = mock_run.call_args[0][0]
+        assert "introspect" in cmd
+        assert "tests.example:add" in cmd
+        assert "tests.example:echo" in cmd
+        assert len(tools) == 2
+
+    def test_explicit_params_skip_batch_prepass(self, tmp_path):
+        yaml_file = tmp_path / "tools.yaml"
+        yaml_file.write_text(
+            textwrap.dedent("""\
+                tools:
+                  - fn: tests.example:add
+                    name: my_add
+                    description: adds two numbers
+                    params:
+                      - name: x
+                        type: int
+                        required: true
+                      - name: y
+                        type: int
+                        required: true
+            """)
+        )
+
+        with patch("mcc.loader.subprocess.run") as mock_run:
+            tools = load_file(yaml_file)
+
+        mock_run.assert_not_called()
+        assert len(tools) == 1
+        assert tools[0].name == "my_add"
+
+
+class TestContribLoading:
+    def test_contrib_fn_loads_via_subprocess(self):
+        # mcc.contrib.system is importable in the test env — verifies the subprocess path works
+        tools = load_file(CONTRIB / "system.yaml")
+        tool_map = {t.name: t for t in tools}
+        assert "get_env" in tool_map
+        get_env = tool_map["get_env"]
+        assert len(get_env.params) > 0
+        assert any(p.name == "keys" for p in get_env.params)

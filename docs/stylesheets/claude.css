@@ -140,11 +140,32 @@ html {
 /* Footer */
 [data-md-color-scheme="default"] .md-footer {
   background-color: #2e2318;
-  color: #e8e2d9;
+  color: #c95f38;
 }
 
 [data-md-color-scheme="default"] .md-footer-meta {
   background-color: #1a1612;
+  color: #c95f38;
+}
+
+[data-md-color-scheme="default"] .md-copyright,
+[data-md-color-scheme="default"] .md-copyright *,
+[data-md-color-scheme="default"] .md-footer__title,
+[data-md-color-scheme="default"] .md-footer__direction,
+[data-md-color-scheme="default"] .md-footer-meta__inner {
+  color: #c95f38;
+}
+
+[data-md-color-scheme="default"] .md-footer a,
+[data-md-color-scheme="default"] .md-footer-meta a,
+[data-md-color-scheme="default"] .md-copyright a {
+  color: #c95f38 !important;
+}
+
+[data-md-color-scheme="default"] .md-footer a:hover,
+[data-md-color-scheme="default"] .md-footer-meta a:hover,
+[data-md-color-scheme="default"] .md-copyright a:hover {
+  color: #e07250;
 }
 
 

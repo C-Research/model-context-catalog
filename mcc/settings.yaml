@@ -1,5 +1,5 @@
 default:
-  auth: "dangerous"
+  auth: "dev-admin"
   contrib: false
   tools: []
 

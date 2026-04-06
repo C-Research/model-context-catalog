@@ -17,8 +17,6 @@ def tool():
 @click.option("-l", "--long", is_flag=True, help="Show full signature")
 def tool_list(long):
     """List all registered tools."""
-    from mcc.loader import loader
-
     if long:
         console.print(loader.list_all())
         return
