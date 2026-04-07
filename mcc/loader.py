@@ -58,10 +58,13 @@ def _batch_introspect(
     introspect_env["MCC_SKIP_AUTOLOAD"] = "1"
     run_kwargs["env"] = introspect_env
 
+    logger.debug("introspecting %d fn(s) with %s: %s", len(fn_paths), python, fn_paths)
+    t0 = time()
     result = subprocess.run(
         [python, pyrunner_path, "introspect", *fn_paths],
         **run_kwargs,
     )
+    logger.debug("introspect subprocess finished in %dms", (time() - t0) * 1000)
     if result.returncode != 0:
         raise ValueError(
             f"Introspection subprocess failed for {source_path}:\n{result.stderr}"
@@ -151,17 +154,21 @@ class Loader(dict):
         self[tool.key] = tool
 
     async def save(self) -> None:
+        logger.debug("Indexing %d tools to Elasticsearch...", len(self))
         async with ToolIndex() as idx:
             await idx.drop()
             await idx.create()
             for tool in self.values():
                 await idx.index_tool(tool)
+        logger.debug("Indexing complete")
 
     async def reload(self):
+        logger.info("Reloading tools...")
         self.clear()
         for path in self.paths:
             self.load(path)
         await self.save()
+        logger.info("Reloaded %d tools", len(self))
 
     async def search(
         self, query: str, min_score: Optional[float] = None

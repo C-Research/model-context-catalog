@@ -9,15 +9,21 @@ from mcc.settings import logger
 def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     """returns true if user can access tool"""
     if not tool.groups or "public" in tool.groups:
+        logger.debug("access granted to %s: public tool", tool.key)
         return True
     if user is None:
+        logger.debug("access denied to %s: unauthenticated", tool.key)
         return False
     if "admin" in user.groups:
+        logger.debug("access granted to %s: %s is admin", tool.key, user.username)
         return True
     if any(g in user.groups for g in tool.groups):
+        logger.debug("access granted to %s: group overlap for %s", tool.key, user.username)
         return True
     if tool.key in user.tools:
+        logger.debug("access granted to %s: explicit grant for %s", tool.key, user.username)
         return True
+    logger.debug("access denied to %s: %s has no matching group or grant", tool.key, user.username)
     return False
 
 
@@ -28,12 +34,13 @@ async def get_current_user() -> Optional[UserModel]:
     try:
         token = await get_user_context()
     except Exception as exc:
-        logger.exception("Eror when getting user context: %s", exc)
+        logger.warning("Error getting user context: %s", exc)
         return
     if token is None:
-        logger.exception("No token returned")
+        logger.warning("No token returned from auth backend")
         return
     if isinstance(token, UserModel):
+        logger.debug("resolved user directly from token: %s", token.username)
         return token
     if hasattr(token, "claims"):
         token = token.claims
@@ -42,10 +49,14 @@ async def get_current_user() -> Optional[UserModel]:
         if email:
             user = await get_user_by_email(email)
             if user:
+                logger.debug("resolved user by email: %s", user.username)
                 return user
         login = token.get("login") or None
         if login:
-            return await get_user_by_username(login)
+            user = await get_user_by_username(login)
+            if user:
+                logger.debug("resolved user by login: %s", user.username)
+            return user
     except Exception as e:
         logger.warning(
             "User store unavailable, treating request as unauthenticated: %s", e

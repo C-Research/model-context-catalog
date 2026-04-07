@@ -5,7 +5,7 @@ from elasticsearch import AsyncElasticsearch
 from fastembed import TextEmbedding
 
 from mcc.models import ToolModel
-from mcc.settings import settings
+from mcc.settings import settings, logger
 
 _embedding_model: Optional[TextEmbedding] = None
 
@@ -13,7 +13,9 @@ _embedding_model: Optional[TextEmbedding] = None
 def _get_model() -> TextEmbedding:
     global _embedding_model
     if _embedding_model is None:
+        logger.info("Loading embedding model BAAI/bge-small-en-v1.5...")
         _embedding_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+        logger.info("Embedding model loaded")
     return _embedding_model
 
 
@@ -142,4 +144,6 @@ class ToolIndex(ESIndex):
         if min_score is not None:
             body["min_score"] = min_score
         resp = await self._client.search(index=self.index, body=body)
-        return [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
+        hits = [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
+        logger.debug("search %r → %d hits", query, len(hits))
+        return hits

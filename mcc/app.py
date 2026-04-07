@@ -99,10 +99,13 @@ async def execute(name: str, params: Optional[dict] = None):
       params: Dict of parameter name → value. Omit or pass null for tools with no required parameters.
     """
     if name not in loader:
+        logger.warning("execute: unknown tool %r", name)
         return f"Unknown tool: {name}"
     tool = loader[name]
     user = current_user_var.get(None)
     if not tool.allows(user):
+        username = user.username if user else "anonymous"
+        logger.warning("execute: %s denied access to %s", username, name)
         return "Unauthorized"
     try:
         result = await tool.call(**params or {})
