@@ -49,3 +49,8 @@ class _BadSignature:
 
 
 bad_signature = _BadSignature()
+
+
+def noisy_add(x: int, y: int) -> int:
+    print("side effect output")
+    return x + y

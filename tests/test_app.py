@@ -27,7 +27,7 @@ class TestSearch:
         await loader.save()
         result = await search("echo")
         assert "echo" in result
-        assert "message (str" in result
+        assert "message type: str required" in result
         assert "Echoes back the provided message" in result
 
 

@@ -18,8 +18,10 @@ Modes:
 """
 
 import asyncio
+import functools
 import importlib
 import inspect
+import io
 import json
 import sys
 import traceback
@@ -34,6 +36,22 @@ _TYPE_NAMES: dict[type, str] = {
     list: "list",
     dict: "dict",
 }
+
+
+def json_handler(fn: Any) -> Any:
+    """
+    Suppress stdout during fn invocation
+    print only its return value to the real stdout.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> None:
+        original_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        result = fn(*args, **kwargs)
+        json.dump(result, original_stdout, default=str)
+
+    return wrapper
 
 
 def resolve(fn_path: str) -> Any:
@@ -58,11 +76,13 @@ def resolve(fn_path: str) -> Any:
     return obj
 
 
-def introspect(*fn_paths: str) -> None:
+@json_handler
+def introspect(*fn_paths: str) -> str:
     """Inspect functions and print a JSON array of results to stdout.
 
     Two-phase: resolve all first (catches import errors fast), then inspect.
     Per-item errors include the full traceback. Process exits 0 regardless.
+    Side-effect stdout from imports or function bodies is suppressed.
     """
     # Phase 1 — resolve all fn_paths
     resolved: dict[str, Any] = {}
@@ -111,18 +131,20 @@ def introspect(*fn_paths: str) -> None:
         except Exception:
             result_map[fn_path] = {"fn_path": fn_path, "error": traceback.format_exc()}
 
-    print(json.dumps([result_map[fp] for fp in fn_paths]))
+    return [result_map[fp] for fp in fn_paths]
 
 
-def execute(fn_path: str) -> None:
-    """Read JSON kwargs from stdin, call the function, print JSON result to stdout."""
+@json_handler
+def execute(fn_path: str) -> str:
+    """Read JSON kwargs from stdin, call the function, print JSON result to stdout.
+
+    Side-effect stdout from resolve or the function body is suppressed.
+    """
     fn = resolve(fn_path)
     kwargs = json.loads(sys.stdin.read())
     if inspect.iscoroutinefunction(fn):
-        result = asyncio.run(fn(**kwargs))
-    else:
-        result = fn(**kwargs)
-    print(json.dumps(result, default=str))
+        return asyncio.run(fn(**kwargs))
+    return fn(**kwargs)
 
 
 if __name__ == "__main__":

@@ -192,3 +192,26 @@ class TestPyrunnerExec:
         result = self._run("tests.example:always_fails", {"msg": "boom"})
         assert result.returncode != 0
         assert result.stderr  # traceback on stderr
+
+    def test_stdout_side_effects_suppressed(self):
+        # Function that calls print() must not corrupt the JSON result
+        result = self._run("tests.example:noisy_add", {"x": 3, "y": 4})
+        assert result.returncode == 0
+        assert json.loads(result.stdout) == 7
+
+
+class TestNoisyModuleIntrospect:
+    def _run(self, *fn_paths: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, PYRUNNER, "introspect", *fn_paths],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_module_level_print_suppressed(self):
+        # Module with a top-level print() must not corrupt introspect JSON output
+        result = self._run("tests.example_noisy:add")
+        assert result.returncode == 0
+        items = json.loads(result.stdout)
+        assert len(items) == 1
+        assert items[0]["name"] == "add"

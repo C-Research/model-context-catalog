@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
+from time import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
@@ -10,7 +11,7 @@ from typing import Optional
 from envyaml import EnvYAML
 
 from mcc.models import ToolModel
-from mcc.settings import settings
+from mcc.settings import settings, logger
 from mcc.db import ToolIndex
 
 
@@ -83,6 +84,7 @@ def load_file(path: str | Path) -> list[ToolModel]:
         path = Path(path)
     if not path.is_file():
         raise ValueError(f"Tool file {path} not found")
+    start_time = time()
     tool = EnvYAML(path, strict=False)
     if "tools" not in tool:
         raise ValueError(
@@ -116,13 +118,16 @@ def load_file(path: str | Path) -> list[ToolModel]:
                 e["params"] = info["params"]
                 e["return_type"] = info.get("return_type")
 
-    return [
+    tools = [
         # fromkeys deduplicates while preserving order
         ToolModel(
             groups=list(dict.fromkeys(parent_groups + entry.pop("groups", []))), **entry
         )
         for entry in entries
     ]
+    end_time = time() - start_time
+    logger.debug("Loaded %d tools from %s in %dms", len(tools), path, end_time * 1000)
+    return tools
 
 
 class Loader(dict):
