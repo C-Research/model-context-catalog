@@ -74,10 +74,20 @@ List of YAML tool files or directories to load at startup. Default: `[]`.
 
 ```yaml
 tools:
-  - mytools.yaml
-  - path/to/more_tools.yaml
-  - path/to/tools_dir        # loads all *.yaml files in the directory
+  - mytools.yaml                  # single file
+  - path/to/tools_dir             # all *.yaml files in directory (flat)
+  - path/to/tools/**/*.yaml       # glob pattern (recursive supported)
 ```
+
+### `embedding_model`
+
+The [fastembed](https://github.com/qdrant/fastembed) model used for semantic search. Default: `BAAI/bge-small-en-v1.5`.
+
+```yaml
+embedding_model: BAAI/bge-small-en-v1.5
+```
+
+The model is downloaded on first use and cached locally by fastembed. Changing this requires a server restart to re-index tools.
 
 ### `elasticsearch`
 

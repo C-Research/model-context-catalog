@@ -27,7 +27,6 @@ import sys
 import traceback
 from typing import Any
 
-
 _TYPE_NAMES: dict[type, str] = {
     str: "str",
     int: "int",

@@ -4,7 +4,10 @@ from fastmcp.server.dependencies import get_access_token as fast_token
 
 from mcc.auth.github_pat import get_user_context as pat_token
 from mcc.auth.github_oauth import get_provider
-from mcc.auth.dev import get_admin_context as dev_admin, get_public_context as dev_public
+from mcc.auth.dev import (
+    get_admin_context as dev_admin,
+    get_public_context as dev_public,
+)
 from mcc.settings import settings
 
 backends = {

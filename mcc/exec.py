@@ -4,6 +4,7 @@ import os
 import shlex
 import sys
 from pathlib import Path
+from time import time
 from typing import Any, Callable
 
 from jinja2 import Environment, StrictUndefined
@@ -98,6 +99,7 @@ async def _communicate_and_return(
     Returns stdout string on success (exit code 0), or (code, stdout, stderr) on
     failure. Handles timeout and resource-limit signal mapping.
     """
+    t0 = time()
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(blob), timeout=timeout)
     except asyncio.TimeoutError:
@@ -105,9 +107,11 @@ async def _communicate_and_return(
         await proc.wait()
         return (-1, "", f"timeout after {timeout}s")
 
+    elapsed_ms = int((time() - t0) * 1000)
     code = proc.returncode or 0
     out = stdout.decode()
     if code == 0:
+        logger.debug("subprocess finished in %dms", elapsed_ms)
         return out
     err = stderr.decode()
 

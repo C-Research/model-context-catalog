@@ -13,6 +13,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
 
 
+@pytest.mark.smoke
 class TestLoadFile:
     def test_loads_ungrouped(self):
         tools = load_file(FIXTURES / "tools_ungrouped.yaml")
@@ -36,18 +37,21 @@ class TestLoadFile:
 
 
 class TestLoader:
+    @pytest.mark.smoke
     def test_load_ungrouped(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
         assert "echo" in loader
         assert loader["echo"].groups == []
 
+    @pytest.mark.smoke
     def test_load_grouped(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_grouped.yaml")
         assert "example.echo" in loader
         assert loader["example.echo"].groups == ["example"]
 
+    @pytest.mark.smoke
     def test_same_name_different_groups(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
@@ -55,12 +59,14 @@ class TestLoader:
         assert "echo" in loader
         assert "example.echo" in loader
 
+    @pytest.mark.smoke
     def test_duplicate_tool_raises(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
         with pytest.raises(ValueError, match="Duplicate tool"):
             loader.load(FIXTURES / "tools_ungrouped.yaml")
 
+    @pytest.mark.smoke
     def test_name_defaults_to_fn_name(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_no_name.yaml")
@@ -71,6 +77,7 @@ class TestLoader:
         loader.load(FIXTURES / "tools_no_description.yaml")
         assert loader["doc_tool"].description == "A tool loaded from its docstring."
 
+    @pytest.mark.smoke
     def test_registry_entry_is_tool_model(self):
         loader = Loader()
         loader.load(FIXTURES / "tools_ungrouped.yaml")
@@ -103,18 +110,22 @@ class TestParamOverride:
         self.loader.load(FIXTURES / "tools_override.yaml")
         self.tool = self.loader["echo_with_flag"]
 
+    @pytest.mark.smoke
     def test_override_param_has_override(self):
         flag_param = next(p for p in self.tool.params if p.name == "flag")
         assert flag_param.has_override is True
         assert flag_param.override is True
 
+    @pytest.mark.smoke
     def test_non_override_param_has_no_override(self):
         message_param = next(p for p in self.tool.params if p.name == "message")
         assert message_param.has_override is False
 
+    @pytest.mark.smoke
     def test_override_param_excluded_from_param_model(self):
         assert "flag" not in self.tool.param_model.model_fields
 
+    @pytest.mark.smoke
     def test_override_param_excluded_from_signature(self):
         assert "- flag" not in self.tool.signature
 
@@ -127,6 +138,7 @@ class TestParamOverride:
         result = await self.tool.call(message="hello", flag=False)
         assert json.loads(result) == {"message": "hello", "flag": True}
 
+    @pytest.mark.smoke
     def test_no_override_is_default(self):
         from mcc.models import ParamModel
 
@@ -196,6 +208,7 @@ class TestIsolatedPython:
         assert json.loads(result) == 10
 
 
+@pytest.mark.smoke
 class TestBatchIntrospectOptimization:
     def _mock_introspect_result(self, *entries):
         """Build a mock subprocess.CompletedProcess for a batch introspect call."""
@@ -271,6 +284,66 @@ class TestBatchIntrospectOptimization:
         mock_run.assert_not_called()
         assert len(tools) == 1
         assert tools[0].name == "my_add"
+
+
+@pytest.mark.smoke
+class TestGlobLoading:
+    _TOOL_YAML = """\
+tools:
+  - name: {name}
+    fn: tests.example.echo
+    description: test tool
+    params:
+      - name: message
+        type: str
+        required: true
+"""
+
+    def _write(self, path: Path, name: str) -> None:
+        path.write_text(self._TOOL_YAML.format(name=name))
+
+    def test_flat_glob(self, tmp_path):
+        self._write(tmp_path / "a.yaml", "tool_a")
+        self._write(tmp_path / "b.yaml", "tool_b")
+        loader = Loader()
+        loader.load(str(tmp_path / "*.yaml"))
+        assert "tool_a" in loader
+        assert "tool_b" in loader
+
+    def test_recursive_glob(self, tmp_path):
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        self._write(tmp_path / "top.yaml", "top_tool")
+        self._write(sub / "nested.yaml", "nested_tool")
+        loader = Loader()
+        loader.load(str(tmp_path / "**" / "*.yaml"))
+        assert "top_tool" in loader
+        assert "nested_tool" in loader
+
+    def test_no_matches_loads_nothing(self, tmp_path):
+        loader = Loader()
+        loader.load(str(tmp_path / "*.yaml"))
+        assert len(loader) == 0
+
+    def test_glob_pattern_stored_for_reload(self, tmp_path):
+        self._write(tmp_path / "a.yaml", "tool_a")
+        pattern = str(tmp_path / "*.yaml")
+        loader = Loader()
+        loader.load(pattern)
+        assert pattern in loader.paths
+
+    def test_glob_picks_up_new_files_on_reload(self, tmp_path):
+        self._write(tmp_path / "a.yaml", "tool_a")
+        pattern = str(tmp_path / "*.yaml")
+        loader = Loader()
+        loader.load(pattern)
+        assert len(loader) == 1
+        # add a second file — reload should pick it up
+        self._write(tmp_path / "b.yaml", "tool_b")
+        loader.clear()
+        loader.load(pattern)
+        assert "tool_a" in loader
+        assert "tool_b" in loader
 
 
 class TestContribLoading:

@@ -1,3 +1,5 @@
+import pytest
+
 from mcc.app import execute, search
 from mcc.loader import loader
 
@@ -37,16 +39,19 @@ class TestExecute:
         result = await execute("echo", {"message": "hi"})
         assert result == ["hi"]
 
+    @pytest.mark.smoke
     async def test_execute_grouped_tool_unauthorized(self, load_fixture):
         load_fixture("tools_grouped.yaml")
         result = await execute("example.echo", {"message": "hi"})
         assert result.startswith("Unauthorized")
 
+    @pytest.mark.smoke
     async def test_execute_unknown_tool(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
         result = await execute("nonexistent", {})
         assert "Unknown tool" in result
 
+    @pytest.mark.smoke
     async def test_execute_validation_error(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
         result = await execute("echo", {})

@@ -159,6 +159,7 @@ class TestTools:
             await remove_tool("alice", "echo")
 
 
+@pytest.mark.smoke
 class TestCanAccess:
     def _tool(self, name: str = "echo", groups: list[str] | None = None) -> MagicMock:
         tool = MagicMock()

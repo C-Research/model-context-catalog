@@ -1,18 +1,19 @@
+import glob as glob_module
 import json
 import os
 import shutil
 import subprocess
 import sys
-from time import time
 from collections import defaultdict
 from pathlib import Path
+from time import time
 from typing import Optional
 
 from envyaml import EnvYAML
 
-from mcc.models import ToolModel
-from mcc.settings import settings, logger
 from mcc.db import ToolIndex
+from mcc.models import ToolModel
+from mcc.settings import logger, settings
 
 
 def _resolve_python(raw: str | None) -> str:
@@ -87,7 +88,6 @@ def load_file(path: str | Path) -> list[ToolModel]:
         path = Path(path)
     if not path.is_file():
         raise ValueError(f"Tool file {path} not found")
-    start_time = time()
     tool = EnvYAML(path, strict=False)
     if "tools" not in tool:
         raise ValueError(
@@ -128,25 +128,38 @@ def load_file(path: str | Path) -> list[ToolModel]:
         )
         for entry in entries
     ]
-    end_time = time() - start_time
-    logger.debug("Loaded %d tools from %s in %dms", len(tools), path, end_time * 1000)
     return tools
 
 
 class Loader(dict):
     paths = set()
 
-    def load(self, *paths: str | Path) -> None:
+    def load(self, *paths: str) -> None:
+        t0 = time()
+        before = len(self)
         for path in paths:
-            path = Path(path)
-            self.paths.add(path)
-            if path.is_dir():
-                for file in sorted(path.glob("*.y*ml")):
+            path_str = str(path)
+            self.paths.add(path_str)
+            if any(c in path_str for c in ("*", "?", "[")):
+                for file in sorted(glob_module.glob(path_str, recursive=True)):
                     for tool in load_file(file):
                         self.register(tool)
             else:
-                for tool in load_file(path):
-                    self.register(tool)
+                path = Path(path_str)
+                if path.is_dir():
+                    for file in sorted(path.glob("*.y*ml")):
+                        for tool in load_file(file):
+                            self.register(tool)
+                else:
+                    for tool in load_file(path):
+                        self.register(tool)
+        added = len(self) - before
+        logger.debug(
+            "Loaded %d tools in %dms from %s ",
+            added,
+            (time() - t0) * 1000,
+            [str(p) for p in paths],
+        )
 
     def register(self, tool: ToolModel):
         if tool.key in self:
@@ -155,20 +168,22 @@ class Loader(dict):
 
     async def save(self) -> None:
         logger.debug("Indexing %d tools to Elasticsearch...", len(self))
+        t0 = time()
         async with ToolIndex() as idx:
             await idx.drop()
             await idx.create()
             for tool in self.values():
                 await idx.index_tool(tool)
-        logger.debug("Indexing complete")
+        logger.debug("Indexing complete in %dms", (time() - t0) * 1000)
 
     async def reload(self):
         logger.info("Reloading tools...")
+        t0 = time()
         self.clear()
         for path in self.paths:
             self.load(path)
         await self.save()
-        logger.info("Reloaded %d tools", len(self))
+        logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
         self, query: str, min_score: Optional[float] = None

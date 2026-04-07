@@ -1,4 +1,5 @@
 import asyncio
+from time import time
 from typing import Optional
 
 from elasticsearch import AsyncElasticsearch
@@ -13,9 +14,11 @@ _embedding_model: Optional[TextEmbedding] = None
 def _get_model() -> TextEmbedding:
     global _embedding_model
     if _embedding_model is None:
-        logger.info("Loading embedding model BAAI/bge-small-en-v1.5...")
-        _embedding_model = TextEmbedding("BAAI/bge-small-en-v1.5")
-        logger.info("Embedding model loaded")
+        model_name = settings.EMBEDDING_MODEL
+        logger.info("Loading embedding model %s...", model_name)
+        t0 = time()
+        _embedding_model = TextEmbedding(model_name)
+        logger.info("Embedding model loaded in %dms", (time() - t0) * 1000)
     return _embedding_model
 
 
@@ -143,7 +146,10 @@ class ToolIndex(ESIndex):
         body: dict = {"query": text_query, "knn": knn, "size": 10000}
         if min_score is not None:
             body["min_score"] = min_score
+        t0 = time()
         resp = await self._client.search(index=self.index, body=body)
         hits = [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
-        logger.debug("search %r → %d hits", query, len(hits))
+        logger.debug(
+            "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000
+        )
         return hits

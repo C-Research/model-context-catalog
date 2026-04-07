@@ -18,12 +18,20 @@ def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
         logger.debug("access granted to %s: %s is admin", tool.key, user.username)
         return True
     if any(g in user.groups for g in tool.groups):
-        logger.debug("access granted to %s: group overlap for %s", tool.key, user.username)
+        logger.debug(
+            "access granted to %s: group overlap for %s", tool.key, user.username
+        )
         return True
     if tool.key in user.tools:
-        logger.debug("access granted to %s: explicit grant for %s", tool.key, user.username)
+        logger.debug(
+            "access granted to %s: explicit grant for %s", tool.key, user.username
+        )
         return True
-    logger.debug("access denied to %s: %s has no matching group or grant", tool.key, user.username)
+    logger.debug(
+        "access denied to %s: %s has no matching group or grant",
+        tool.key,
+        user.username,
+    )
     return False
 
 

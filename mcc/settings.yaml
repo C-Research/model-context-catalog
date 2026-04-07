@@ -3,6 +3,8 @@ default:
   contrib: false
   tools: []
 
+  embedding_model: "BAAI/bge-small-en-v1.5"
+
   elasticsearch:
     host: "localhost"
     port: 9200

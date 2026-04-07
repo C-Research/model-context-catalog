@@ -8,6 +8,7 @@ from mcc.loader import loader
 from mcc.models import ToolModel
 
 
+@pytest.mark.smoke
 class TestExecToolLoading:
     def test_loads_exec_tool(self, load_fixture):
         load_fixture("tools_exec_interpolate.yaml")
@@ -82,12 +83,14 @@ class TestJinjaQuoteFilter:
         stdout = await tool.call(msg="hello; rm -rf /")
         assert "hello; rm -rf /" in stdout
 
+    @pytest.mark.smoke
     async def test_list_is_quoted_and_joined(self):
         from mcc.exec import _quote_filter
 
         result = _quote_filter(["a.txt", "b c.txt"])
         assert result == "a.txt 'b c.txt'"
 
+    @pytest.mark.smoke
     async def test_empty_list_produces_empty_string(self):
         from mcc.exec import _quote_filter
 

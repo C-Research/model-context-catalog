@@ -68,7 +68,9 @@ def do_install(dest: str, **kwargs):
     if "env_vars" in supported:
         call_kwargs["env_vars"] = list(kwargs["env"]) or None
     if "env_file" in supported:
-        call_kwargs["env_file"] = Path(kwargs["env_file"]) if kwargs["env_file"] else None
+        call_kwargs["env_file"] = (
+            Path(kwargs["env_file"]) if kwargs["env_file"] else None
+        )
     if "copy" in supported and "copy" in kwargs:
         call_kwargs["copy"] = kwargs["copy"]
 
@@ -97,7 +99,6 @@ def install_claude_desktop(env_file: Optional[str], env: tuple[str, ...]):
 def install_mcp_json(env_file: Optional[str], env: tuple[str, ...], copy: bool):
     """Print (or copy) MCP JSON config."""
     do_install("mcp-json", env=env, env_file=env_file, copy=copy)
-
 
 
 @install.command("cursor")

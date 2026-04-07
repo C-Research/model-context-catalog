@@ -32,6 +32,7 @@ def _load(filename: str):
 # --- Middleware ---
 
 
+@pytest.mark.smoke
 class TestAuthMiddleware:
     async def test_resolves_authenticated_user(self):
         user = UserModel(username="alice", email="a@b.com", groups=["admin"])
@@ -55,6 +56,7 @@ class TestAuthMiddleware:
             assert current_user_var.get() is None
 
 
+@pytest.mark.smoke
 class TestLoggingMiddleware:
     async def test_logs_tool_call(self, caplog):
         import logging
@@ -88,6 +90,7 @@ class TestLoggingMiddleware:
 # --- Resources ---
 
 
+@pytest.mark.smoke
 class TestCatalogResource:
     async def test_returns_accessible_tools(self):
         _load("tools_ungrouped.yaml")
@@ -108,6 +111,7 @@ class TestCatalogResource:
         assert "echo" in result
 
 
+@pytest.mark.smoke
 class TestToolResourceTemplate:
     async def test_accessible_tool(self):
         _load("tools_ungrouped.yaml")
@@ -126,6 +130,7 @@ class TestToolResourceTemplate:
         assert "not found" in result
 
 
+@pytest.mark.smoke
 class TestUserResource:
     async def test_authenticated(self):
         current_user_var.set(
@@ -147,6 +152,7 @@ class TestUserResource:
 # --- Prompts ---
 
 
+@pytest.mark.smoke
 class TestPrompts:
     def test_find_and_run(self):
         result = find_and_run("deploy the app")
