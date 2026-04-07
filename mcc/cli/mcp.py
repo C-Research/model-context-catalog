@@ -19,7 +19,7 @@ def mcp_cmd():
 @click.option(
     "-t",
     "--transport",
-    type=click.Choice(["stdio", "http"]),
+    type=click.Choice(["stdio", "http", "sse", "streamable-http"]),
     default="stdio",
     show_default=True,
     help="Transport protocol.",
@@ -30,7 +30,7 @@ def mcp_cmd():
 )
 def run(transport: str, host: Optional[str], port: Optional[int]):
     """Start the MCP server."""
-    from mcc.app import mcp, banner
+    from mcc.app import banner, mcp
 
     banner()
     kwargs = {"host": host, "port": port} if transport == "http" else {}
@@ -55,6 +55,7 @@ def common_options(fn):
 
 def do_install(dest: str, **kwargs):
     import inspect
+
     from fastmcp.cli.cli import app
 
     install_cmd = app["install"][dest].default_command
