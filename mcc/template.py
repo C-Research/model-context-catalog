@@ -12,9 +12,7 @@ def _quote_filter(value: Any) -> str:
 
 
 jinja_env = Environment(
-    loader=FileSystemLoader(
-        Path(__file__).parent / "templates"
-    ),  # directory containing templates
+    loader=FileSystemLoader(Path(__file__).parent / "templates"),
     trim_blocks=True,  # removes newline after block tags
     lstrip_blocks=True,  # strips leading whitespace from block tags
     keep_trailing_newline=True,

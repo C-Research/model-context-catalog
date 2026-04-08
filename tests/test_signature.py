@@ -32,26 +32,18 @@ class TestSignature:
 
     def test_groups_line_when_grouped(self, echo_tool):
         echo_tool.groups = ["example"]
-        assert "groups: example" in echo_tool.signature
+        assert "## example.echo" in echo_tool.signature
 
     def test_required_param(self, echo_tool):
         sig = echo_tool.signature
         assert "`message`" in sig
-        assert "type: str" in sig
-        assert "required" in sig
+        assert "message:str" in sig
 
     def test_param_description(self, echo_tool):
         assert "The message to echo back" in echo_tool.signature
 
     def test_return_type(self, echo_tool):
-        assert "return: str" in echo_tool.signature
+        assert "-> str" in echo_tool.signature
 
     def test_description_present(self, echo_tool):
         assert "Echoes back the provided message" in echo_tool.signature
-
-    def test_description_in_code_block(self, echo_tool):
-        assert "```" in echo_tool.signature
-
-    def test_no_code_block_without_description(self, echo_tool):
-        echo_tool.description = ""
-        assert "```" not in echo_tool.signature

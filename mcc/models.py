@@ -205,43 +205,6 @@ class ToolModel(BaseModel):
         Formats the signature block of a tool as markdown
         """
         return jinja_env.get_template("tool_signature.md").render(tool=self)
-        lines = [f"## {self.key}"]
-
-        if self.groups:
-            lines.append(f"groups: {','.join(sorted_groups(self.groups))}")
-
-        if self.visible_params:
-            lines.append("params:")
-        else:
-            lines.append("no parameters")
-        for param in self.visible_params:
-            if param.required:
-                spec = f"  - {param.name} type: {param.type} required"
-            else:
-                spec = f"  - {param.name} type: {param.type} default: {param.default}"
-            if param.description:
-                spec += f": {param.description}"
-            if param.example:
-                spec += f" (example: {param.example})"
-            lines.append(spec)
-
-        if self.exec:
-            lines.extend(
-                [
-                    "returns: str  # stdout on success",
-                    "returns: list [code: int, stdout: str, stderr: str] # on error",
-                ]
-            )
-        else:
-            lines.append(f"returns: {self.return_type or 'unknown'}")
-
-        if self.description:
-            lines.extend(["", self.description])
-
-        if self.example:
-            lines.extend(["", f"example: {self.example}"])
-
-        return "\n".join(lines)
 
     def allows(self, user: Optional["UserModel"]) -> bool:
         """Returns True if a user can access this tool"""

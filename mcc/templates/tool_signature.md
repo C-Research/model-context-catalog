@@ -1,29 +1,13 @@
-## {{ tool.key }}
-{% if tool.groups %}
-groups: {{ tool.sorted_groups | join(',') }}
-{% endif %}
-{% if tool.visible_params %}
-params:
+## {{ tool.key }} ({% include 'param_signature.md' %}) -> {% if tool.exec %}str | (int, str, str){% else %}{{ tool.return_type or 'unknown' }}{% endif %}
+
 {% for param in tool.visible_params %}
-  - `{{ param.name }}` type: {{ param.type }} {% if param.required %}required{% else %}default: {{ param.default }}{% endif %}{% if param.description %}: {{ param.description }}{% endif %}{% if param.example %} (example: {{ param.example }}){% endif %}
-
+{% if param.description %}
+`{{ param.name }}` — {{ param.description }}
+{% endif %}
 {% endfor %}
-{% endif %}
-
-{% if tool.exec %}
-return: str  # stdout on success
-
-return: list (code: int, stdout: str, stderr: str) # on error
-{% else %}
-return: {{ tool.return_type or 'unknown' }}
-{% endif %}
-{% if tool.description or tool.example %}```{% endif %}
 {% if tool.description %}
-
 {{ tool.description }}
 {% endif %}
 {% if tool.example %}
-
-example: {{ tool.example }}
+{{ tool.example }}
 {% endif %}
-{% if tool.description or tool.example %}```{% endif %}

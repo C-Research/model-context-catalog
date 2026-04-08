@@ -1,8 +1,9 @@
 from typing import Optional
 
+from mcc.auth.backend import get_user_context
+from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.auth.models import UserModel
 from mcc.models import ToolModel
-from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.settings import logger
 
 
@@ -37,7 +38,6 @@ def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
 
 async def get_current_user() -> Optional[UserModel]:
     """resolves auth identity to a UserModel; prefers email, falls back to login"""
-    from mcc.auth.backend import get_user_context
 
     try:
         token = await get_user_context()
@@ -72,7 +72,7 @@ async def get_current_user() -> Optional[UserModel]:
     return
 
 
-async def list_tools(text: bool = False) -> dict | str:
+async def list_tools(text: False) -> dict | str:
     """
     Returns a list of tools that the current user is allowed to execute
 
