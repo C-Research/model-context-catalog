@@ -73,14 +73,14 @@ class ESIndex:
     async def search(self, query: dict, size: int = 10000) -> list[dict]:
         """Run a raw ES query and return a list of _source dicts."""
         resp = await self._client.search(
-            index=self.index, body={"query": query, "size": size}
+            index=self.index, query=query, size=size
         )
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     async def create(self) -> None:
         """Create the index with the given mapping. No-op if it already exists."""
         if not await self._client.indices.exists(index=self.index):
-            await self._client.indices.create(index=self.index, body=self.mapping)
+            await self._client.indices.create(index=self.index, **self.mapping)
 
     async def drop(self, ignore_unavailable: bool = True) -> None:
         """Delete the index."""
@@ -143,11 +143,11 @@ class ToolIndex(ESIndex):
             "k": 10,
             "num_candidates": 50,
         }
-        body: dict = {"query": text_query, "knn": knn, "size": 10000}
+        kwargs: dict = {"query": text_query, "knn": knn, "size": 10000}
         if min_score is not None:
-            body["min_score"] = min_score
+            kwargs["min_score"] = min_score
         t0 = time()
-        resp = await self._client.search(index=self.index, body=body)
+        resp = await self._client.search(index=self.index, **kwargs)
         hits = [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
         logger.debug(
             "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000

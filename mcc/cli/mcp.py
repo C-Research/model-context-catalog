@@ -33,7 +33,7 @@ def run(transport: str, host: Optional[str], port: Optional[int]):
     from mcc.app import banner, mcp
 
     banner()
-    kwargs = {"host": host, "port": port} if transport == "http" else {}
+    kwargs = {"host": host, "port": port} if transport in ("http", "sse", "streamable-http") else {}
     mcp.run(transport=transport, **kwargs)  # type: ignore[arg-type]  # click.Choice doesn't narrow to Literal
 
 

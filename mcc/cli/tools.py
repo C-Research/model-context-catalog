@@ -2,11 +2,12 @@ import asyncio
 import json
 
 import rich_click as click
+from rich.markdown import Markdown
 
+from mcc.auth.models import UserModel
 from mcc.cli import console, err
 from mcc.loader import loader
 from mcc.middleware import current_user_var
-from mcc.auth.models import UserModel
 
 _CLI_USER = UserModel(username="cli", groups=["admin"])
 
@@ -21,7 +22,9 @@ def tool():
 def tool_list(long):
     """List all registered tools."""
     if long:
-        console.print(loader.list_all())
+        print(loader.list_all())
+        exit()
+        console.print(Markdown(loader.list_all()))
         return
     for key in sorted(loader):
         console.print(key)
@@ -31,11 +34,11 @@ def tool_list(long):
 @click.argument("tool")
 def info(tool):
     """Prints the signature of a given tool key"""
-    t = loader.get(tool)
-    if not t:
+    tool_obj = loader.get(tool)
+    if not tool_obj:
         err(f" tool `{tool}` not found")
         return
-    console.print(t.signature)
+    console.print(Markdown(tool_obj.signature))
 
 
 @tool.command("call", aliases=["exec"])

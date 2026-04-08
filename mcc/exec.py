@@ -1,27 +1,15 @@
 import asyncio
 import json
 import os
-import shlex
 import sys
 from pathlib import Path
 from time import time
 from typing import Any, Callable
 
-from jinja2 import Environment, StrictUndefined
 from dotenv import dotenv_values
 
 from mcc.settings import logger
-
-
-def _quote_filter(value: Any) -> str:
-    if isinstance(value, list):
-        return " ".join(shlex.quote(str(v)) for v in value)
-    return shlex.quote(str(value))
-
-
-_jinja_env = Environment(undefined=StrictUndefined)
-_jinja_env.filters["quote"] = _quote_filter
-
+from mcc.template import jinja_env
 
 _LIMIT_SIGNALS = {
     -24: "cpu time exceeded (SIGXCPU)",
@@ -136,7 +124,7 @@ def make_exec_callable(
     preexec_fn = _build_preexec_fn(limits or {})
     merged_env = _build_env(env, env_file, env_passthrough)
 
-    template = _jinja_env.from_string(cmd)
+    template = jinja_env.from_string(cmd)
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
         run_cmd = template.render(**kwargs)

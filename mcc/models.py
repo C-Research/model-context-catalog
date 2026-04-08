@@ -13,10 +13,9 @@ from functools import cached_property
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
+from mcc.exec import _build_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
-from mcc.exec import make_exec_callable, make_py_callable
-from mcc.exec import _build_env
-
+from mcc.template import jinja_env
 
 TYPE_MAP: dict[str, type] = {
     "str": str,
@@ -156,6 +155,10 @@ class ToolModel(BaseModel):
     def hidden_params(self):
         return [param for param in self.params if param.has_override]
 
+    @property
+    def sorted_groups(self):
+        return sorted_groups(self.groups)
+
     @cached_property
     def callable(self) -> Callable:
         if self.exec:
@@ -184,7 +187,7 @@ class ToolModel(BaseModel):
 
     @property
     def key(self):
-        return ".".join(sorted_groups(self.groups) + [self.name])
+        return ".".join(self.sorted_groups + [self.name])
 
     @property
     def param_model(self) -> type[BaseModel]:
@@ -201,6 +204,7 @@ class ToolModel(BaseModel):
         """
         Formats the signature block of a tool as markdown
         """
+        return jinja_env.get_template("tool_signature.md").render(tool=self)
         lines = [f"## {self.key}"]
 
         if self.groups:

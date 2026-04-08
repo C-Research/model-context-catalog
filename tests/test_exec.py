@@ -6,6 +6,7 @@ from jinja2 import UndefinedError
 from mcc.exec import make_py_callable
 from mcc.loader import loader
 from mcc.models import ToolModel
+from mcc.template import _quote_filter
 
 
 @pytest.mark.smoke
@@ -85,15 +86,11 @@ class TestJinjaQuoteFilter:
 
     @pytest.mark.smoke
     async def test_list_is_quoted_and_joined(self):
-        from mcc.exec import _quote_filter
-
         result = _quote_filter(["a.txt", "b c.txt"])
         assert result == "a.txt 'b c.txt'"
 
     @pytest.mark.smoke
     async def test_empty_list_produces_empty_string(self):
-        from mcc.exec import _quote_filter
-
         assert _quote_filter([]) == ""
 
     async def test_conditional_block_includes_flag(self):
@@ -343,7 +340,11 @@ class TestFnToolNoPython:
     def test_python_defaults_to_sys_executable(self):
         tool = ToolModel(fn="tests.example:add")
         assert tool.python is not None
-        assert tool.python == sys.executable or tool.python.endswith("python3") or "python" in tool.python
+        assert (
+            tool.python == sys.executable
+            or tool.python.endswith("python3")
+            or "python" in tool.python
+        )
 
     def test_introspection_succeeds_without_python_field(self):
         tool = ToolModel(fn="tests.example:add")

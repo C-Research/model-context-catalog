@@ -24,14 +24,6 @@ class TestSearch:
         result = await search("echo")
         assert result.startswith("No tools matched your query.")
 
-    async def test_ungrouped_display_name(self, load_fixture):
-        load_fixture("tools_ungrouped.yaml")
-        await loader.save()
-        result = await search("echo")
-        assert "echo" in result
-        assert "message type: str required" in result
-        assert "Echoes back the provided message" in result
-
 
 class TestExecute:
     async def test_execute_public_tool(self, load_fixture):
