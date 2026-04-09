@@ -1,9 +1,15 @@
 from mcc.auth.db import list_users
 from mcc.auth.models import UserModel
+from mcc.settings import logger
 
 
 async def _get_user_context(group: str) -> UserModel:
-    for user in await list_users():
+    try:
+        users = await list_users()
+    except Exception:
+        logger.warning("Unable to list users, ES users index might b blank.")
+        users = []
+    for user in users:
         if group in user.groups:
             return user
     return UserModel(username=f"dev-{group}", groups=[group])

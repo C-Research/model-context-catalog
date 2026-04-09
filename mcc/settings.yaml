@@ -5,6 +5,11 @@ default:
 
   embedding_model: "BAAI/bge-small-en-v1.5"
 
+  server:
+    transport: sse
+    port: 8000
+    host: 0.0.0.0
+
   elasticsearch:
     host: "localhost"
     port: 9200

@@ -50,6 +50,7 @@ class ESIndex:
         elif username:
             kwargs["basic_auth"] = (username, password)
         self._client = AsyncElasticsearch(**kwargs)
+        await self._client.info()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

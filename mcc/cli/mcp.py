@@ -5,6 +5,7 @@ from typing import Optional
 import rich_click as click
 
 from mcc.cli import cli
+from mcc.settings import settings
 
 _SERVER_SPEC = "mcc/app.py:mcp"
 _EDITABLE = Path(".")
@@ -20,20 +21,36 @@ def mcp_cmd():
     "-t",
     "--transport",
     type=click.Choice(["stdio", "http", "sse", "streamable-http"]),
-    default="stdio",
+    default=settings.server.transport,
+    envvar="MCC_SERVER__TRANSPORT",
     show_default=True,
     help="Transport protocol.",
 )
-@click.option("-h", "--host", default="0.0.0.0", help="Host to bind (HTTP transports).")
 @click.option(
-    "-p", "--port", default=8000, type=int, help="Port to bind (HTTP transports)."
+    "-h",
+    "--host",
+    default=settings.server.host,
+    envvar="MCC_SERVER__HOST",
+    help="Host to bind (HTTP transports).",
+)
+@click.option(
+    "-p",
+    "--port",
+    default=settings.server.port,
+    type=int,
+    envvar="MCC_SERVER__PORT",
+    help="Port to bind (HTTP transports).",
 )
 def run(transport: str, host: Optional[str], port: Optional[int]):
     """Start the MCP server."""
     from mcc.app import banner, mcp
 
     banner()
-    kwargs = {"host": host, "port": port} if transport in ("http", "sse", "streamable-http") else {}
+    kwargs = (
+        {"host": host, "port": port}
+        if transport in ("http", "sse", "streamable-http")
+        else {}
+    )
     mcp.run(transport=transport, **kwargs)  # type: ignore[arg-type]  # click.Choice doesn't narrow to Literal
 
 

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from mcc.auth.backend import get_auth
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
-from mcc.settings import settings, logger
+from mcc.settings import logger, settings
 
 
 @asynccontextmanager
@@ -190,8 +190,3 @@ def debug_error(key: str, error: str) -> str:
         "2. Whether a different tool would be more appropriate\n"
         "3. Any other troubleshooting steps"
     )
-
-
-if __name__ == "__main__":
-    banner()
-    mcp.run()
