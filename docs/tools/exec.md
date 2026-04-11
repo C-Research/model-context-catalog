@@ -161,6 +161,58 @@ Stdin and Jinja templating compose: the command is rendered from params at call 
 
 ---
 
+## curl shorthand
+
+The `curl:` field is a convenience wrapper for HTTP tools. It automatically prepends `curl -s -o -`, keeping tool definitions focused on the URL and any extra flags.
+
+```yaml
+tools:
+  - name: geolocate
+    curl: "http://ip-api.com/json/{{ query }}"
+```
+
+This is equivalent to:
+
+```yaml
+  - name: geolocate
+    exec: curl -s -o - "http://ip-api.com/json/{{ query }}"
+```
+
+### With request body
+
+Add `stdin: true` to send all parameters as a JSON body via `--json @-`:
+
+```yaml
+tools:
+  - name: search
+    curl: https://api.example.com/search
+    stdin: true
+    params:
+      - name: q
+        type: str
+        required: true
+```
+
+`stdin: true` causes MCC to pipe `{"q": "..."}` to curl's stdin, and appends `--json @-` to the command — which sets `Content-Type: application/json` and `Accept: application/json` automatically.
+
+### Extra curl flags
+
+Put anything that would normally follow `curl -s -o -` directly in the `curl:` value — headers, method flags, URL templates:
+
+```yaml
+tools:
+  - name: private_api
+    curl: "-H 'Authorization: Bearer ${API_TOKEN}' https://api.example.com/{{ resource }}"
+    params:
+      - name: resource
+        type: str
+        required: true
+```
+
+All Jinja2 templating, `${VAR}` load-time substitution, and runtime options (`timeout`, `env`, `env_file`, etc.) work exactly as they do for `exec:` tools.
+
+---
+
 ## Runtime options
 
 All common runtime fields (`cwd`, `env`, `env_file`, `env_passthrough`, `timeout`, `limits`) are documented in [YAML Tool Format → Runtime options](yaml-format.md#runtime-options). Below are `exec`-specific notes and examples.

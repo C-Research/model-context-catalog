@@ -13,6 +13,8 @@ All tests must pass. Tests are async-first (`asyncio_mode = "auto"`). Do not moc
 
 ## ruff
 
+Python files only 
+
 Lint and format with:
 
 ```bash
@@ -23,6 +25,8 @@ uv run ruff format mcc/ tests/
 Fix lint errors before considering a task complete. Do not suppress warnings with `# noqa` unless there is a specific, documented reason.
 
 ## pyright
+
+Python files only 
 
 Type-check with:
 

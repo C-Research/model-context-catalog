@@ -64,6 +64,7 @@ class ToolModel(BaseModel):
     name: str = ""
     fn: str | None = None
     exec: str | None = Field(default=None, alias="exec")
+    curl: str | None = None
     python: str | None = None
     stdin: bool = False
     timeout: int | None = None
@@ -81,6 +82,13 @@ class ToolModel(BaseModel):
 
     @model_validator(mode="after")
     def validate_fn_or_exec(self):
+        if self.curl:
+            if self.fn or self.exec:
+                raise ValueError("Tool must specify only one of 'fn', 'exec', or 'curl'")
+            flags = "curl -s -o -"
+            if self.stdin:
+                flags += " --json @-"
+            self.exec = f"{flags} {self.curl}"
         if self.fn and self.exec:
             raise ValueError("Tool must specify either 'fn' or 'exec', not both")
         if not self.fn and not self.exec:
