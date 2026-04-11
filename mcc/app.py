@@ -120,43 +120,6 @@ async def execute(name: str, params: Optional[dict] = None):
         return f"Validation error for tool '{name}': {e}"
 
 
-# --- Resources ---
-
-
-@mcp.resource("catalog://tools")
-async def catalog_tools() -> str:
-    """List all tools the current user can access."""
-    user = current_user_var.get(None)
-    accessible = [tool.signature for tool in loader.values() if tool.allows(user)]
-    return "\n\n".join(accessible) if accessible else "No accessible tools."
-
-
-@mcp.resource("catalog://tools/{key}")
-async def catalog_tool_by_key(key: str) -> str:
-    """Get a single tool's signature by key."""
-    if key not in loader:
-        return f"Tool '{key}' not found in loader."
-    tool = loader[key]
-    user = current_user_var.get(None)
-    if not tool.allows(user):
-        return f"Tool '{key}' not found or not allowed by user."
-    return tool.signature
-
-
-@mcp.resource("user://me")
-async def user_me() -> dict:
-    """Current user's identity, groups, and specific tool grants (not comprehensive list)."""
-    user = current_user_var.get(None)
-    if user is None:
-        return {"username": "anonymous", "email": None, "groups": [], "tools": []}
-    return {
-        "username": user.username,
-        "email": user.email,
-        "groups": user.groups,
-        "tools": user.tools,
-    }
-
-
 # --- Prompts ---
 
 
