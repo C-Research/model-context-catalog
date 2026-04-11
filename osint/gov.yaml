@@ -1,0 +1,91 @@
+env_file: osint.env
+groups: [gov]
+tools:
+  - name: edgar_search
+    curl: "https://efts.sec.gov/LATEST/search-index?q={{ q | urlencode }}{% if form_type %}&dateRange=custom&startdt=2000-01-01&forms={{ form_type | urlencode }}{% endif %}&hits.hits._source=period_of_report,entity_name,file_date,form_type,biz_location,inc_states"
+    description: |
+      Search SEC EDGAR full-text search for filings from US public companies.
+      Returns JSON with filing metadata including company name, form type, date, and location.
+      No API key required. Covers 10-K, 10-Q, 8-K, DEF 14A, and all other SEC form types.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Full-text search query. Supports quoted phrases and boolean operators.
+      - name: form_type
+        type: str
+        required: false
+        default: ""
+        description: Filter by SEC form type, e.g. 10-K, 8-K, DEF 14A. Leave blank for all forms.
+
+  - name: congress_search
+    curl: "https://api.congress.gov/v3/bill?query={{ query | urlencode }}&limit={{ limit }}&format=json"
+    description: |
+      Search US Congress bills and resolutions via the Congress.gov API.
+      Returns JSON with bill numbers, titles, sponsors, latest action, and chamber.
+      No API key required.
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Keyword search query for bill titles and text.
+      - name: limit
+        type: int
+        required: false
+        default: 20
+        description: Number of results to return. Default 20, max 250.
+
+  - name: usaspending_search
+    curl: >-
+      curl -s -X POST https://api.usaspending.gov/api/v2/search/spending_by_award/
+      -H 'Content-Type: application/json'
+      -d '{"filters":{"keywords":["{{ keyword }}"],"award_type_codes":{{ award_types }}},"fields":["Award ID","Recipient Name","Award Amount","Awarding Agency","Award Type","Start Date","End Date","Description"],"limit":{{ limit }},"page":1}'
+    description: |
+      Search USASpending.gov for federal contracts, grants, loans, and other awards.
+      Returns JSON with recipient names, award amounts, agencies, and date ranges.
+      No API key required.
+      award_type_codes examples: contracts=["A","B","C","D"], grants=["02","03","04","05"]
+    params:
+      - name: keyword
+        type: str
+        required: true
+        description: Keyword to search across award descriptions and recipient names.
+      - name: award_types
+        type: str
+        required: false
+        default: '["A","B","C","D","02","03","04","05"]'
+        description: JSON array of award type codes. Defaults to contracts and grants.
+      - name: limit
+        type: int
+        required: false
+        default: 20
+        description: Number of results to return. Default 20.
+
+  - name: ofac
+    curl: https://sanctionslistservice.ofac.treas.gov/api/Search/Search
+    stdin: true
+    description: |
+      Search the OFAC Specially Designated Nationals (SDN) sanctions list.
+      Returns matching individuals, entities, and vessels subject to US sanctions.
+      No API key required.
+    params:
+      - name: name
+        default: ""
+      - name: city
+        default: ""
+      - name: idNumber
+        default: ""
+      - name: stateProvince
+        default: ""
+      - name: nameScore
+        type: int
+        default: 100
+      - name: country
+        default: ""
+      - name: programs
+        type: list
+        default: []
+      - name: type
+        default: Entity
+      - name: address
+        default: ""

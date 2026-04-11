@@ -1,0 +1,56 @@
+env_file: osint.env
+groups: [crypto]
+tools:
+  - name: blockchain_rawtx
+    curl: "https://blockchain.info/rawtx/{{ tx_hash }}"
+    description: |
+      Fetch raw Bitcoin transaction data from Blockchain.info by transaction hash.
+      Returns inputs, outputs, value, fee, block height, and confirmation count.
+      No API key required.
+    params:
+      - name: tx_hash
+        type: str
+        required: true
+        description: Bitcoin transaction hash (txid).
+
+  - name: blockchain_rawblock
+    curl: "https://blockchain.info/rawblock/{{ block_hash }}"
+    description: |
+      Fetch raw Bitcoin block data from Blockchain.info by block hash or height.
+      Returns block header, transaction list, timestamp, difficulty, and miner info.
+      No API key required.
+    params:
+      - name: block_hash
+        type: str
+        required: true
+        description: Bitcoin block hash or block height.
+
+  - name: blockchain_rawaddr
+    curl: "https://blockchain.info/rawaddr/{{ bitcoin_address }}"
+    description: |
+      Fetch Bitcoin address summary from Blockchain.info.
+      Returns total received, total sent, current balance, and transaction history.
+      No API key required.
+    params:
+      - name: bitcoin_address
+        type: str
+        required: true
+        description: Bitcoin address (base58 or bech32 format).
+
+  - name: blockchair
+    curl: "https://api.blockchair.com/{{ chain }}/dashboards/{% if chain == 'bitcoin' or chain == 'ethereum' or chain == 'litecoin' or chain == 'bitcoin-cash' %}{% if query | length == 64 %}transaction{% else %}address{% endif %}{% else %}address{% endif %}/{{ query }}"
+    description: |
+      Look up a transaction or address across multiple blockchains using the Blockchair API.
+      Auto-detects whether query is a transaction (64-char hex) or address.
+      Supported chains: bitcoin, ethereum, litecoin, bitcoin-cash, dogecoin, dash, zcash,
+        bitcoin-sv, monero, ripple, stellar, cardano, polkadot, solana, tron.
+      No API key required for basic lookups (1800 req/hour limit).
+    params:
+      - name: chain
+        type: str
+        required: true
+        description: Blockchain to query, e.g. bitcoin, ethereum, litecoin.
+      - name: query
+        type: str
+        required: true
+        description: Transaction hash (64 hex chars) or wallet address to look up.

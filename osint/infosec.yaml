@@ -1,0 +1,91 @@
+env_file: osint.env
+groups: [infosec]
+tools:
+  - name: crtsh
+    curl: "https://crt.sh/?dNSName={{ domain }}&output=json"
+    description: |
+      Search crt.sh certificate transparency logs for TLS certificates issued for a domain.
+      Returns JSON with certificate details including SANs, issuer, and validity dates.
+      Useful for subdomain enumeration and certificate monitoring. No API key required.
+    params:
+      - name: domain
+        type: str
+        required: true
+        description: Domain name to search. Use %.example.com to include all subdomains.
+
+  - name: virustotal
+    curl: "curl -s -H 'x-apikey: ${VIRUSTOTAL_API_KEY}' 'https://www.virustotal.com/api/v3/{{ type }}s/{{ indicator | urlencode }}'"
+    description: |
+      Look up a file hash, URL, domain, or IP address in VirusTotal's multi-engine threat database.
+      Returns detection results from 70+ antivirus engines and threat intelligence metadata.
+      Requires VIRUSTOTAL_API_KEY (free tier: 4 req/min, 500 req/day).
+    params:
+      - name: indicator
+        type: str
+        required: true
+        description: The indicator to look up — SHA256 hash, URL, domain, or IP address.
+      - name: type
+        type: str
+        required: false
+        default: file
+        description: "Indicator type. One of: file, url, domain, ip_address."
+      - name: api_key
+        type: str
+        override: ${VIRUSTOTAL_API_KEY}
+
+  - name: abuseipdb
+    curl: "curl -s -H 'Key: ${ABUSEIPDB_API_KEY}' -H 'Accept: application/json' -G 'https://api.abuseipdb.com/api/v2/check' --data-urlencode 'ipAddress={{ ip }}' -d 'maxAgeInDays={{ max_age_days }}'"
+    description: |
+      Check an IP address against the AbuseIPDB database of reported malicious IPs.
+      Returns abuse confidence score (0-100), ISP, usage type, country, and recent report count.
+      Requires ABUSEIPDB_API_KEY (free tier: 1000 req/day).
+    params:
+      - name: ip
+        type: str
+        required: true
+        description: IPv4 or IPv6 address to check.
+      - name: max_age_days
+        type: int
+        required: false
+        default: 90
+        description: Only count reports within this many days. Default 90.
+      - name: api_key
+        type: str
+        override: ${ABUSEIPDB_API_KEY}
+
+  - name: nvd_cve
+    curl: "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={{ cve_id | urlencode }}"
+    description: |
+      Look up a CVE by ID in the NIST National Vulnerability Database.
+      Returns CVSS scores (v2 and v3), description, affected products, and references.
+      No API key required. Example: CVE-2021-44228 (Log4Shell).
+    params:
+      - name: cve_id
+        type: str
+        required: true
+        description: CVE identifier, e.g. CVE-2021-44228.
+
+  - name: malwarebazaar
+    curl: "curl -s -X POST https://mb-api.abuse.ch/api/v1/ -d 'query=get_info&hash={{ hash }}'"
+    description: |
+      Look up a file hash in MalwareBazaar to check if it is a known malware sample.
+      Returns sample metadata, malware family/tags, first seen date, and file type.
+      Accepts MD5, SHA1, or SHA256 hashes. No API key required.
+    params:
+      - name: hash
+        type: str
+        required: true
+        description: MD5, SHA1, or SHA256 hash of the file to look up.
+
+
+  - name: dnsdumpster
+    description: |
+      DNSDumpster.com is a FREE domain research tool that discovers hosts related to a domain.
+      Returns JSON with DNS records and attack surface information: A, MX, NS, TXT records and open ports.
+      Useful for mapping an organisation's network footprint. Requires DNSDUMPSTER_API_KEY.
+    curl: "-H 'X-API-Key: ${DNSDUMPSTER_API_KEY}' 'https://api.dnsdumpster.com/domain/{{ domain }}'"
+    params:
+      - name: domain
+        type: str
+        required: true
+        description: Domain name or IPv4/IPv6 address to search.

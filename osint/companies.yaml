@@ -1,0 +1,40 @@
+env_file: osint.env
+groups: [companies]
+tools:
+  - name: opencorporates_search
+    curl: "https://api.opencorporates.com/v0.4/companies/search?q={{ q | urlencode }}{% if jurisdiction_code %}&jurisdiction_code={{ jurisdiction_code }}{% endif %}&per_page={{ per_page }}"
+    description: |
+      Search the OpenCorporates database of 200M+ company registrations worldwide.
+      Returns company names, registration numbers, jurisdictions, registered addresses, and status.
+      No API key required for basic search. Use jurisdiction_code to narrow by country/state (e.g. us_de, gb, de).
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Company name or keyword to search.
+      - name: jurisdiction_code
+        type: str
+        required: false
+        default: ""
+        description: Jurisdiction filter, e.g. us_de (Delaware), gb (UK), de (Germany). Leave blank for global.
+      - name: per_page
+        type: int
+        required: false
+        default: 20
+        description: Number of results per page. Default 20, max 100.
+
+  - name: propublica_nonprofit
+    curl: "https://projects.propublica.org/nonprofits/api/v2/search.json?q={{ q | urlencode }}"
+    description: |
+      Browse millions of annual IRS 990 returns filed by US tax-exempt organizations via ProPublica's Nonprofit Explorer.
+      Returns organization names, EINs, revenue, expenses, executive compensation, and filing years.
+      Search by organization name, person name, or city. No API key required.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: |
+          Keyword search string. Searches organization name, alternate name, and city.
+          Use quotes for exact phrases: "Delta Dental"
+          Use + to require terms: delta +evanston
+          Use - to exclude terms: delta -dental

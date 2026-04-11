@@ -1,0 +1,20 @@
+env_file: osint.env
+groups: [web, search]
+tools:
+
+  - name: wayback
+    curl: "http://archive.org/wayback/available?url={{ url | urlencode }}"
+    description: |
+      Check whether a URL has been archived by the Wayback Machine (Internet Archive).
+      Returns the closest available snapshot URL and its timestamp, or an empty response if not archived.
+      No API key required.
+    params:
+      - name: url
+        type: str
+        required: true
+        description: The URL to look up in the Wayback Machine.
+      - name: timestamp
+        type: str
+        required: false
+        default: ""
+        description: Optional target timestamp in YYYYMMDDhhmmss format to find the closest snapshot to.

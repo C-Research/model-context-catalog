@@ -1,0 +1,30 @@
+env_file: osint.env
+groups: [news]
+tools:
+  - name: hn_search
+    curl: "http://hn.algolia.com/api/v1/search?query={{ q | urlencode }}{% if tags %}&tags={{ tags | urlencode }}{% endif %}"
+    description: |
+      Search Hacker News posts and comments via the Algolia HN Search API.
+      Returns stories, comments, jobs, and polls matching the query.
+      Use the `tags` param to filter by type: story, comment, job, poll, show_hn, ask_hn.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Search query string.
+      - name: tags
+        type: str
+        required: false
+        default: ""
+        description: "Filter by item type. One of: story, comment, job, poll, show_hn, ask_hn. Leave blank for all types."
+
+  - name: hn_item
+    curl: "https://hacker-news.firebaseio.com/v0/item/{{ item_id }}.json"
+    description: |
+      Fetch a single Hacker News item (story, comment, job, or poll) by its integer ID.
+      Returns the raw item JSON including title, text, score, author, and children.
+    params:
+      - name: item_id
+        type: int
+        required: true
+        description: The integer ID of the HN item.

@@ -1,0 +1,70 @@
+env_file: osint.env
+groups: [academic]
+tools:
+  - name: arxiv_search
+    curl: "https://export.arxiv.org/api/query?search_query=all:{{ query | urlencode }}&max_results={{ max_results }}"
+    description: |
+      Search arXiv preprints across physics, CS, math, biology, and more.
+      Returns an Atom XML feed with paper titles, authors, abstracts, and PDF links.
+      No API key required.
+    params:
+      - name: query
+        type: str
+        required: true
+        description: "Search query. Supports field prefixes like ti: (title), au: (author), abs: (abstract)."
+      - name: max_results
+        type: int
+        required: false
+        default: 10
+        description: Maximum number of results to return. Default 10, max 2000.
+
+  - name: crossref_search
+    curl: "https://api.crossref.org/works?query={{ query | urlencode }}&rows={{ rows }}"
+    description: |
+      Search the CrossRef database for journal articles, books, conference papers, and other scholarly works.
+      Returns JSON with DOIs, titles, authors, publication dates, and citation counts.
+      No API key required. Please set a polite User-Agent via the mailto param.
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Keyword search query.
+      - name: rows
+        type: int
+        required: false
+        default: 10
+        description: Number of results to return. Default 10.
+
+  - name: semantic_scholar_search
+    curl: "https://api.semanticscholar.org/graph/v1/paper/search?query={{ query | urlencode }}&limit={{ limit }}&fields=title,authors,year,abstract,citationCount,openAccessPdf"
+    description: |
+      Search the Semantic Scholar academic graph for papers by keyword.
+      Returns JSON with titles, authors, year, abstract, citation counts, and open-access PDF links.
+      No API key required for basic access (rate limits apply).
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Search query string.
+      - name: limit
+        type: int
+        required: false
+        default: 10
+        description: Number of results to return. Default 10, max 100.
+
+  - name: openalex_search
+    curl: "https://api.openalex.org/works?search={{ query | urlencode }}&per-page={{ per_page }}"
+    description: |
+      Search OpenAlex, a fully open catalog of scholarly works, authors, institutions, and concepts.
+      Returns JSON with titles, authors, year, citation counts, and open access status.
+      No API key required.
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Search query string.
+      - name: per_page
+        type: int
+        required: false
+        default: 10
+        description: Number of results per page. Default 10, max 200.
