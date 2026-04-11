@@ -8,7 +8,7 @@ settings = Dynaconf(
     environments=True,
     settings_files=[
         str(Path(__file__).parent / "settings.yaml"),
-        "settings.local.yaml",
+        str(Path.cwd() / "settings.local.yaml"),
     ],
     load_dotenv=True,
 )

@@ -96,6 +96,17 @@ def load_file(path: str | Path) -> list[ToolModel]:
     parent_groups: list[str] = tool.get("groups", [])  # type: ignore[assignment]  # EnvYAML stubs return Unknown|None regardless of default
     entries: list[dict] = list(tool.get("tools", []))  # type: ignore[arg-type]  # EnvYAML stubs return Unknown|None regardless of default
 
+    # Cascade file-level env_file / env into each tool entry as defaults.
+    # Per-tool values always take precedence; file-level fills in the gaps.
+    file_env_file: str | None = tool.get("env_file") or None  # type: ignore[assignment]
+    file_env: dict[str, str] = dict(tool.get("env") or {})  # type: ignore[arg-type]
+    if file_env_file or file_env:
+        for entry in entries:
+            if file_env_file and not entry.get("env_file"):
+                entry["env_file"] = file_env_file
+            if file_env:
+                entry["env"] = {**file_env, **(entry.get("env") or {})}
+
     # Pre-pass: batch introspect fn entries that need it, grouped by interpreter
     needs_introspect = [
         (i, e) for i, e in enumerate(entries) if e.get("fn") and not e.get("params")

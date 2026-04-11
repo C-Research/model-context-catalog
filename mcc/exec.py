@@ -128,7 +128,7 @@ def make_exec_callable(
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
         run_cmd = template.render(**kwargs)
-        logger.debug("exec: %s | %s", json.dumps(kwargs), run_cmd)
+        logger.info("exec: %s | %s", json.dumps(kwargs), run_cmd)
         stdin_pipe = asyncio.subprocess.PIPE if use_stdin else None
 
         extra: dict[str, Any] = {}
@@ -169,7 +169,7 @@ def make_py_callable(
     merged_env = _build_env(env, env_file, env_passthrough)
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
-        logger.debug("py_exec: %s | %s %s", json.dumps(kwargs), python, fn_path)
+        logger.info("py_exec: %s | %s %s", json.dumps(kwargs), python, fn_path)
 
         extra: dict[str, Any] = {}
         if preexec_fn is not None:
