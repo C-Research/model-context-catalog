@@ -1,0 +1,48 @@
+env_file: osint.env
+groups: [osint, environment]
+tools:
+  - name: nasa_firms
+    curl: >-
+      'https://firms.modaps.eosdis.nasa.gov/api/country/csv/${NASA_FIRMS_API_KEY}/{{ source }}/{{ country }}/{{ days }}'
+    description: |
+      Retrieve active fire and thermal anomaly detections from NASA FIRMS (Fire Information for Resource Management System).
+      Returns CSV data with fire radiative power, confidence level, latitude, longitude, brightness temperature,
+      satellite, instrument, and acquisition date/time for each detected hotspot.
+      Requires NASA_FIRMS_API_KEY (free at https://firms.modaps.eosdis.nasa.gov/api/map_key/).
+      Common sources: VIIRS_SNPP_NRT, VIIRS_NOAA20_NRT, MODIS_NRT, MODIS_SP.
+      Country codes are ISO 3166-1 alpha-3 (e.g. UKR, SYR, SDN).
+    params:
+      - name: country
+        type: str
+        required: true
+        description: ISO 3166-1 alpha-3 country code (e.g. "UKR" for Ukraine, "SYR" for Syria).
+      - name: days
+        type: int
+        required: false
+        default: 1
+        description: Number of days of data to retrieve (1–10, default 1).
+      - name: source
+        type: str
+        required: false
+        default: VIIRS_SNPP_NRT
+        description: "Satellite/instrument source. Options: VIIRS_SNPP_NRT, VIIRS_NOAA20_NRT, MODIS_NRT, MODIS_SP."
+
+  - name: gfw_vessels
+    curl: >-
+      -H 'Authorization: Bearer ${GFW_API_KEY}'
+      'https://gateway.api.globalfishingwatch.org/v3/vessels/search?query={{ query | urlencode }}&datasets[0]=public-global-vessel-identity:latest&limit={{ limit }}'
+    description: |
+      Search the Global Fishing Watch vessel identity database for fishing vessels by name, MMSI, or IMO number.
+      Returns JSON with matching vessel records including flags, gear types, vessel IDs, and identity sources.
+      Useful for tracking fishing vessels involved in IUU fishing, sanctions evasion, or conflict-zone activity.
+      Requires GFW_API_KEY (free at https://globalfishingwatch.org/our-apis/).
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Vessel name, MMSI number, IMO number, or call sign to search.
+      - name: limit
+        type: int
+        required: false
+        default: 10
+        description: Maximum number of vessel records to return (default 10).

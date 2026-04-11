@@ -1,0 +1,56 @@
+env_file: osint.env
+groups: [osint, geo]
+tools:
+  - name: nominatim_geocode
+    curl: >-
+      -H 'User-Agent: mcc-osint/1.0'
+      'https://nominatim.openstreetmap.org/search?q={{ q | urlencode }}&format=json&limit={{ limit }}'
+    description: |
+      Forward geocode a place name or address to latitude/longitude coordinates using Nominatim (OpenStreetMap).
+      Returns a JSON array of matching places with coordinates, display name, and OSM metadata.
+      No API key required. Nominatim rate limit: 1 request/second.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Place name, address, or search query (e.g. "Berlin, Germany" or "1600 Pennsylvania Ave NW").
+      - name: limit
+        type: int
+        required: false
+        default: 5
+        description: Maximum number of results to return (default 5).
+
+  - name: nominatim_reverse
+    curl: >-
+      -H 'User-Agent: mcc-osint/1.0'
+      'https://nominatim.openstreetmap.org/reverse?lat={{ lat }}&lon={{ lon }}&format=json'
+    description: |
+      Reverse geocode a latitude/longitude coordinate to a place name and address using Nominatim (OpenStreetMap).
+      Returns JSON with the full address, place name, OSM type, and bounding box.
+      No API key required. Nominatim rate limit: 1 request/second.
+    params:
+      - name: lat
+        type: str
+        required: true
+        description: Latitude in decimal degrees (e.g. "52.5200").
+      - name: lon
+        type: str
+        required: true
+        description: Longitude in decimal degrees (e.g. "13.4050").
+
+  - name: overpass_query
+    curl: >-
+      -X POST
+      https://overpass-api.de/api/interpreter
+      --data-urlencode 'data={{ query }}'
+    description: |
+      Execute a raw Overpass QL query against the OpenStreetMap Overpass API.
+      Returns JSON (or XML if specified in the query) with matching OSM nodes, ways, and relations.
+      Useful for finding infrastructure, facilities, or geographic features in a bounding box.
+      No API key required. Include [timeout:N] in your query to set a server-side timeout.
+      Example: [out:json];node["amenity"="hospital"](51.4,30.4,51.6,30.6);out;
+    params:
+      - name: query
+        type: str
+        required: true
+        description: Raw Overpass QL query string. Start with [out:json] for JSON output.

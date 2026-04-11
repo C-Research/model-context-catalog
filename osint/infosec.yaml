@@ -14,7 +14,7 @@ tools:
         description: Domain name to search. Use %.example.com to include all subdomains.
 
   - name: virustotal
-    curl: "curl -s -H 'x-apikey: ${VIRUSTOTAL_API_KEY}' 'https://www.virustotal.com/api/v3/{{ type }}s/{{ indicator | urlencode }}'"
+    curl: "-H 'x-apikey: ${VIRUSTOTAL_API_KEY}' 'https://www.virustotal.com/api/v3/{{ type }}s/{{ indicator | urlencode }}'"
     description: |
       Look up a file hash, URL, domain, or IP address in VirusTotal's multi-engine threat database.
       Returns detection results from 70+ antivirus engines and threat intelligence metadata.
@@ -31,7 +31,7 @@ tools:
         description: "Indicator type. One of: file, url, domain, ip_address."
 
   - name: abuseipdb
-    curl: "curl -s -H 'Key: ${ABUSEIPDB_API_KEY}' -H 'Accept: application/json' -G 'https://api.abuseipdb.com/api/v2/check' --data-urlencode 'ipAddress={{ ip }}' -d 'maxAgeInDays={{ max_age_days }}'"
+    curl: "-H 'Key: ${ABUSEIPDB_API_KEY}' -H 'Accept: application/json' -G 'https://api.abuseipdb.com/api/v2/check' --data-urlencode 'ipAddress={{ ip }}' -d 'maxAgeInDays={{ max_age_days }}'"
     description: |
       Check an IP address against the AbuseIPDB database of reported malicious IPs.
       Returns abuse confidence score (0-100), ISP, usage type, country, and recent report count.
@@ -60,7 +60,7 @@ tools:
         description: CVE identifier, e.g. CVE-2021-44228.
 
   - name: malwarebazaar
-    curl: "curl -s -X POST https://mb-api.abuse.ch/api/v1/ -d 'query=get_info&hash={{ hash }}'"
+    curl: "-X POST https://mb-api.abuse.ch/api/v1/ -d 'query=get_info&hash={{ hash }}'"
     description: |
       Look up a file hash in MalwareBazaar to check if it is a known malware sample.
       Returns sample metadata, malware family/tags, first seen date, and file type.
@@ -83,6 +83,47 @@ tools:
         type: str
         required: true
         description: Domain name or IPv4/IPv6 address to search.
+
+  - name: urlscan_search
+    curl: "https://urlscan.io/api/v1/search/?q={{ q | urlencode }}&size={{ size }}"
+    description: |
+      Search the urlscan.io public index for existing website scans matching a query.
+      Supports Elasticsearch-style queries: domain:example.com, ip:1.2.3.4, hash:<sha256>, etc.
+      Returns JSON with scan results including screenshot URLs, page metadata, detected technologies,
+      certificates, and IP/ASN info. No API key required for searching public scans.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Search query (e.g. "domain:example.com", "ip:1.2.3.4", "page.domain:phishing.site").
+      - name: size
+        type: int
+        required: false
+        default: 10
+        description: Number of results to return (max 10000, default 10).
+
+  - name: urlscan_submit
+    curl: >-
+      -X POST
+      -H 'Content-Type: application/json'
+      -H 'API-Key: ${URLSCAN_API_KEY}'
+      https://urlscan.io/api/v1/scan/
+      -d '{"url":"{{ url }}","visibility":"{{ visibility }}"}'
+    description: |
+      Submit a URL to urlscan.io for scanning. The scan visits the URL in a browser and captures
+      a screenshot, DOM, cookies, HTTP requests, and detected technologies.
+      Returns JSON with the scan UUID and result URL (available ~10s after submission).
+      Requires URLSCAN_API_KEY (free tier: 100 scans/day at public visibility).
+    params:
+      - name: url
+        type: str
+        required: true
+        description: URL to scan (must include scheme, e.g. "https://example.com").
+      - name: visibility
+        type: str
+        required: false
+        default: public
+        description: Scan visibility — "public" (searchable by anyone), "unlisted", or "private".
 
   - curl: "http://ip-api.com/json/{{ query }}?fields={{ fields | join(',') }}"
     name: geolocate

@@ -37,7 +37,7 @@ tools:
 
   - name: usaspending_search
     curl: >-
-      curl -s -X POST https://api.usaspending.gov/api/v2/search/spending_by_award/
+      -X POST https://api.usaspending.gov/api/v2/search/spending_by_award/
       -H 'Content-Type: application/json'
       -d '{"filters":{"keywords":["{{ keyword }}"],"award_type_codes":{{ award_types }}},"fields":["Award ID","Recipient Name","Award Amount","Awarding Agency","Award Type","Start Date","End Date","Description"],"limit":{{ limit }},"page":1}'
     description: |
@@ -60,6 +60,39 @@ tools:
         required: false
         default: 20
         description: Number of results to return. Default 20.
+
+  - name: opensecrets_legislators
+    curl: >-
+      'https://api.opensecrets.org/?method=getLegislators&id={{ state }}&output=json&apikey=${OPENSECRETS_API_KEY}'
+    description: |
+      Retrieve a list of current US legislators for a given state from OpenSecrets.
+      Returns JSON with legislator names, CRP IDs, party, chamber, district, and first elected year.
+      The CRP ID (e.g. N00007360) can be used with opensecrets_contributions for campaign finance lookups.
+      Requires OPENSECRETS_API_KEY (free at https://www.opensecrets.org/api/admin/index.php).
+    params:
+      - name: state
+        type: str
+        required: true
+        description: Two-letter US state abbreviation (e.g. "CA", "TX", "NY").
+
+  - name: opensecrets_contributions
+    curl: >-
+      'https://api.opensecrets.org/?method=candContrib&cid={{ cid }}&cycle={{ cycle }}&output=json&apikey=${OPENSECRETS_API_KEY}'
+    description: |
+      Retrieve top campaign contributors for a US candidate by CRP ID and election cycle.
+      Returns JSON with contributor names, total amounts, and contributor types (PAC vs. individual).
+      Use opensecrets_legislators to find a candidate's CRP ID.
+      Requires OPENSECRETS_API_KEY (free at https://www.opensecrets.org/api/admin/index.php).
+    params:
+      - name: cid
+        type: str
+        required: true
+        description: OpenSecrets CRP candidate ID (e.g. "N00007360" for Nancy Pelosi).
+      - name: cycle
+        type: str
+        required: false
+        default: "2024"
+        description: Election cycle year (e.g. "2024", "2022", "2020").
 
   - name: ofac
     curl: https://sanctionslistservice.ofac.treas.gov/api/Search/Search

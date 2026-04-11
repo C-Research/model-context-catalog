@@ -1,0 +1,42 @@
+env_file: osint.env
+groups: [osint, transport]
+tools:
+  - name: opensky_states
+    curl: >-
+      'https://opensky-network.org/api/states/all?lamin={{ lamin }}&lomin={{ lomin }}&lamax={{ lamax }}&lomax={{ lomax }}'
+    description: |
+      Retrieve live aircraft transponder states within a geographic bounding box from the OpenSky Network.
+      Returns JSON with an array of state vectors: ICAO24 transponder code, callsign, origin country,
+      last position timestamp, longitude, latitude, altitude (meters), on-ground flag, velocity (m/s),
+      true track (degrees), vertical rate (m/s), and squawk code.
+      No API key required (anonymous: ~400 req/day limit). Returns states: null if no aircraft in box.
+    params:
+      - name: lamin
+        type: str
+        required: true
+        description: Minimum latitude of the bounding box in decimal degrees (south boundary).
+      - name: lomin
+        type: str
+        required: true
+        description: Minimum longitude of the bounding box in decimal degrees (west boundary).
+      - name: lamax
+        type: str
+        required: true
+        description: Maximum latitude of the bounding box in decimal degrees (north boundary).
+      - name: lomax
+        type: str
+        required: true
+        description: Maximum longitude of the bounding box in decimal degrees (east boundary).
+
+  - name: opensky_aircraft
+    curl: "https://opensky-network.org/api/states/all?icao24={{ icao24 }}"
+    description: |
+      Look up the current transponder state for a specific aircraft by its ICAO24 hex identifier.
+      Returns JSON with the aircraft's state vector if it is currently airborne, or states: null if not.
+      The ICAO24 is a 6-character hex code unique to each aircraft (e.g. "3c6444" for Lufthansa).
+      No API key required (anonymous rate limits apply).
+    params:
+      - name: icao24
+        type: str
+        required: true
+        description: 6-character ICAO24 hex transponder code (e.g. "3c6444"). Case-insensitive.
