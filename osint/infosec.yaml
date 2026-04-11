@@ -125,6 +125,35 @@ tools:
         default: public
         description: Scan visibility — "public" (searchable by anyone), "unlisted", or "private".
 
+  - name: nmap_scan
+    exec: "nmap -oN - -p {{ ports }} -T{{ timing }} {{ arguments }} {{ target }}"
+    timeout: 300
+    description: |
+      Scan a host, IP address, or CIDR range with nmap.
+      Returns normal text output including open ports, service names, and versions.
+      Requires nmap to be installed on the host system (brew install nmap / apt install nmap).
+      Note: OS detection (-O) and SYN scan (-sS) require root privileges.
+    params:
+      - name: target
+        type: str
+        required: true
+        description: Host, IP address, or CIDR range to scan (e.g. "192.168.1.1", "scanme.nmap.org", "10.0.0.0/24").
+      - name: ports
+        type: str
+        required: false
+        default: "21,22,23,25,53,80,110,143,443,445,3306,3389,5900,8080,8443"
+        description: Ports to scan. Comma-separated list, range (e.g. "1-1024"), or "-" for all 65535 ports.
+      - name: timing
+        type: str
+        required: false
+        default: "4"
+        description: "Timing template 0-5 (0=paranoid, 3=normal, 4=aggressive, 5=insane). Default 4."
+      - name: arguments
+        type: str
+        required: false
+        default: "-sV"
+        description: Extra nmap flags (e.g. "-sV" for version detection, "-O" for OS detection, "-A" for all).
+
   - curl: "http://ip-api.com/json/{{ query }}?fields={{ fields | join(',') }}"
     name: geolocate
     description: returns geolocation data about where the speicifc address originates from using ip-api.com
