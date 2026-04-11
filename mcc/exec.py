@@ -167,7 +167,9 @@ def make_exec_callable(
         blob = json.dumps(kwargs).encode() if use_stdin else None
         result = await _communicate_and_return(proc, blob, timeout, limits)
         if isinstance(result, str) and transform_template:
-            result = await _apply_transform(result, transform_template.render(**kwargs), timeout)
+            result = await _apply_transform(
+                result, transform_template.render(**kwargs), timeout
+            )
         return result
 
     return _exec
@@ -216,7 +218,9 @@ def make_py_callable(
         blob = json.dumps(kwargs).encode()
         result = await _communicate_and_return(proc, blob, timeout, limits)
         if isinstance(result, str) and transform_template:
-            result = await _apply_transform(result, transform_template.render(**kwargs), timeout)
+            result = await _apply_transform(
+                result, transform_template.render(**kwargs), timeout
+            )
         return result
 
     return _exec

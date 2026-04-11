@@ -93,7 +93,11 @@ class ToolModel(BaseModel):
                 flags += " --json @-"
             # Bare URLs need quoting so shell doesn't interpret & as a background op.
             # Flag-prefixed values (e.g. "-H 'Key: x' 'https://...'") are already quoted.
-            curl_arg = f"'{self.curl}'" if self.curl.lstrip().startswith(("http://", "https://")) else self.curl
+            curl_arg = (
+                f"'{self.curl}'"
+                if self.curl.lstrip().startswith(("http://", "https://"))
+                else self.curl
+            )
             self.exec = f"{flags} {curl_arg}"
         if self.fn and self.exec:
             raise ValueError("Tool must specify either 'fn' or 'exec', not both")

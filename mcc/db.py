@@ -73,9 +73,7 @@ class ESIndex:
 
     async def search(self, query: dict, size: int = 10000) -> list[dict]:
         """Run a raw ES query and return a list of _source dicts."""
-        resp = await self._client.search(
-            index=self.index, query=query, size=size
-        )
+        resp = await self._client.search(index=self.index, query=query, size=size)
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     async def create(self) -> None:
