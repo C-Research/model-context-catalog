@@ -112,6 +112,7 @@ The following fields apply to both `fn` and `exec` tools. They control the subpr
 | `env_file` | `str` | none | Path to a `.env` file to source |
 | `env_passthrough` | `bool` | `false` | Inherit the parent process environment |
 | `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) |
+| `transform` | `str` or `list[str]` | none | Shell pipeline to filter output before returning to the LLM |
 
 ---
 
@@ -175,3 +176,42 @@ tools:
         type: str
         required: true
 ```
+
+---
+
+### `transform`
+
+Pipe tool output through a shell command before it's returned to the LLM. Use this to strip noise from large HTML, XML, or JSON responses so less content lands in the LLM's context window.
+
+```yaml
+tools:
+  # single command
+  - name: fetch-article
+    curl: "https://example.com/{{ slug }}"
+    transform: "pup 'article p text{}'"
+
+  # multi-step pipeline (list is joined with |)
+  - name: search
+    curl: "https://api.example.com/search?q={{ query }}"
+    transform:
+      - "jq -r '.hits[].title'"
+      - "head -c 4000"
+```
+
+The transform value is Jinja-templated with the same kwargs as the main command:
+
+```yaml
+tools:
+  - name: extract
+    curl: "https://example.com/{{ path }}"
+    transform: "jq -r '.{{ field }}'"
+    params:
+      - name: path
+        type: str
+        required: true
+      - name: field
+        type: str
+        default: data
+```
+
+Works with both `exec`/`curl` tools and `fn` tools. If the tool call fails, the transform is skipped and the error is returned unchanged. The transform shares the tool's `timeout` budget.

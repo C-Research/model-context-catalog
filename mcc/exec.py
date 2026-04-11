@@ -110,6 +110,21 @@ async def _communicate_and_return(
     return (code, out, err)
 
 
+async def _apply_transform(
+    data: str,
+    cmd: str,
+    timeout: int | None,
+) -> str | tuple[int, str, str]:
+    """Pipe data through a shell command and return the result."""
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    return await _communicate_and_return(proc, data.encode(), timeout, limits=None)
+
+
 def make_exec_callable(
     cmd: str,
     use_stdin: bool,
@@ -119,12 +134,14 @@ def make_exec_callable(
     env: dict[str, str] | None = None,
     env_file: str | None = None,
     env_passthrough: bool = False,
+    transform: str | None = None,
 ) -> Callable:
     """Generate an async closure that runs cmd as a subprocess."""
     preexec_fn = _build_preexec_fn(limits or {})
     merged_env = _build_env(env, env_file, env_passthrough)
 
     template = jinja_env.from_string(cmd)
+    transform_template = jinja_env.from_string(transform) if transform else None
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
         run_cmd = template.render(**kwargs)
@@ -148,7 +165,10 @@ def make_exec_callable(
         )
 
         blob = json.dumps(kwargs).encode() if use_stdin else None
-        return await _communicate_and_return(proc, blob, timeout, limits)
+        result = await _communicate_and_return(proc, blob, timeout, limits)
+        if isinstance(result, str) and transform_template:
+            result = await _apply_transform(result, transform_template.render(**kwargs), timeout)
+        return result
 
     return _exec
 
@@ -162,11 +182,14 @@ def make_py_callable(
     env: dict[str, str] | None = None,
     env_file: str | None = None,
     env_passthrough: bool = False,
+    transform: str | None = None,
 ) -> Callable:
     """Generate an async closure that runs fn_path in a separate Python interpreter."""
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
     preexec_fn = _build_preexec_fn(limits or {})
     merged_env = _build_env(env, env_file, env_passthrough)
+
+    transform_template = jinja_env.from_string(transform) if transform else None
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
         logger.info("py_exec: %s | %s %s", json.dumps(kwargs), python, fn_path)
@@ -191,6 +214,9 @@ def make_py_callable(
         )
 
         blob = json.dumps(kwargs).encode()
-        return await _communicate_and_return(proc, blob, timeout, limits)
+        result = await _communicate_and_return(proc, blob, timeout, limits)
+        if isinstance(result, str) and transform_template:
+            result = await _apply_transform(result, transform_template.render(**kwargs), timeout)
+        return result
 
     return _exec

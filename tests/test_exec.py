@@ -334,6 +334,62 @@ class TestFnToolDirect:
         assert json.loads(result) == 7
 
 
+class TestTransform:
+    async def test_exec_string_transform(self):
+        tool = ToolModel(
+            name="echo_transform",
+            **{"exec": "echo hello", "transform": "tr 'a-z' 'A-Z'"},
+        )
+        result = await tool.call()
+        assert "HELLO" in result
+
+    async def test_exec_list_transform(self):
+        # list is joined into a pipeline; both steps must run
+        tool = ToolModel(
+            name="echo_list_transform",
+            **{"exec": "echo hello", "transform": ["tr 'a-z' 'A-Z'", "sed 's/HELLO/WORLD/'"]},
+        )
+        result = await tool.call()
+        assert "WORLD" in result
+        assert "hello" not in result
+
+    async def test_exec_transform_skipped_on_failure(self):
+        tool = ToolModel(
+            name="fail_transform",
+            **{"exec": "false", "transform": "tr 'a-z' 'A-Z'"},
+        )
+        code, out, err = await tool.call()
+        assert code != 0
+
+    async def test_exec_jinja_transform(self):
+        tool = ToolModel(
+            name="jinja_transform",
+            **{"exec": "echo hello", "transform": "sed 's/hello/{{ word }}/'"},
+            params=[{"name": "word", "type": "str", "required": True}],
+        )
+        result = await tool.call(word="world")
+        assert "world" in result
+        assert "hello" not in result
+
+    async def test_fn_transform(self):
+        tool = ToolModel(
+            fn="tests.example:echo",
+            python=sys.executable,
+            transform="tr 'a-z' 'A-Z'",
+        )
+        result = await tool.call(message="hello")
+        assert "HELLO" in result
+
+    async def test_fn_transform_skipped_on_failure(self):
+        tool = ToolModel(
+            fn="tests.example:always_fails",
+            python=sys.executable,
+            transform="tr 'a-z' 'A-Z'",
+        )
+        code, out, err = await tool.call(msg="boom")
+        assert code != 0
+
+
 class TestFnToolNoPython:
     """fn tools with no python field behave identically to python=sys.executable."""
 

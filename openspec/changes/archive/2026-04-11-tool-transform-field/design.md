@@ -37,15 +37,11 @@ transform:                                              # list
   - "head -c 8000"
 ```
 
-### 3. Exec tools: append to same subprocess pipeline
+### 3. Exec tools and fn tools: two-step execution
 
-For exec/curl tools, the transform is appended to the rendered command string before the subprocess starts:
+For both exec/curl and fn tools, the main command runs first. If it succeeds (result is `str`), the transform runs as a second `subprocess_shell` with the output piped as stdin. If it fails (result is `tuple`), the transform is skipped.
 
-```python
-run_cmd = f"({run_cmd}) | {transform}"
-```
-
-This keeps everything in one subprocess and avoids the overhead of a second process. The parentheses protect against edge cases where the original command ends with a redirect or background operator.
+A single-subprocess pipeline approach (appending `| transform` to the exec command) was considered but rejected: when the main command fails, the pipeline exit code reflects the last stage (`tr`, `jq`, etc.), masking the original failure. Two subprocesses preserve the failure-skip contract at the cost of one extra process per call when a transform is defined.
 
 ### 4. Fn tools: separate subprocess after pyrunner
 

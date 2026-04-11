@@ -73,6 +73,7 @@ class ToolModel(BaseModel):
     env: dict[str, str] | None = None
     env_file: str | None = None
     env_passthrough: bool = False
+    transform: str | list[str] | None = None
     description: str = ""
     example: str = ""
     params: list[ParamModel] | None = None
@@ -161,6 +162,14 @@ class ToolModel(BaseModel):
         return self
 
     @property
+    def _resolved_transform(self) -> str | None:
+        if self.transform is None:
+            return None
+        if isinstance(self.transform, list):
+            return " | ".join(self.transform)
+        return self.transform
+
+    @property
     def visible_params(self):
         return [param for param in self.params if not param.has_override]
 
@@ -184,6 +193,7 @@ class ToolModel(BaseModel):
                 self.env,
                 self.env_file,
                 self.env_passthrough,
+                self._resolved_transform,
             )
         assert self.fn is not None
         assert self.python is not None
@@ -196,6 +206,7 @@ class ToolModel(BaseModel):
             self.env,
             self.env_file,
             self.env_passthrough,
+            self._resolved_transform,
         )
 
     @property

@@ -1,0 +1,30 @@
+tools:
+  - name: exec_transform
+    exec: "echo hello"
+    transform: "tr 'a-z' 'A-Z'"
+
+  - name: exec_list_transform
+    exec: "echo hello"
+    transform:
+      - "tr 'a-z' 'A-Z'"
+      - "sed 's/HELLO/WORLD/'"
+
+  - name: exec_jinja_transform
+    exec: "echo hello"
+    transform: "sed 's/hello/{{ word }}/'"
+    params:
+      - name: word
+        type: str
+        required: true
+
+  - name: exec_fail_transform
+    exec: "false"
+    transform: "tr 'a-z' 'A-Z'"
+
+  - name: fn_transform
+    fn: tests.example:echo
+    transform: "tr 'a-z' 'A-Z'"
+    params:
+      - name: message
+        type: str
+        required: true
