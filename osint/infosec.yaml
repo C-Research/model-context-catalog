@@ -29,9 +29,6 @@ tools:
         required: false
         default: file
         description: "Indicator type. One of: file, url, domain, ip_address."
-      - name: api_key
-        type: str
-        override: ${VIRUSTOTAL_API_KEY}
 
   - name: abuseipdb
     curl: "curl -s -H 'Key: ${ABUSEIPDB_API_KEY}' -H 'Accept: application/json' -G 'https://api.abuseipdb.com/api/v2/check' --data-urlencode 'ipAddress={{ ip }}' -d 'maxAgeInDays={{ max_age_days }}'"
@@ -49,9 +46,6 @@ tools:
         required: false
         default: 90
         description: Only count reports within this many days. Default 90.
-      - name: api_key
-        type: str
-        override: ${ABUSEIPDB_API_KEY}
 
   - name: nvd_cve
     curl: "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={{ cve_id | urlencode }}"
@@ -89,3 +83,16 @@ tools:
         type: str
         required: true
         description: Domain name or IPv4/IPv6 address to search.
+
+  - curl: "http://ip-api.com/json/{{ query }}?fields={{ fields | join(',') }}"
+    name: geolocate
+    description: returns geolocation data about where the speicifc address originates from using ip-api.com
+    groups: [public, http]
+    params:
+      - name: query
+        description: can be a single IPv4/IPv6 address or a domain name. If you don't supply a query the current IP address will be used.
+        type: str
+      - name: fields
+        type: list
+        default: []
+        description: Specific fields to only return eg status,message,query,country,city
