@@ -1,3 +1,7 @@
+---
+icon: lucide/folder
+---
+
 # Filesystem Tools
 
 Read and write files on the server's filesystem. Split into two sub-groups for fine-grained access control.

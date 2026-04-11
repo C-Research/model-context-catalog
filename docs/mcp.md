@@ -1,3 +1,7 @@
+---
+icon: lucide/plug
+---
+
 # MCP Interface
 
 MCC exposes two tools to LLM clients — `search` and `execute` — plus a set of resources and prompts for catalog browsing and guided workflows.

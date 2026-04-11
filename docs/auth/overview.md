@@ -1,3 +1,7 @@
+---
+icon: lucide/lock
+---
+
 # Auth & Permissions Overview
 
 MCC uses a layered permission model. Every `execute()` call checks whether the requesting user is allowed to run the target tool.

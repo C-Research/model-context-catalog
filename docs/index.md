@@ -1,3 +1,7 @@
+---
+icon: lucide/layers
+---
+
 # Model Context Catalog
 
 MCC is an MCP server that acts as a permission-controlled catalog of tools. It exposes pre-defined **Python functions and shell commands** to Claude and other LLM clients through a unified `search` / `execute` interface, with authentication and group based access controls built in.

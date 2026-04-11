@@ -1,3 +1,7 @@
+---
+icon: lucide/cpu
+---
+
 # System Tools
 
 Shell execution, Python evaluation, environment variable management, and platform info. All restricted to the `admin` and `system` groups.

@@ -1,3 +1,7 @@
+---
+icon: lucide/package
+---
+
 # Contrib Tools
 
 MCC ships with optional built-in tools covering HTTP, filesystem, shell, text processing, time, and archives. They're disabled by default.

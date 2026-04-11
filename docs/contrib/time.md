@@ -1,3 +1,7 @@
+---
+icon: lucide/clock
+---
+
 # Time Tools
 
 Date and time utilities. Available to all users in the `public` and `time` groups.

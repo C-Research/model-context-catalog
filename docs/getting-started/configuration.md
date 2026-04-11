@@ -1,3 +1,7 @@
+---
+icon: lucide/settings
+---
+
 # Configuration
 
 MCC uses [Dynaconf](https://www.dynaconf.com/) for configuration. Settings are loaded in this order, with later sources taking precedence:

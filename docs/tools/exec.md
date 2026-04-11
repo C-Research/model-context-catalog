@@ -1,3 +1,7 @@
+---
+icon: lucide/command
+---
+
 # Exec Tools
 
 Any shell command can be wrapped as a catalog tool using the `exec:` field. No Python code required — declare the command, describe the parameters, and MCC handles validation, interpolation, and execution.

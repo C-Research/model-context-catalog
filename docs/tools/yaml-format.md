@@ -1,3 +1,7 @@
+---
+icon: lucide/file-text
+---
+
 # YAML Tool Format
 
 Tools are defined in YAML files. Each file declares a list of tools, optionally scoped to one or more groups.

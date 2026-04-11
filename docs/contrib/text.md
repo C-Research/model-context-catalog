@@ -1,3 +1,7 @@
+---
+icon: lucide/type
+---
+
 # Text Tools
 
 String utilities for encoding, hashing, diffing, and regex. Available to all users in the `public` and `text` groups.

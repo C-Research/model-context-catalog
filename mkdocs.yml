@@ -39,7 +39,8 @@ plugins:
 copyright: "&copy; 2025 C4ADS"
 
 extra_css:
-  - stylesheets/claude.css
+  - stylesheets/orange.css
+
 nav:
   - Home: index.md
   - MCP Interface: mcp.md

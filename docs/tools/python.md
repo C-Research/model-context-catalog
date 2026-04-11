@@ -1,3 +1,7 @@
+---
+icon: simple/python
+---
+
 # Python Tools
 
 Python tools wrap any importable callable — a function, method, class, or `async` awaitable. MCC introspects the callable at load time to populate `name`, `description`, and `params` automatically, then executes it in a subprocess at call time.

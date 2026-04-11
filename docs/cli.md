@@ -1,3 +1,7 @@
+---
+icon: lucide/terminal
+---
+
 # CLI Reference
 
 MCC ships a management CLI for administering users, browsing tools, and running the MCP server.

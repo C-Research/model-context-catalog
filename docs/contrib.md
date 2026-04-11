@@ -1,3 +1,7 @@
+---
+icon: lucide/package
+---
+
 # Contrib Tools
 
 MCC ships with optional built-in tools. Enable them in `settings.local.toml`:

@@ -1,3 +1,7 @@
+---
+icon: lucide/sliders
+---
+
 # Parameters
 
 Parameters define the inputs a tool accepts. They're validated before execution — required params must be present, types are coerced, and overrides are injected. For `fn` tools, params can be omitted and introspected from the function signature (see [Python Tools](python.md)). For `exec` tools, they must always be declared explicitly.

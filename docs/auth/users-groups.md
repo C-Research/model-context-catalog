@@ -1,3 +1,7 @@
+---
+icon: lucide/users
+---
+
 # Users & Groups
 
 MCC stores users in Elasticsearch. These operations are available via the `mcc user` CLI or from an LLM by calling `execute` with the tool key shown below.

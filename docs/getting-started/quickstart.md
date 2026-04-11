@@ -1,3 +1,7 @@
+---
+icon: lucide/zap
+---
+
 # Quick Start
 
 This guide gets MCC running with a simple tool in under five minutes.

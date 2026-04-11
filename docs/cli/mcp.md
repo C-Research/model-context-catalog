@@ -1,3 +1,7 @@
+---
+icon: lucide/plug
+---
+
 # mcc mcp
 
 Start the MCP server and install it in Claude clients.

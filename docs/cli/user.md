@@ -1,3 +1,7 @@
+---
+icon: lucide/user
+---
+
 # mcc user
 
 Manage users and their permissions.

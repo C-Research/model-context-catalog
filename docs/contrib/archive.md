@@ -1,3 +1,7 @@
+---
+icon: lucide/archive
+---
+
 # Archive Tools
 
 List, extract, and create zip and tar archives. Restricted to the `admin` and `archive` groups.

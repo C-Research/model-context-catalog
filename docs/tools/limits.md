@@ -1,3 +1,7 @@
+---
+icon: lucide/gauge
+---
+
 # Resource Limits
 
 Resource limits cap how much CPU, memory, and other OS resources a tool's subprocess can consume. They are applied via [`setrlimit`](https://man7.org/linux/man-pages/man2/setrlimit.2.html) in the child process before the tool runs.

@@ -1,0 +1,275 @@
+/*
+ * C4ADS Theme — Zensical / Material for MkDocs
+ * Migrated from Claude orange theme to C4ADS brand palette.
+ *
+ * Primary:   Midnight #122945 / Twilight #043D5D
+ * Accent:    Red #f75151
+ * Mist:      #A0B9D0
+ * extra_css = ["stylesheets/claude-theme.css"]
+ */
+
+/* ── Typography — bump base font size up from Material's 125% (20px) ── */
+html {
+  font-size: 137.5%;
+  /* 22px base, matches Material's ≥100em breakpoint */
+}
+
+.md-typeset {
+  font-size: .8rem;
+  /* up from .75rem — body copy ~17.6px */
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SHARED: override the CSS variables Material actually reads
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── LIGHT MODE ───────────────────────────────────────────────────── */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #122945;
+  --md-primary-fg-color--light: #1e3f6b;
+  --md-primary-fg-color--dark: #043D5D;
+  --md-primary-bg-color: #fff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color: #f75151;
+  --md-accent-fg-color--transparent: rgba(247, 81, 81, 0.12);
+  --md-accent-bg-color: #fff;
+
+  /* Warm off-white replaced with cool blue-tinted off-white */
+  --md-default-bg-color: #f0f4f8;
+  --md-default-bg-color--light: rgba(240, 244, 248, 0.7);
+  --md-default-bg-color--lighter: rgba(240, 244, 248, 0.3);
+  --md-default-bg-color--lightest: rgba(240, 244, 248, 0.12);
+
+  --md-default-fg-color: #1D1D1B;
+  --md-default-fg-color--light: rgba(29, 29, 27, 0.55);
+  /* --lightest: search btn bg AND nav hover bg */
+  --md-default-fg-color--lightest: rgba(18, 41, 69, 0.1);
+  /* --lighter: nav hover text color */
+  --md-default-fg-color--lighter: #043D5D;
+
+  --md-typeset-a-color: #122945;
+  --md-code-bg-color: #dde8f0;
+  --md-code-fg-color: #043D5D;
+}
+
+/* Header — deep Midnight blue */
+[data-md-color-scheme="default"] .md-header {
+  background-color: #043D5D;
+}
+
+[data-md-color-scheme="default"] .md-header,
+[data-md-color-scheme="default"] .md-header .md-header__title,
+[data-md-color-scheme="default"] .md-header .md-ellipsis {
+  color: #f0f4f8;
+}
+
+/* Links */
+[data-md-color-scheme="default"] .md-typeset a {
+  color: var(--md-typeset-a-color);
+}
+
+[data-md-color-scheme="default"] .md-typeset a:focus,
+[data-md-color-scheme="default"] .md-typeset a:hover {
+  color: #f75151;
+}
+
+/* Inline code */
+[data-md-color-scheme="default"] .md-typeset code {
+  background-color: var(--md-code-bg-color);
+  color: #122945;
+}
+
+/* Active nav */
+[data-md-color-scheme="default"] .md-nav__item .md-nav__link--active {
+  color: #122945;
+}
+
+/* Blockquote */
+[data-md-color-scheme="default"] .md-typeset blockquote {
+  border-left-color: #A0B9D0;
+  background-color: rgba(160, 185, 208, 0.12);
+}
+
+/* H1/H2 underline accent */
+[data-md-color-scheme="default"] .md-typeset h1,
+[data-md-color-scheme="default"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(18, 41, 69, 0.2);
+  padding-bottom: 0.3em;
+}
+
+/* Table header */
+[data-md-color-scheme="default"] .md-typeset table:not([class]) th {
+  background-color: rgba(18, 41, 69, 0.08);
+}
+
+/* Search result highlight */
+[data-md-color-scheme="default"] .md-search-result mark {
+  color: #122945;
+  background-color: rgba(160, 185, 208, 0.3);
+}
+
+/* Search button — subtle light on dark header */
+[data-md-color-scheme="default"] .md-search__button {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #f0f4f8 !important;
+}
+
+[data-md-color-scheme="default"] .md-search__button:focus,
+[data-md-color-scheme="default"] .md-search__button:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #f0f4f8 !important;
+}
+
+[data-md-color-scheme="default"] .md-search__button:before {
+  background-color: #f0f4f8 !important;
+}
+
+[data-md-color-scheme="default"] .md-search__button:after {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #f0f4f8 !important;
+}
+
+/* Footer */
+[data-md-color-scheme="default"] .md-footer {
+  background-color: #122945;
+  color: #A0B9D0;
+}
+
+[data-md-color-scheme="default"] .md-footer-meta {
+  background-color: #043D5D;
+  color: #A0B9D0;
+}
+
+[data-md-color-scheme="default"] .md-copyright,
+[data-md-color-scheme="default"] .md-copyright *,
+[data-md-color-scheme="default"] .md-footer__title,
+[data-md-color-scheme="default"] .md-footer__direction,
+[data-md-color-scheme="default"] .md-footer-meta__inner {
+  color: #A0B9D0;
+}
+
+[data-md-color-scheme="default"] .md-footer a,
+[data-md-color-scheme="default"] .md-footer-meta a,
+[data-md-color-scheme="default"] .md-copyright a {
+  color: #A0B9D0 !important;
+}
+
+[data-md-color-scheme="default"] .md-footer a:hover,
+[data-md-color-scheme="default"] .md-footer-meta a:hover,
+[data-md-color-scheme="default"] .md-copyright a:hover {
+  color: #f75151;
+}
+
+
+/* ── DARK MODE ──────────────────────────────────────────────────────
+   Hue shifted to cool blue — 210deg (Midnight family)
+   ─────────────────────────────────────────────────────────────────── */
+[data-md-color-scheme="slate"] {
+  --md-hue: 210deg;
+  /* cool blue hue base */
+
+  --md-primary-fg-color: #A0B9D0;
+  --md-primary-fg-color--light: #c0d2e2;
+  --md-primary-fg-color--dark: #6b96b8;
+  --md-primary-bg-color: #f0f4f8;
+  --md-primary-bg-color--light: rgba(240, 244, 248, 0.7);
+
+  --md-accent-fg-color: #f75151;
+  --md-accent-fg-color--transparent: rgba(247, 81, 81, 0.12);
+  --md-accent-bg-color: #f0f4f8;
+
+  --md-default-bg-color: hsla(210deg, 40%, 7%, 1);
+  --md-default-bg-color--light: hsla(210deg, 40%, 7%, 0.54);
+  --md-default-bg-color--lighter: hsla(210deg, 40%, 7%, 0.26);
+  --md-default-bg-color--lightest: hsla(210deg, 40%, 7%, 0.07);
+
+  --md-default-fg-color: hsla(210deg, 20%, 90%, 0.82);
+  --md-default-fg-color--light: hsla(210deg, 20%, 90%, 0.56);
+  /* --lightest → nav hover bg */
+  --md-default-fg-color--lightest: rgba(160, 185, 208, 0.1);
+
+  --md-typeset-a-color: #A0B9D0;
+
+  /* code bg */
+  --md-code-bg-color: hsla(210deg, 30%, 7%, 1);
+  --md-code-fg-color: hsla(210deg, 20%, 82%, 1);
+}
+
+/* Header */
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #043D5D;
+  border-bottom: 1px solid rgba(160, 185, 208, 0.3);
+}
+
+/* Links */
+[data-md-color-scheme="slate"] .md-typeset a {
+  color: #A0B9D0;
+}
+
+[data-md-color-scheme="slate"] .md-typeset a:focus,
+[data-md-color-scheme="slate"] .md-typeset a:hover {
+  color: #f75151;
+}
+
+/* Inline code */
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: var(--md-code-bg-color);
+  color: #A0B9D0;
+}
+
+/* Nav text */
+[data-md-color-scheme="slate"] .md-nav__link {
+  color: hsla(210deg, 20%, 90%, 0.82);
+}
+
+/* Active nav */
+[data-md-color-scheme="slate"] .md-nav__item .md-nav__link--active {
+  color: #A0B9D0;
+}
+
+/* Site title in sidebar */
+[data-md-color-scheme="slate"] .md-nav__title {
+  color: hsla(210deg, 20%, 90%, 0.9);
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+/* Section headings in nav */
+[data-md-color-scheme="slate"] .md-nav__item--section>.md-nav__link {
+  color: hsla(210deg, 20%, 90%, 0.9);
+  font-weight: 700;
+}
+
+/* Blockquote */
+[data-md-color-scheme="slate"] .md-typeset blockquote {
+  border-left-color: #A0B9D0;
+  background-color: rgba(160, 185, 208, 0.07);
+}
+
+/* H1/H2 underline */
+[data-md-color-scheme="slate"] .md-typeset h1,
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(160, 185, 208, 0.2);
+  padding-bottom: 0.3em;
+}
+
+/* Table header */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: rgba(18, 41, 69, 0.4);
+}
+
+/* Search result highlight */
+[data-md-color-scheme="slate"] .md-search-result mark {
+  color: #A0B9D0;
+  background-color: rgba(160, 185, 208, 0.18);
+}
+
+/* Selection */
+[data-md-color-scheme="slate"] ::selection {
+  background-color: rgba(18, 41, 69, 0.5);
+}
+
+[data-md-color-scheme="default"] ::selection {
+  background-color: rgba(160, 185, 208, 0.35);
+}

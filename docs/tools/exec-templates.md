@@ -1,3 +1,7 @@
+---
+icon: lucide/code
+---
+
 # Exec Tool Templates
 
 Exec tools use [Jinja2](https://jinja.palletsprojects.com/) for command templating. Parameters are available as template variables, and the `| quote` filter handles shell-safe quoting.

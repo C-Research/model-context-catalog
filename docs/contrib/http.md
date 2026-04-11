@@ -1,3 +1,7 @@
+---
+icon: lucide/globe
+---
+
 # HTTP Tools
 
 Make HTTP requests from the catalog. Two variants are available: a full-featured admin tool and a responsible-by-default public tool.

@@ -1,3 +1,7 @@
+---
+icon: lucide/wrench
+---
+
 # mcc tool
 
 Browse and call catalog tools.

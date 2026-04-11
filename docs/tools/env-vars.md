@@ -1,3 +1,7 @@
+---
+icon: lucide/key
+---
+
 # Environment Variables
 
 There are two separate ways environment variables interact with MCC tools, and they operate at different times:

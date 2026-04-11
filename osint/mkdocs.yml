@@ -1,0 +1,58 @@
+site_name: OSINT Tool Catalog
+site_description: "Reference documentation for the OSINT tool catalog — threat intel, corporate records, government data, geolocation, and more."
+repo_url: https://github.com/opensanctions/followthemoney
+repo_name: model-context-catalog
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      toggle:
+        icon: lucide/moon
+        name: Switch to dark mode
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      toggle:
+        icon: lucide/sun
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - offline
+
+copyright: "&copy; 2025 C4ADS"
+
+extra_css:
+  - stylesheets/blue.css
+
+nav:
+  - Overview: index.md
+  - Infosec & Network: infosec.md
+  - Companies & Business: companies.md
+  - Government & Records: gov.md
+  - Geolocation: geo.md
+  - Transport & Aviation: transport.md
+  - Environment & Maritime: environment.md
+  - Conflict & Humanitarian: conflict.md
+  - Cryptocurrency: crypto.md
+  - People & Social: people.md
+  - News & Media: news.md
+  - Academic Research: academic.md
+  - Web Archives: search.md
