@@ -85,3 +85,27 @@ Reusable workflow templates:
 | `find_and_run` | `task` | Search for a tool matching a task description and execute it |
 | `explain_tool` | `key` | Explain what a tool does, its parameters, and when to use it |
 | `debug_error` | `key`, `error` | Diagnose a tool execution error and suggest fixes |
+
+## describe_tools
+
+```
+describe_tools(groups?)
+```
+
+Lists all tools accessible to the current user, returning only the tool key and description. Useful for browsing the catalog without the overhead of full signatures. Use `search()` to get parameter details before calling `execute()`.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `groups` | `list[str]` (optional) | If provided, only tools belonging to **all** of the specified groups are returned |
+
+Each entry in the response uses the format:
+
+```
+## admin.shell
+Run a shell command and return its output.
+
+## public.request
+Make an HTTP request and return the response.
+```

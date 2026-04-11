@@ -120,6 +120,30 @@ async def execute(name: str, params: Optional[dict] = None):
         return f"Validation error for tool '{name}': {e}"
 
 
+@mcp.tool()
+async def describe_tools(groups: Optional[list[str]] = None) -> str:
+    """List all tools accessible to the current user with their descriptions.
+
+    Returns tool keys and descriptions only — use search() to get full parameter
+    details before calling execute().
+
+    Args:
+      groups: If provided, only return tools that belong to ALL of the specified groups.
+    Example:
+      describe_tools([admin,web])
+    """
+    user = current_user_var.get(None)
+    tools = [t for t in loader.values() if t.allows(user)]
+    if groups:
+        groups_set = set(groups)
+        tools = [t for t in tools if groups_set.issubset(set(t.groups))]
+    if not tools:
+        return "No tools available."
+    return "\n\n".join(
+        f"## {t.key}\n{t.description or ''}" for t in sorted(tools, key=lambda t: t.key)
+    )
+
+
 # --- Prompts ---
 
 

@@ -1,0 +1,25 @@
+tools:
+  - name: multi_ab
+    fn: tests.example.echo
+    description: Tool in groups A and B
+    groups: [a, b]
+    params:
+      - name: message
+        type: str
+        required: true
+  - name: single_a
+    fn: tests.example.echo
+    description: Tool in group A only
+    groups: [a]
+    params:
+      - name: message
+        type: str
+        required: true
+  - name: single_b
+    fn: tests.example.echo
+    description: Tool in group B only
+    groups: [b]
+    params:
+      - name: message
+        type: str
+        required: true
