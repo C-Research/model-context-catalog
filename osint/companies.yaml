@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [companies]
+groups: [osint,companies]
 tools:
   - name: opencorporates_search
     curl: "https://api.opencorporates.com/v0.4/companies/search?q={{ q | urlencode }}{% if jurisdiction_code %}&jurisdiction_code={{ jurisdiction_code }}{% endif %}&per_page={{ per_page }}"
@@ -38,3 +38,79 @@ tools:
           Use quotes for exact phrases: "Delta Dental"
           Use + to require terms: delta +evanston
           Use - to exclude terms: delta -dental
+
+  - name: companies_house_search
+    curl: "-u \"$COMPANIES_HOUSE_API_KEY:\" 'https://api.company-information.service.gov.uk/search/companies?q={{ q | urlencode }}&items_per_page={{ per_page }}'"
+    description: |
+      Search the UK Companies House official register of limited companies.
+      Returns company name, company number, status, type, registered address, and incorporation date.
+      Covers all UK-registered companies. Requires COMPANIES_HOUSE_API_KEY in osint.env —
+      register free at https://developer.company-information.service.gov.uk/
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Company name or keyword to search.
+      - name: per_page
+        type: int
+        required: false
+        default: 20
+        description: Number of results to return. Default 20, max 100.
+
+  - name: icij_offshore_search
+    curl: "https://offshoreleaks.icij.org/api/v1/search?q={{ q | urlencode }}&c={{ country | urlencode }}&j={{ jurisdiction | urlencode }}&cat={{ category }}"
+    description: |
+      Search the ICIJ Offshore Leaks database spanning the Panama Papers, Pandora Papers,
+      Paradise Papers, and other investigations into offshore finance.
+      Returns matching entities, officers, intermediaries, and addresses with linked dataset source.
+      No API key required.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Name of entity, person, officer, or intermediary to search.
+      - name: country
+        type: str
+        required: false
+        default: ""
+        description: Filter by country code (e.g. RU, GB, CN). Leave blank for global.
+      - name: jurisdiction
+        type: str
+        required: false
+        default: ""
+        description: Filter by offshore jurisdiction (e.g. BVI, PAN). Leave blank for all.
+      - name: category
+        type: int
+        required: false
+        default: 0
+        description: "Entity category filter: 0=all, 1=entity, 2=officer, 3=intermediary, 4=address."
+
+  - name: importyeti_search
+    curl: "https://www.importyeti.com/api/companies?query={{ q | urlencode }}"
+    description: |
+      Search US customs import records for companies shipping goods into the United States.
+      Returns matching companies with supplier names, countries of origin, shipment counts,
+      and product descriptions sourced from US Bill of Lading data. No API key required.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Company name to search import records for.
+
+  - name: opensanctions_search
+    curl: "-H \"Authorization: ApiKey $OPENSANCTIONS_API_KEY\" 'https://api.opensanctions.org/search/default?q={{ q | urlencode }}&limit={{ limit }}'"
+    description: |
+      Screen individuals and entities against global sanctions lists, PEP (Politically Exposed
+      Persons) databases, and watchlists via OpenSanctions.
+      Returns matching entities with sanctioning authority, program, listing date, and aliases.
+      Requires OPENSANCTIONS_API_KEY in osint.env — register at https://www.opensanctions.org/api/
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Person or entity name to screen against sanctions and watchlists.
+      - name: limit
+        type: int
+        required: false
+        default: 10
+        description: Maximum number of results to return. Default 10, max 50.

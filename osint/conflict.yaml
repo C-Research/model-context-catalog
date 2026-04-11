@@ -1,0 +1,55 @@
+env_file: osint.env
+groups: [osint, conflict]
+tools:
+  - name: ucdp_search
+    curl: "https://ucdpapi.pcr.uu.se/api/gedevents/23.1?pagesize={{ pagesize }}&country={{ country | urlencode }}{% if year_from %}&year_from={{ year_from }}{% endif %}{% if year_to %}&year_to={{ year_to }}{% endif %}"
+    description: |
+      Search the Uppsala Conflict Data Program (UCDP) Georeferenced Event Dataset (GED)
+      for political violence events worldwide.
+      Returns conflict events with date, location (lat/lon), actor names, fatality estimates,
+      and conflict type. Covers events from 1989 to present. No API key required.
+    params:
+      - name: country
+        type: str
+        required: true
+        description: Country name to filter events (e.g. Ukraine, Sudan, Myanmar).
+      - name: year_from
+        type: int
+        required: false
+        default: 0
+        description: Start year filter (inclusive). Leave 0 for no lower bound.
+      - name: year_to
+        type: int
+        required: false
+        default: 0
+        description: End year filter (inclusive). Leave 0 for no upper bound.
+      - name: pagesize
+        type: int
+        required: false
+        default: 50
+        description: Number of results per page. Default 50, max 1000.
+
+  - name: reliefweb_search
+    curl: "https://api.reliefweb.int/v1/reports?appname=mcc-osint&query[value]={{ q | urlencode }}&limit={{ limit }}{% if content_type %}&filter[field]=type&filter[value]={{ content_type | urlencode }}{% endif %}&fields[include][]=title&fields[include][]=date.original&fields[include][]=source.name&fields[include][]=url&fields[include][]=primary_country.name"
+    description: |
+      Search ReliefWeb for humanitarian reports, situation reports, news, and crisis data
+      from UN agencies, NGOs, and governments worldwide.
+      Returns title, publication date, source organization, URL, and primary country.
+      No API key required. Use content_type to narrow by document type.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Keyword or phrase to search (e.g. "Sudan famine", "earthquake response").
+      - name: content_type
+        type: str
+        required: false
+        default: ""
+        description: "Filter by content type: report, news, map, infographic, assessment. Leave blank for all."
+      - name: limit
+        type: int
+        required: false
+        default: 20
+        description: Maximum number of results to return. Default 20, max 1000.
+
+  - fn: osint:gdelt_search
