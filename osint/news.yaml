@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [news]
+groups: [osint,news]
 tools:
   - name: hn_search
     curl: "http://hn.algolia.com/api/v1/search?query={{ q | urlencode }}{% if tags %}&tags={{ tags | urlencode }}{% endif %}"

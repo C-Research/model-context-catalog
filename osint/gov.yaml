@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [gov]
+groups: [osint,gov]
 tools:
   - name: edgar_search
     curl: "https://efts.sec.gov/LATEST/search-index?q={{ q | urlencode }}{% if form_type %}&dateRange=custom&startdt=2000-01-01&forms={{ form_type | urlencode }}{% endif %}&hits.hits._source=period_of_report,entity_name,file_date,form_type,biz_location,inc_states"

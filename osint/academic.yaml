@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [academic]
+groups: [osint,academic]
 tools:
   - name: arxiv_search
     curl: "https://export.arxiv.org/api/query?search_query=all:{{ query | urlencode }}&max_results={{ max_results }}"

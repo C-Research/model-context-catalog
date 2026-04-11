@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [crypto]
+groups: [osint,crypto]
 tools:
   - name: blockchain_rawtx
     curl: "https://blockchain.info/rawtx/{{ tx_hash }}"

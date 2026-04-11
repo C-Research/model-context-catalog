@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [web, search]
+groups: [osint,search]
 tools:
 
   - name: wayback

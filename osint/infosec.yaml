@@ -1,5 +1,5 @@
 env_file: osint.env
-groups: [infosec]
+groups: [osint, infosec]
 tools:
   - name: crtsh
     curl: "https://crt.sh/?dNSName={{ domain }}&output=json"
