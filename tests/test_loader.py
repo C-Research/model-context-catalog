@@ -355,3 +355,34 @@ class TestContribLoading:
         get_env = tool_map["get_env"]
         assert len(get_env.params) > 0
         assert any(p.name == "keys" for p in get_env.params)
+
+
+class TestFileLevelEnv:
+    def test_file_envfile_inherited_by_tools_without_own(self):
+        tools = load_file(FIXTURES / "tools_file_envfile.yaml")
+        tool_map = {t.name: t for t in tools}
+        assert tool_map["tool_inherits"].env_file == "some.env"
+
+    def test_file_envfile_does_not_override_per_tool_envfile(self):
+        tools = load_file(FIXTURES / "tools_file_envfile.yaml")
+        tool_map = {t.name: t for t in tools}
+        assert tool_map["tool_own_envfile"].env_file == "other.env"
+
+    def test_file_env_inherited_by_tools_without_own(self):
+        tools = load_file(FIXTURES / "tools_file_env_block.yaml")
+        tool_map = {t.name: t for t in tools}
+        assert tool_map["tool_inherits_env"].env == {"KEY_A": "file_value_a", "KEY_B": "file_value_b"}
+
+    def test_file_env_merges_with_per_tool_env_tool_wins(self):
+        tools = load_file(FIXTURES / "tools_file_env_block.yaml")
+        tool_map = {t.name: t for t in tools}
+        merged = tool_map["tool_merges_env"].env
+        assert merged["KEY_A"] == "tool_value_a"   # tool wins over file
+        assert merged["KEY_B"] == "file_value_b"   # inherited from file
+        assert merged["KEY_C"] == "tool_value_c"   # tool-only key preserved
+
+    def test_no_file_env_loads_without_change(self):
+        # Regression: YAML files without top-level env_file/env still load normally
+        tools = load_file(FIXTURES / "tools_ungrouped.yaml")
+        assert len(tools) == 1
+        assert tools[0].name == "echo"

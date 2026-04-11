@@ -1,0 +1,17 @@
+env:
+  KEY_A: file_value_a
+  KEY_B: file_value_b
+groups: [test]
+tools:
+  - name: tool_inherits_env
+    curl: "https://example.com"
+    description: Tool with no per-tool env — should inherit file-level env.
+    params: []
+
+  - name: tool_merges_env
+    curl: "https://example.com"
+    env:
+      KEY_A: tool_value_a
+      KEY_C: tool_value_c
+    description: Tool with its own env — KEY_A from tool wins, KEY_B inherited from file.
+    params: []

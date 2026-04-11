@@ -1,0 +1,13 @@
+env_file: some.env
+groups: [test]
+tools:
+  - name: tool_inherits
+    curl: "https://example.com"
+    description: Tool with no per-tool env_file — should inherit file-level.
+    params: []
+
+  - name: tool_own_envfile
+    curl: "https://example.com"
+    env_file: other.env
+    description: Tool with its own env_file — file-level must not override.
+    params: []
