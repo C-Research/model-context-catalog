@@ -347,7 +347,10 @@ class TestTransform:
         # list is joined into a pipeline; both steps must run
         tool = ToolModel(
             name="echo_list_transform",
-            **{"exec": "echo hello", "transform": ["tr 'a-z' 'A-Z'", "sed 's/HELLO/WORLD/'"]},
+            **{
+                "exec": "echo hello",
+                "transform": ["tr 'a-z' 'A-Z'", "sed 's/HELLO/WORLD/'"],
+            },
         )
         result = await tool.call()
         assert "WORLD" in result

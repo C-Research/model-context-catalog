@@ -29,7 +29,9 @@ class TestGetEnv:
 class TestSetEnv:
     async def test_sets_variable(self):
         # set_env runs in a subprocess; the env change is isolated to that process
-        result = await execute("admin.system.set_env", {"key": "MCC_TEST_SET", "value": "hello"})
+        result = await execute(
+            "admin.system.set_env", {"key": "MCC_TEST_SET", "value": "hello"}
+        )
         assert result is None  # function returns None on success
 
 

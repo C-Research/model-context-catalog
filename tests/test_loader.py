@@ -234,8 +234,20 @@ class TestBatchIntrospectOptimization:
                 "name": "add",
                 "doc": "",
                 "params": [
-                    {"name": "x", "type": "int", "required": True, "default": None, "description": ""},
-                    {"name": "y", "type": "int", "required": True, "default": None, "description": ""},
+                    {
+                        "name": "x",
+                        "type": "int",
+                        "required": True,
+                        "default": None,
+                        "description": "",
+                    },
+                    {
+                        "name": "y",
+                        "type": "int",
+                        "required": True,
+                        "default": None,
+                        "description": "",
+                    },
                 ],
                 "return_type": "int",
             },
@@ -244,7 +256,13 @@ class TestBatchIntrospectOptimization:
                 "name": "echo",
                 "doc": "",
                 "params": [
-                    {"name": "message", "type": "str", "required": True, "default": None, "description": ""},
+                    {
+                        "name": "message",
+                        "type": "str",
+                        "required": True,
+                        "default": None,
+                        "description": "",
+                    },
                 ],
                 "return_type": "list[str]",
             },
@@ -371,15 +389,18 @@ class TestFileLevelEnv:
     def test_file_env_inherited_by_tools_without_own(self):
         tools = load_file(FIXTURES / "tools_file_env_block.yaml")
         tool_map = {t.name: t for t in tools}
-        assert tool_map["tool_inherits_env"].env == {"KEY_A": "file_value_a", "KEY_B": "file_value_b"}
+        assert tool_map["tool_inherits_env"].env == {
+            "KEY_A": "file_value_a",
+            "KEY_B": "file_value_b",
+        }
 
     def test_file_env_merges_with_per_tool_env_tool_wins(self):
         tools = load_file(FIXTURES / "tools_file_env_block.yaml")
         tool_map = {t.name: t for t in tools}
         merged = tool_map["tool_merges_env"].env
-        assert merged["KEY_A"] == "tool_value_a"   # tool wins over file
-        assert merged["KEY_B"] == "file_value_b"   # inherited from file
-        assert merged["KEY_C"] == "tool_value_c"   # tool-only key preserved
+        assert merged["KEY_A"] == "tool_value_a"  # tool wins over file
+        assert merged["KEY_B"] == "file_value_b"  # inherited from file
+        assert merged["KEY_C"] == "tool_value_c"  # tool-only key preserved
 
     def test_no_file_env_loads_without_change(self):
         # Regression: YAML files without top-level env_file/env still load normally
