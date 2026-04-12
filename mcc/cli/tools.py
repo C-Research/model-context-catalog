@@ -1,7 +1,9 @@
+import ast
 import asyncio
 import json
 
 import rich_click as click
+from rich import print as pretty_print
 
 from mcc.auth.models import UserModel
 from mcc.cli import console, err
@@ -42,7 +44,9 @@ def info(tool):
 @click.argument("tool")
 @click.argument("params", nargs=-1)
 @click.option("--json", "json_str", default=None, help="JSON object of parameters")
-@click.option("--pretty", is_flag=True, default=False, help="Pretty print rich output")
+@click.option(
+    "-p", "--pretty", is_flag=True, default=False, help="Pretty print rich output"
+)
 def tool_call(tool, params, json_str, pretty):
     """Look up a tool by key and call it.
 
@@ -97,9 +101,63 @@ def tool_call(tool, params, json_str, pretty):
         result = json.loads(result)
     except (json.JSONDecodeError, ValueError):
         pass
-    printer = print
-    if pretty:
-        printer = (
-            console.print_json if isinstance(result, [list, dict]) else console.print
-        )
+    printer = pretty_print if pretty else print
+    printer(result)
+
+
+@tool.command("test")
+@click.argument("tool")
+@click.option(
+    "-p", "--pretty", is_flag=True, default=False, help="Pretty print rich output"
+)
+def tool_test(tool, pretty):
+    """Execute a tool using its example parameters.
+
+    Parses the `example` field from the tool definition and calls the tool
+    with those kwargs — useful for smoke-testing a tool after adding it.
+
+    **Example:**
+
+        mcc tool test admin.create_user
+    """
+    t = loader.get(tool)
+    if not t:
+        err(f" tool `{tool}` not found in loaded tools: {','.join(loader)}")
+        return
+
+    if not t.example:
+        err(f"tool `{tool}` has no `example` defined")
+        return
+
+    try:
+        tree = ast.parse(t.example, mode="eval")
+        if not isinstance(tree.body, ast.Call):
+            raise ValueError("example is not a function call expression")
+        kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in tree.body.keywords}
+    except Exception as e:
+        err(f"could not parse example `{t.example}` — {e}")
+        return
+
+    async def _execute():
+        current_user_var.set(_CLI_USER)
+        if not t.allows(_CLI_USER):
+            err(f"tool `{tool}` is not accessible")
+            return None
+        return await t.call(**kwargs)
+
+    try:
+        result = asyncio.run(_execute())
+    except Exception as e:
+        err(e)
+        return
+
+    if isinstance(result, tuple):
+        console.print(result[1]) if pretty else print(result[1])
+        err(result[2], result[0])
+        return
+    try:
+        result = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    printer = pretty_print if pretty else print
     printer(result)
