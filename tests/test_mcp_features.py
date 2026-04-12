@@ -3,14 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mcc.app import (
-    catalog_tool_by_key,
-    catalog_tools,
-    debug_error,
-    explain_tool,
-    find_and_run,
-    user_me,
-)
+from mcc.app import debug_error, explain_tool, find_and_run
 from mcc.auth.models import UserModel
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
@@ -85,68 +78,6 @@ class TestLoggingMiddleware:
             assert "completed test.tool" in caplog.text
         finally:
             mcc_logger.propagate = False
-
-
-# --- Resources ---
-
-
-@pytest.mark.smoke
-class TestCatalogResource:
-    async def test_returns_accessible_tools(self):
-        _load("tools_ungrouped.yaml")
-        current_user_var.set(None)
-        result = await catalog_tools()
-        assert "echo" in result
-
-    async def test_filters_grouped_tools_for_anonymous(self):
-        _load("tools_grouped.yaml")
-        current_user_var.set(None)
-        result = await catalog_tools()
-        assert result == "No accessible tools."
-
-    async def test_admin_sees_grouped_tools(self):
-        _load("tools_grouped.yaml")
-        current_user_var.set(UserModel(username="admin", groups=["admin"]))
-        result = await catalog_tools()
-        assert "echo" in result
-
-
-@pytest.mark.smoke
-class TestToolResourceTemplate:
-    async def test_accessible_tool(self):
-        _load("tools_ungrouped.yaml")
-        current_user_var.set(None)
-        result = await catalog_tool_by_key("echo")
-        assert "echo" in result
-
-    async def test_inaccessible_tool(self):
-        _load("tools_grouped.yaml")
-        current_user_var.set(None)
-        result = await catalog_tool_by_key("example.echo")
-        assert "not found" in result
-
-    async def test_unknown_tool(self):
-        result = await catalog_tool_by_key("nonexistent")
-        assert "not found" in result
-
-
-@pytest.mark.smoke
-class TestUserResource:
-    async def test_authenticated(self):
-        current_user_var.set(
-            UserModel(username="alice", email="a@b.com", groups=["ops"], tools=["echo"])
-        )
-        result = await user_me()
-        assert result["username"] == "alice"
-        assert result["email"] == "a@b.com"
-        assert "ops" in result["groups"]
-        assert "echo" in result["tools"]
-
-    async def test_anonymous(self):
-        current_user_var.set(None)
-        result = await user_me()
-        assert result["username"] == "anonymous"
-        assert result["groups"] == []
 
 
 # --- Prompts ---

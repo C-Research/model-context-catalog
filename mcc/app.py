@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import ValidationError
 
-from mcc.auth.backend import get_auth
+from mcc.auth.backend import get_provider
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
 from mcc.settings import logger, settings
@@ -18,7 +18,7 @@ async def lifespan(server):
     yield
 
 
-mcp = FastMCP("model-context-catalog (mcc)", auth=get_auth(), lifespan=lifespan)
+mcp = FastMCP("model-context-catalog (mcc)", auth=get_provider(), lifespan=lifespan)
 mcp.loader = loader  # type: ignore[attr-defined]
 mcp.add_middleware(AuthMiddleware())
 mcp.add_middleware(LoggingMiddleware())

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Auth provider wired as mcp.auth
 The system SHALL configure `mcp.auth` with a provider instance returned by `get_provider()` in `mcc/auth/backend.py`. The provider is determined by `settings.auth`. For proxy providers (`github`, `google`, etc.), credentials SHALL be read from the `oauth:` settings block (or `MCC_OAUTH__*` env vars). For the `jwt` backend, config SHALL be read from the `jwt:` settings block (or `MCC_JWT__*` env vars). `get_provider()` SHALL return `None` for `dev-admin` and `dev-public`, in which case `mcp.auth` SHALL not be set.
@@ -44,6 +44,14 @@ The system SHALL provide an async `get_current_user()` in `mcc/auth/util.py`. Fo
 #### Scenario: No matching record returns None
 - **WHEN** neither email nor login match any stored user
 - **THEN** `get_current_user()` returns `None`
+
+## REMOVED Requirements
+
+### Requirement: GitHubProvider wired as mcp.auth
+**Reason:** Replaced by the generic `get_provider()` dispatch in `backend.py`. GitHub is still supported via `auth: "github"` but is no longer the only wired provider.
+**Migration:** Set `auth: "github"` and move credentials to the `oauth:` settings block.
+
+## ADDED Requirements
 
 ### Requirement: oauth settings block replaces provider-specific blocks
 The `oauth:` settings block SHALL be the single source of credentials for all OAuthProxy providers. The old `github_oauth:` and `github_pat:` blocks SHALL be removed from `settings.yaml`.

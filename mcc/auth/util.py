@@ -50,16 +50,15 @@ async def get_current_user() -> Optional[UserModel]:
     if isinstance(token, UserModel):
         logger.debug("resolved user directly from token: %s", token.username)
         return token
-    if hasattr(token, "claims"):
-        token = token.claims
+    claims: dict = getattr(token, "claims", {}) or {}
     try:
-        email = token.get("email") or None
+        email = claims.get("email") or None
         if email:
             user = await get_user_by_email(email)
             if user:
                 logger.debug("resolved user by email: %s", user.username)
                 return user
-        login = token.get("login") or None
+        login = claims.get("login") or None
         if login:
             user = await get_user_by_username(login)
             if user:

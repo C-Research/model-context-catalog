@@ -20,13 +20,18 @@ default:
     username: ""
     password: ""
 
-  github_oauth:
+  oauth:
+    base_url: "http://localhost:8000"
     client_id: ""
     client_secret: ""
-    base_url: "http://localhost:8000"
 
-  github_pat:
-    token: ""
+  jwt:
+    jwks_uri: ""
+    issuer: ""
+    audience: ""
+    authorization_server: ""
+    base_url: "http://localhost:8000"
+    required_scopes: []
 
   logging:
     version: 1
