@@ -81,3 +81,23 @@ Set an environment variable for the current process.
 |-------|------|----------|-------------|
 | `key` | str | yes | Variable name |
 | `value` | str | yes | Value to set |
+
+---
+
+## `admin.system.man`
+
+Look up a command's man page.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cmd` | str | yes | Command name to look up |
+
+```
+execute("admin.system.man", {"cmd": "curl"})
+```
+
+---
+
+## `admin.system.uname`
+
+Return OS and architecture information (`uname -a`). No parameters.

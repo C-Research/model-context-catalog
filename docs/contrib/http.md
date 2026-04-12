@@ -42,34 +42,3 @@ execute("public.http.responsible-get", {"url": "https://example.com"})
 
 The responsible flag sets a Claude-identifying user-agent string. This is the default for LLM-initiated requests — it's good practice to identify automated traffic.
 
-## `public.http.jq`
-
-Process JSON content with [jq](https://jqlang.org/). Available to all users.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `content` | str | yes | JSON string to process |
-| `filter` | str | no | jq filter expression (default: `.content`) |
-| `opts` | str | no | Additional jq flags |
-
-```
-execute("public.http.jq", {"content": "{\"name\": \"alice\"}", "filter": ".name"})
-```
-
-Requires `jq` to be installed on the system.
-
-## `public.http.man`
-
-Look up a command's man page. Available to all users.
-
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `cmd` | str | yes | Command name to look up |
-
-```
-execute("public.http.man", {"cmd": "curl"})
-```
-
-## `public.http.uname`
-
-Returns OS and architecture information (`uname -a`). No parameters. Available to all users.

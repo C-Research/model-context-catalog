@@ -72,3 +72,21 @@ Replace regex matches in a string (`re.sub`).
 | `repl` | str | yes | Replacement string |
 | `string` | str | yes | Input string |
 | `flags` | int | no | `re` module flags (default: `0`) |
+
+---
+
+## `public.text.jq`
+
+Process JSON content with [jq](https://jqlang.org/).
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | str | yes | JSON string to process |
+| `filter` | str | no | jq filter expression (default: `.content`) |
+| `opts` | str | no | Additional jq flags |
+
+```
+execute("public.text.jq", {"content": "{\"name\": \"alice\"}", "filter": ".name"})
+```
+
+Requires `jq` to be installed on the system.

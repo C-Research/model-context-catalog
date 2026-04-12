@@ -15,7 +15,7 @@ MCC is written in Python FastMCP and uses Elastic Search for a data store and fa
 The MCP client uses just two tools:
 
 - **`search(query)`** — finds tools by natural language (hybrid keyword + semantic search), returns signatures with relevance scores
-- **`execute(name, params)`** — runs a tool by key, validates params, checks permissions
+- **`execute(key, params)`** — runs a tool by key, validates params, checks permissions
 
 ## Why only two tools?
 
