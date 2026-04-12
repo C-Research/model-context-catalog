@@ -31,13 +31,13 @@ curl -fsSL https://elastic.co/start-local | sh
 
 ## Configuration
 
-Create a `settings.local.toml` in your working directory:
+Create a `settings.local.yaml` in your working directory:
 
-```toml
-[default.elasticsearch]
-host = "localhost"
-port = 9200
-api_key = "key provided"
+```yaml
+default:
+  elasticsearch:
+    dynaconf_merge: true
+    api_key: "key provided"
 ```
 
 See [Auth Backends](../auth/backends.md) for authentication configuration.

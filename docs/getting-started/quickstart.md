@@ -36,13 +36,30 @@ tools:
 
 ## 3. Start the server
 
+Default transport is SSE which is easiest for development
+
 ```bash
-mcc serve
+mcc mcp serve
 ```
 
 ## 4. Connect Claude
 
-Point your MCP client at `http://localhost:8000`. Claude can now:
+Configure Claude to locate mcc. Easiest way is to use mcp-proxy in `claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "model-context-catalog (mcc)": {
+      "command": "mcp-proxy",
+      "args": [
+        "http://localhost:8000/sse"
+      ]
+    }
+  }
+}
+```
+
+Restart Claude and now you can say `greet someone named Alice` which will perform
 
 ```
 search("greet someone") → finds public.greet

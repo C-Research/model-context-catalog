@@ -80,7 +80,7 @@ async def search(query: str, min_score: Optional[float] = None) -> str:
 
 
 @mcp.tool()
-async def execute(name: str, params: Optional[dict] = None):
+async def execute(key: str, params: Optional[dict] = None):
     """Execute a tool from the catalog by its exact key.
 
     The tool key is shown in search() results (e.g. "admin.shell", "public.request").
@@ -95,17 +95,17 @@ async def execute(name: str, params: Optional[dict] = None):
       execute("admin.reload")
 
     Args:
-      name: Exact tool key from search results.
+      key: Exact tool key from search results.
       params: Dict of parameter name → value. Omit or pass null for tools with no required parameters.
     """
-    if name not in loader:
-        logger.warning("execute: unknown tool %r", name)
-        return f"Unknown tool: {name}"
-    tool = loader[name]
+    if key not in loader:
+        logger.warning("execute: unknown tool %r", key)
+        return f"Unknown tool: {key}"
+    tool = loader[key]
     user = current_user_var.get(None)
     if not tool.allows(user):
         username = user.username if user else "anonymous"
-        logger.warning("execute: %s denied access to %s", username, name)
+        logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
     try:
         result = await tool.call(**params or {})
@@ -117,7 +117,7 @@ async def execute(name: str, params: Optional[dict] = None):
                 pass
         return result
     except ValidationError as e:
-        return f"Validation error for tool '{name}': {e}"
+        return f"Validation error for tool '{key}': {e}"
 
 
 @mcp.tool()

@@ -30,7 +30,7 @@ elasticsearch:
 Any setting can be set via environment variable using the `MCC_` prefix. Nested keys use double underscores:
 
 ```bash
-MCC_AUTH=dangerous
+MCC_AUTH=dev-admin
 MCC_CONTRIB=true
 MCC_ELASTICSEARCH__HOST=my-es-host.internal
 MCC_ELASTICSEARCH__PORT=9200
@@ -52,11 +52,11 @@ Defaults to `development` unless overridden.
 
 ### `auth`
 
-Authentication backend. Default: `dangerous` (no auth, dev only).
+Authentication backend. Default: `dev-admin` (no auth, dev only).
 
 | Value | Description |
 |-------|-------------|
-| `dangerous` | No authentication — all requests are anonymous |
+| `dev-admin` | No authentication — all requests are anonymous |
 | `github_oauth` | GitHub OAuth app flow |
 | `github_pat` | GitHub personal access token |
 

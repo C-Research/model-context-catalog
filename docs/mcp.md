@@ -16,28 +16,19 @@ Finds tools by natural language using hybrid keyword + semantic search over the 
 
 Each result is a **signature block** — a compact markdown description of a tool — prefixed with its relevance score in brackets:
 
-```
-[9.14]
-## admin.shell
-groups: admin
-params:
-  - command (str, required): Shell command to run
-returns: (returncode: int, stdout: str, stderr: str)
-
-Run a shell command and return its output.
-
-[8.71]
-## admin.auth.users.list_users
-groups: admin, auth, users
-returns: list
-
-List all users in the catalog.
+```markdown
+[8.02]
+## academic.semantic_scholar_search (query:str, limit:int=10) -> str
+`query` — Search query string.
+`limit` — Number of results to return. Default 10, max 100.
+Search the Semantic Scholar academic graph for papers by keyword.
+Returns JSON with titles, authors, year, abstract, citation counts, and open-access PDF links.
 ```
 
 Each signature includes:
 
-- **Tool key** — the heading (`## admin.shell`). Pass this to `execute`.
-- **groups** — which groups can access the tool.
+- **Relevance score** - the `[..]` numerical heading is the result's relevancy score
+- **Tool key** — the heading (`## academic.semantic_scholar_search `). Pass this to `execute`. Key also declares which groups can access the tool.
 - **params** — name, type, required/optional, and description for each parameter.
 - **returns** — the return type. Exec tools return `stdout` as a string on success, or `(code, stdout, stderr)` on error.
 - **Description** — what the tool does.
@@ -56,7 +47,7 @@ To narrow by group, include the group name in your query (e.g. `"admin shell com
 ## execute
 
 ```
-execute(name, params?)
+execute(key, params?)
 ```
 
 Runs a tool by its exact key. The key is shown in `search` results. Parameters must match the tool's declared names and types; required parameters must be included.
@@ -65,20 +56,10 @@ Runs a tool by its exact key. The key is shown in `search` results. Parameters m
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Exact tool key (e.g. `admin.shell`, `public.request`) |
+| `key` | `str` | Exact tool key (e.g. `admin.shell`, `public.request`) |
 | `params` | `dict` (optional) | Parameter name → value. Omit for tools with no required parameters |
 
 Returns the tool's output, a validation error if params don't match, or `Unauthorized` if the current user doesn't have access.
-
-## Resources
-
-Readable catalog views available via MCP resource URIs:
-
-| URI | Description |
-|-----|-------------|
-| `catalog://tools` | All tools the current user can access |
-| `catalog://tools/{key}` | A single tool's signature by key |
-| `user://me` | Current user's identity, groups, and tool grants |
 
 ## Prompts
 
