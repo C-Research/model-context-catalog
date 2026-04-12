@@ -124,6 +124,8 @@ async def execute(name: str, params: Optional[dict] = None):
 async def describe_tools(groups: Optional[list[str]] = None) -> str:
     """List all tools accessible to the current user with their descriptions.
 
+    Use this only if everything else fails, returns many tools and will pollute context
+
     Returns tool keys and descriptions only — use search() to get full parameter
     details before calling execute().
 

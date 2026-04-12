@@ -111,7 +111,7 @@ class ToolIndex(ESIndex):
                 "groups": {"type": "keyword"},
                 "embedding": {
                     "type": "dense_vector",
-                    "dims": 384,
+                    "dims": settings.EMBEDDING_DIMS,
                     "index": True,
                     "similarity": "cosine",
                 },

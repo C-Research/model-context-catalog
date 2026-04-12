@@ -1,4 +1,4 @@
-site_name: OSINT Tool Catalog
+site_name: MCC OSINT Tools
 site_description: "Reference documentation for the OSINT tool catalog — threat intel, corporate records, government data, geolocation, and more."
 repo_url: https://github.com/opensanctions/followthemoney
 repo_name: model-context-catalog
@@ -37,7 +37,7 @@ markdown_extensions:
 plugins:
   - offline
 
-copyright: "&copy; 2025 C4ADS"
+copyright: "&copy; 2026 C4ADS"
 
 extra_css:
   - stylesheets/blue.css

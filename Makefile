@@ -29,6 +29,9 @@ docs:
 	uv run zensical build -f osint/mkdocs.yml
 	mv osint/site site/osint
 
+serve:
+	cd site
+	uv run python -m http.server
 
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 
