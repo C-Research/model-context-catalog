@@ -4,6 +4,7 @@ tools:
   - name: opensky_states
     curl: >-
       'https://opensky-network.org/api/states/all?lamin={{ lamin }}&lomin={{ lomin }}&lamax={{ lamax }}&lomax={{ lomax }}'
+    example: 'opensky_states(lamin="44.0", lomin="22.0", lamax="52.5", lomax="40.2")'
     description: |
       Retrieve live aircraft transponder states within a geographic bounding box from the OpenSky Network.
       Returns JSON with an array of state vectors: ICAO24 transponder code, callsign, origin country,
@@ -30,6 +31,7 @@ tools:
 
   - name: opensky_aircraft
     curl: "https://opensky-network.org/api/states/all?icao24={{ icao24 }}"
+    example: 'opensky_aircraft(icao24="3c6444")'
     description: |
       Look up the current transponder state for a specific aircraft by its ICAO24 hex identifier.
       Returns JSON with the aircraft's state vector if it is currently airborne, or states: null if not.

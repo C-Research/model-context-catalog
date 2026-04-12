@@ -3,6 +3,7 @@ groups: [osint,crypto]
 tools:
   - name: blockchain_rawtx
     curl: "https://blockchain.info/rawtx/{{ tx_hash }}"
+    example: 'blockchain_rawtx(tx_hash="4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b")'
     description: |
       Fetch raw Bitcoin transaction data from Blockchain.info by transaction hash.
       Returns inputs, outputs, value, fee, block height, and confirmation count.
@@ -15,6 +16,7 @@ tools:
 
   - name: blockchain_rawblock
     curl: "https://blockchain.info/rawblock/{{ block_hash }}"
+    example: 'blockchain_rawblock(block_hash="000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")'
     description: |
       Fetch raw Bitcoin block data from Blockchain.info by block hash or height.
       Returns block header, transaction list, timestamp, difficulty, and miner info.
@@ -27,6 +29,7 @@ tools:
 
   - name: blockchain_rawaddr
     curl: "https://blockchain.info/rawaddr/{{ bitcoin_address }}"
+    example: 'blockchain_rawaddr(bitcoin_address="1A1zP1eP5QGefi2DMPTfTL5SLmv7Divf")'
     description: |
       Fetch Bitcoin address summary from Blockchain.info.
       Returns total received, total sent, current balance, and transaction history.
@@ -39,6 +42,7 @@ tools:
 
   - name: blockchair
     curl: "https://api.blockchair.com/{{ chain }}/dashboards/{% if chain == 'bitcoin' or chain == 'ethereum' or chain == 'litecoin' or chain == 'bitcoin-cash' %}{% if query | length == 64 %}transaction{% else %}address{% endif %}{% else %}address{% endif %}/{{ query }}"
+    example: 'blockchair(chain="ethereum", query="0x742d35Cc6634C0532925a3b844Bc454e4438f44e")'
     description: |
       Look up a transaction or address across multiple blockchains using the Blockchair API.
       Auto-detects whether query is a transaction (64-char hex) or address.

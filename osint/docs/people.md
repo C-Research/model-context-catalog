@@ -19,6 +19,17 @@ Search 400+ social platforms and websites for accounts matching a username using
 **Returns:** A dict mapping platform name to profile URL for each account found. Platforms where no account exists are omitted.  
 **Auth:** None. Requires `sherlock-project` Python library (`pip install mcc[osint]`).
 
+??? example "Usage examples"
+    Search for accounts matching a username across 400+ platforms:
+    ```
+    sherlock_search(username="johndoe")
+    ```
+
+    Investigate a handle seen on one platform:
+    ```
+    sherlock_search(username="target_handle")
+    ```
+
 !!! note "Performance"
     Scans are network-bound and typically take 30–120 seconds, depending on platform response times and network conditions.
 

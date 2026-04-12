@@ -20,6 +20,22 @@ Full-text search of [SEC EDGAR](https://efts.sec.gov) filings from US public com
 **Returns:** JSON with filing metadata — company name, form type, date, and business location.  
 **Auth:** None.
 
+??? example "Usage examples"
+    Full-text search across all SEC filings:
+    ```
+    edgar_search(q="climate risk")
+    ```
+
+    Find 8-K filings mentioning a company in distress:
+    ```
+    edgar_search(q="FTX", form_type="8-K")
+    ```
+
+    Search for related party disclosures in annual reports:
+    ```
+    edgar_search(q="related party transactions", form_type="10-K")
+    ```
+
 ---
 
 ### `congress_search`
@@ -33,6 +49,17 @@ Search US bills and resolutions via the [Congress.gov API](https://api.congress.
 
 **Returns:** JSON with bill numbers, titles, sponsors, latest action, and chamber.  
 **Auth:** None.
+
+??? example "Usage examples"
+    Search for bills on a topic:
+    ```
+    congress_search(query="artificial intelligence")
+    ```
+
+    Find recent legislation mentioning a platform:
+    ```
+    congress_search(query="TikTok ban", limit=10)
+    ```
 
 ---
 
@@ -49,6 +76,17 @@ Search [USASpending.gov](https://www.usaspending.gov) for federal contracts, gra
 **Returns:** JSON with recipient names, award amounts, awarding agencies, and date ranges.  
 **Auth:** None.
 
+??? example "Usage examples"
+    Find federal contracts awarded to a company:
+    ```
+    usaspending_search(keyword="Palantir")
+    ```
+
+    Search grants related to a program:
+    ```
+    usaspending_search(keyword="border security", award_types=["02","03","04","05"])
+    ```
+
 ---
 
 ### `opensecrets_legislators`
@@ -61,6 +99,17 @@ Retrieve current US legislators for a state from [OpenSecrets](https://www.opens
 
 **Returns:** JSON with legislator names, CRP IDs, party, chamber, district, and first elected year.  
 **Auth:** `OPENSECRETS_API_KEY` — [register free](https://www.opensecrets.org/api/admin/index.php).
+
+??? example "Usage examples"
+    Get all current legislators for California:
+    ```
+    opensecrets_legislators(state="CA")
+    ```
+
+    Look up Texas legislators to find CRP IDs for contribution lookup:
+    ```
+    opensecrets_legislators(state="TX")
+    ```
 
 ---
 
@@ -75,6 +124,17 @@ Retrieve top campaign contributors for a US candidate by CRP ID and election cyc
 
 **Returns:** JSON with contributor names, total amounts, and contributor types (PAC vs. individual).  
 **Auth:** `OPENSECRETS_API_KEY` — [register free](https://www.opensecrets.org/api/admin/index.php).
+
+??? example "Usage examples"
+    Get top campaign contributors for a candidate (use opensecrets_legislators to find the CRP ID):
+    ```
+    opensecrets_contributions(cid="N00007360")
+    ```
+
+    Get contributions for a specific election cycle:
+    ```
+    opensecrets_contributions(cid="N00007360", cycle="2022")
+    ```
 
 ---
 
@@ -96,3 +156,24 @@ Search the [OFAC Specially Designated Nationals (SDN)](https://ofac.treasury.gov
 
 **Returns:** JSON with matching SDN entries and associated sanctions program details.  
 **Auth:** None.
+
+??? example "Usage examples"
+    Screen an individual by name:
+    ```
+    ofac(name="Viktor Vekselberg")
+    ```
+
+    Search for a sanctioned entity:
+    ```
+    ofac(name="Wagner", type="Entity")
+    ```
+
+    Look up by passport or ID number:
+    ```
+    ofac(idNumber="PA1234567")
+    ```
+
+    Fuzzy name match with lower threshold:
+    ```
+    ofac(name="Rotenberg", nameScore=80)
+    ```

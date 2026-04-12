@@ -3,6 +3,7 @@ groups: [osint,academic]
 tools:
   - name: arxiv_search
     curl: "https://export.arxiv.org/api/query?search_query=all:{{ query | urlencode }}&max_results={{ max_results }}"
+    example: 'arxiv_search(query="ti:transformer attention")'
     description: |
       Search arXiv preprints across physics, CS, math, biology, and more.
       Returns an Atom XML feed with paper titles, authors, abstracts, and PDF links.
@@ -20,6 +21,7 @@ tools:
 
   - name: crossref_search
     curl: "https://api.crossref.org/works?query={{ query | urlencode }}&rows={{ rows }}"
+    example: 'crossref_search(query="transformer attention mechanism")'
     description: |
       Search the CrossRef database for journal articles, books, conference papers, and other scholarly works.
       Returns JSON with DOIs, titles, authors, publication dates, and citation counts.
@@ -37,6 +39,7 @@ tools:
 
   - name: semantic_scholar_search
     curl: "https://api.semanticscholar.org/graph/v1/paper/search?query={{ query | urlencode }}&limit={{ limit }}&fields=title,authors,year,abstract,citationCount,openAccessPdf"
+    example: 'semantic_scholar_search(query="retrieval augmented generation")'
     description: |
       Search the Semantic Scholar academic graph for papers by keyword.
       Returns JSON with titles, authors, year, abstract, citation counts, and open-access PDF links.
@@ -54,6 +57,7 @@ tools:
 
   - name: openalex_search
     curl: "https://api.openalex.org/works?search={{ query | urlencode }}&per-page={{ per_page }}"
+    example: 'openalex_search(query="mRNA vaccine efficacy")'
     description: |
       Search OpenAlex, a fully open catalog of scholarly works, authors, institutions, and concepts.
       Returns JSON with titles, authors, year, citation counts, and open access status.

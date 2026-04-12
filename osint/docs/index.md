@@ -8,20 +8,20 @@ A collection of open-source intelligence tools for research, investigations, and
 
 ## Categories
 
-| Category | Tools | Auth |
-|----------|------:|------|
-| [Infosec & Network](infosec.md) | 10 | VirusTotal, AbuseIPDB, DNSDumpster, urlscan |
-| [Companies & Business](companies.md) | 6 | Companies House, OpenSanctions |
-| [Government & Records](gov.md) | 6 | OpenSecrets |
-| [Geolocation](geo.md) | 3 | None |
-| [Transport & Aviation](transport.md) | 2 | None |
+| Category | Tools | Services |
+|----------|------:|---------|
+| [Infosec & Network](infosec.md) | 10 | crt.sh, VirusTotal, AbuseIPDB, NIST NVD, MalwareBazaar, DNSDumpster, urlscan.io, ip-api.com, nmap |
+| [Companies & Business](companies.md) | 6 | OpenCorporates, ProPublica, Companies House, ICIJ Offshore Leaks, ImportYeti, OpenSanctions |
+| [Government & Records](gov.md) | 6 | SEC EDGAR, Congress.gov, USASpending.gov, OpenSecrets, OFAC |
+| [Geolocation](geo.md) | 3 | Nominatim, Overpass API (OpenStreetMap) |
+| [Transport & Aviation](transport.md) | 2 | OpenSky Network |
 | [Environment & Maritime](environment.md) | 2 | NASA FIRMS, Global Fishing Watch |
-| [Conflict & Humanitarian](conflict.md) | 3 | None |
-| [Cryptocurrency](crypto.md) | 4 | None |
-| [People & Social](people.md) | 1 | None |
-| [News & Media](news.md) | 2 | None |
-| [Academic Research](academic.md) | 4 | None |
-| [Web Archives](search.md) | 1 | None |
+| [Conflict & Humanitarian](conflict.md) | 3 | UCDP, ReliefWeb, GDELT |
+| [Cryptocurrency](crypto.md) | 4 | Blockchain.info, Blockchair |
+| [People & Social](people.md) | 1 | Sherlock Project |
+| [News & Media](news.md) | 2 | Hacker News, Algolia |
+| [Academic Research](academic.md) | 4 | arXiv, CrossRef, Semantic Scholar, OpenAlex |
+| [Web Archives](search.md) | 1 | Internet Archive |
 
 ## Setup
 

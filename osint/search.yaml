@@ -4,6 +4,7 @@ tools:
 
   - name: wayback
     curl: "http://archive.org/wayback/available?url={{ url | urlencode }}"
+    example: 'wayback(url="https://example.com/page")'
     description: |
       Check whether a URL has been archived by the Wayback Machine (Internet Archive).
       Returns the closest available snapshot URL and its timestamp, or an empty response if not archived.

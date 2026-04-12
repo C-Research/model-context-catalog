@@ -43,3 +43,14 @@ Look up the current transponder state for a specific aircraft by its [ICAO24](ht
 
 **Returns:** JSON with the aircraft's current state vector if airborne, or `states: null` if not currently tracked.  
 **Auth:** None.
+
+??? example "Usage examples"
+    Look up a specific aircraft by its ICAO24 code:
+    ```
+    opensky_aircraft(icao24="3c6444")
+    ```
+
+    Track a known tail number (look up the ICAO24 on a site like FlightAware first):
+    ```
+    opensky_aircraft(icao24="a835af")
+    ```

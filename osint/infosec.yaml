@@ -3,6 +3,7 @@ groups: [osint, infosec]
 tools:
   - name: crtsh
     curl: "https://crt.sh/?dNSName={{ domain }}&output=json"
+    example: 'crtsh(domain="%.example.com")'
     description: |
       Search crt.sh certificate transparency logs for TLS certificates issued for a domain.
       Returns JSON with certificate details including SANs, issuer, and validity dates.
@@ -15,6 +16,7 @@ tools:
 
   - name: virustotal
     curl: "-H 'x-apikey: ${VIRUSTOTAL_API_KEY}' 'https://www.virustotal.com/api/v3/{{ type }}s/{{ indicator | urlencode }}'"
+    example: 'virustotal(indicator="275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f", type="file")'
     description: |
       Look up a file hash, URL, domain, or IP address in VirusTotal's multi-engine threat database.
       Returns detection results from 70+ antivirus engines and threat intelligence metadata.
@@ -32,6 +34,7 @@ tools:
 
   - name: abuseipdb
     curl: "-H 'Key: ${ABUSEIPDB_API_KEY}' -H 'Accept: application/json' -G 'https://api.abuseipdb.com/api/v2/check' --data-urlencode 'ipAddress={{ ip }}' -d 'maxAgeInDays={{ max_age_days }}'"
+    example: 'abuseipdb(ip="185.220.101.45")'
     description: |
       Check an IP address against the AbuseIPDB database of reported malicious IPs.
       Returns abuse confidence score (0-100), ISP, usage type, country, and recent report count.
@@ -49,6 +52,7 @@ tools:
 
   - name: nvd_cve
     curl: "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={{ cve_id | urlencode }}"
+    example: 'nvd_cve(cve_id="CVE-2021-44228")'
     description: |
       Look up a CVE by ID in the NIST National Vulnerability Database.
       Returns CVSS scores (v2 and v3), description, affected products, and references.
@@ -61,6 +65,7 @@ tools:
 
   - name: malwarebazaar
     curl: "-X POST https://mb-api.abuse.ch/api/v1/ -d 'query=get_info&hash={{ hash }}'"
+    example: 'malwarebazaar(hash="275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f")'
     description: |
       Look up a file hash in MalwareBazaar to check if it is a known malware sample.
       Returns sample metadata, malware family/tags, first seen date, and file type.
@@ -73,6 +78,7 @@ tools:
 
 
   - name: dnsdumpster
+    example: 'dnsdumpster(domain="example.com")'
     description: |
       DNSDumpster.com is a FREE domain research tool that discovers hosts related to a domain.
       Returns JSON with DNS records and attack surface information: A, MX, NS, TXT records and open ports.
@@ -86,6 +92,7 @@ tools:
 
   - name: urlscan_search
     curl: "https://urlscan.io/api/v1/search/?q={{ q | urlencode }}&size={{ size }}"
+    example: 'urlscan_search(q="domain:suspicious-site.com")'
     description: |
       Search the urlscan.io public index for existing website scans matching a query.
       Supports Elasticsearch-style queries: domain:example.com, ip:1.2.3.4, hash:<sha256>, etc.
@@ -103,6 +110,7 @@ tools:
         description: Number of results to return (max 10000, default 10).
 
   - name: urlscan_submit
+    example: 'urlscan_submit(url="https://suspicious-phishing-site.example.com")'
     curl: >-
       -X POST
       -H 'Content-Type: application/json'
@@ -128,6 +136,7 @@ tools:
   - name: nmap_scan
     exec: "nmap -oN - -p {{ ports }} -T{{ timing }} {{ arguments }} {{ target }}"
     timeout: 300
+    example: 'nmap_scan(target="192.168.1.1")'
     description: |
       Scan a host, IP address, or CIDR range with nmap.
       Returns normal text output including open ports, service names, and versions.
@@ -156,6 +165,7 @@ tools:
 
   - curl: "http://ip-api.com/json/{{ query }}?fields={{ fields | join(',') }}"
     name: geolocate
+    example: 'geolocate(query="8.8.8.8")'
     description: returns geolocation data about where the speicifc address originates from using ip-api.com
     groups: [public, http]
     params:

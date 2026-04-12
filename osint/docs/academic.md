@@ -39,6 +39,17 @@ Search the [CrossRef](https://www.crossref.org) database of journal articles, bo
 **Returns:** JSON with DOIs, titles, authors, publication dates, publisher, and citation counts.  
 **Auth:** None.
 
+??? example "Usage examples"
+    Search for papers on a topic:
+    ```
+    crossref_search(query="transformer attention mechanism")
+    ```
+
+    Broader search with more results:
+    ```
+    crossref_search(query="CRISPR gene editing", rows=20)
+    ```
+
 ---
 
 ### `semantic_scholar_search`
@@ -53,6 +64,17 @@ Search the [Semantic Scholar](https://www.semanticscholar.org) academic graph by
 **Returns:** JSON with titles, authors, year, abstract, citation counts, and open-access PDF links.  
 **Auth:** None for basic access (rate limits apply).
 
+??? example "Usage examples"
+    Search for papers on a technique:
+    ```
+    semantic_scholar_search(query="retrieval augmented generation")
+    ```
+
+    Get top papers with fewer results:
+    ```
+    semantic_scholar_search(query="large language models survey", limit=5)
+    ```
+
 ---
 
 ### `openalex_search`
@@ -66,3 +88,14 @@ Search [OpenAlex](https://openalex.org), a fully open catalog of 250M+ scholarly
 
 **Returns:** JSON with titles, authors, year, citation counts, open access status, and concept tags.  
 **Auth:** None.
+
+??? example "Usage examples"
+    Search across 250M+ scholarly works:
+    ```
+    openalex_search(query="mRNA vaccine efficacy")
+    ```
+
+    Search with more results:
+    ```
+    openalex_search(query="climate tipping points", per_page=20)
+    ```

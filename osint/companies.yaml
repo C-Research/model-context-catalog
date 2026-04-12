@@ -3,6 +3,7 @@ groups: [osint,companies]
 tools:
   - name: opencorporates_search
     curl: "https://api.opencorporates.com/v0.4/companies/search?q={{ q | urlencode }}{% if jurisdiction_code %}&jurisdiction_code={{ jurisdiction_code }}{% endif %}&per_page={{ per_page }}"
+    example: 'opencorporates_search(q="Acme Corporation")'
     description: |
       Search the OpenCorporates database of 200M+ company registrations worldwide.
       Returns company names, registration numbers, jurisdictions, registered addresses, and status.
@@ -25,6 +26,7 @@ tools:
 
   - name: propublica_nonprofit
     curl: "https://projects.propublica.org/nonprofits/api/v2/search.json?q={{ q | urlencode }}"
+    example: 'propublica_nonprofit(q="Red Cross")'
     description: |
       Browse millions of annual IRS 990 returns filed by US tax-exempt organizations via ProPublica's Nonprofit Explorer.
       Returns organization names, EINs, revenue, expenses, executive compensation, and filing years.
@@ -41,6 +43,7 @@ tools:
 
   - name: companies_house_search
     curl: "-u \"$COMPANIES_HOUSE_API_KEY:\" 'https://api.company-information.service.gov.uk/search/companies?q={{ q | urlencode }}&items_per_page={{ per_page }}'"
+    example: 'companies_house_search(q="Cambridge Analytica")'
     description: |
       Search the UK Companies House official register of limited companies.
       Returns company name, company number, status, type, registered address, and incorporation date.
@@ -59,6 +62,7 @@ tools:
 
   - name: icij_offshore_search
     curl: "https://offshoreleaks.icij.org/api/v1/search?q={{ q | urlencode }}&c={{ country | urlencode }}&j={{ jurisdiction | urlencode }}&cat={{ category }}"
+    example: 'icij_offshore_search(q="Mossack Fonseca")'
     description: |
       Search the ICIJ Offshore Leaks database spanning the Panama Papers, Pandora Papers,
       Paradise Papers, and other investigations into offshore finance.
@@ -86,7 +90,8 @@ tools:
         description: "Entity category filter: 0=all, 1=entity, 2=officer, 3=intermediary, 4=address."
 
   - name: importyeti_search
-    curl: "https://www.importyeti.com/api/companies?query={{ q | urlencode }}"
+    curl: "https://www.importyeti.com/api/search?q={{ q | urlencode }}"
+    example: 'importyeti_search(q="Tesla")'
     description: |
       Search US customs import records for companies shipping goods into the United States.
       Returns matching companies with supplier names, countries of origin, shipment counts,
@@ -99,6 +104,7 @@ tools:
 
   - name: opensanctions_search
     curl: "-H \"Authorization: ApiKey $OPENSANCTIONS_API_KEY\" 'https://api.opensanctions.org/search/default?q={{ q | urlencode }}&limit={{ limit }}'"
+    example: 'opensanctions_search(q="Arkady Rotenberg")'
     description: |
       Screen individuals and entities against global sanctions lists, PEP (Politically Exposed
       Persons) databases, and watchlists via OpenSanctions.

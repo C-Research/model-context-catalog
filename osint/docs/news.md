@@ -20,6 +20,22 @@ Search [Hacker News](https://news.ycombinator.com) posts, comments, jobs, and po
 **Returns:** JSON with matching items — titles, authors, scores, comment counts, and URLs.  
 **Auth:** None.
 
+??? example "Usage examples"
+    Search for stories mentioning a technology:
+    ```
+    hn_search(q="model context protocol")
+    ```
+
+    Find Show HN posts about a topic:
+    ```
+    hn_search(q="open source", tags="show_hn")
+    ```
+
+    Search comments only:
+    ```
+    hn_search(q="FastMCP", tags="comment")
+    ```
+
 ---
 
 ### `hn_item`
@@ -32,3 +48,14 @@ Fetch a single Hacker News item by its integer ID from the [official Firebase AP
 
 **Returns:** Raw item JSON with title, text, score, author, creation time, and child IDs.  
 **Auth:** None.
+
+??? example "Usage examples"
+    Fetch a specific story by ID:
+    ```
+    hn_item(item_id=36517058)
+    ```
+
+    Fetch the first-ever HN submission:
+    ```
+    hn_item(item_id=1)
+    ```

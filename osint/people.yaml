@@ -2,3 +2,4 @@ env_file: osint.env
 groups: [osint, people]
 tools:
   - fn: osint:sherlock_search
+    example: 'sherlock_search(username="johndoe")'

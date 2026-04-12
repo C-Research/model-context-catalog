@@ -3,6 +3,7 @@ groups: [osint,news]
 tools:
   - name: hn_search
     curl: "http://hn.algolia.com/api/v1/search?query={{ q | urlencode }}{% if tags %}&tags={{ tags | urlencode }}{% endif %}"
+    example: 'hn_search(q="model context protocol")'
     description: |
       Search Hacker News posts and comments via the Algolia HN Search API.
       Returns stories, comments, jobs, and polls matching the query.
@@ -20,6 +21,7 @@ tools:
 
   - name: hn_item
     curl: "https://hacker-news.firebaseio.com/v0/item/{{ item_id }}.json"
+    example: 'hn_item(item_id=36517058)'
     description: |
       Fetch a single Hacker News item (story, comment, job, or poll) by its integer ID.
       Returns the raw item JSON including title, text, score, author, and children.

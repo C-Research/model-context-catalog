@@ -50,8 +50,7 @@ default:
 development:
   dynaconf_merge: true
   
-  embedding_model: "snowflake-arctic-embed-m"
-  embedding_dims: 768
+
   logging:
     loggers:
       mcc:
@@ -59,6 +58,10 @@ development:
 
 production:
   dynaconf_merge: true
+
+  embedding_model: "snowflake/snowflake-arctic-embed-m"
+  embedding_dims: 768  
+  
   logging:
     handlers:
       console:

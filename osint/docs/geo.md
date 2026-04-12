@@ -20,6 +20,22 @@ Forward geocode a place name or address to latitude/longitude coordinates using 
 **Returns:** JSON array of matching places with coordinates, display name, and OSM metadata.  
 **Auth:** None. Rate limit: 1 request/second.
 
+??? example "Usage examples"
+    Geocode a city:
+    ```
+    nominatim_geocode(q="Berlin, Germany")
+    ```
+
+    Geocode a specific address:
+    ```
+    nominatim_geocode(q="1600 Pennsylvania Ave NW, Washington DC")
+    ```
+
+    Search for a landmark:
+    ```
+    nominatim_geocode(q="Lubyanka Square, Moscow", limit=3)
+    ```
+
 ---
 
 ### `nominatim_reverse`
@@ -33,6 +49,17 @@ Reverse geocode a latitude/longitude coordinate to a place name and address usin
 
 **Returns:** JSON with the full address, place name, OSM type, and bounding box.  
 **Auth:** None. Rate limit: 1 request/second.
+
+??? example "Usage examples"
+    Reverse geocode a coordinate:
+    ```
+    nominatim_reverse(lat="52.5200", lon="13.4050")
+    ```
+
+    Look up coordinates from a satellite image:
+    ```
+    nominatim_reverse(lat="48.8566", lon="2.3522")
+    ```
 
 ---
 

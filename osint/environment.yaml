@@ -4,6 +4,7 @@ tools:
   - name: nasa_firms
     curl: >-
       'https://firms.modaps.eosdis.nasa.gov/api/country/csv/${NASA_FIRMS_API_KEY}/{{ source }}/{{ country }}/{{ days }}'
+    example: 'nasa_firms(country="UKR", days=3)'
     description: |
       Retrieve active fire and thermal anomaly detections from NASA FIRMS (Fire Information for Resource Management System).
       Returns CSV data with fire radiative power, confidence level, latitude, longitude, brightness temperature,
@@ -31,6 +32,7 @@ tools:
     curl: >-
       -H 'Authorization: Bearer ${GFW_API_KEY}'
       'https://gateway.api.globalfishingwatch.org/v3/vessels/search?query={{ query | urlencode }}&datasets[0]=public-global-vessel-identity:latest&limit={{ limit }}'
+    example: 'gfw_vessels(query="Andromeda")'
     description: |
       Search the Global Fishing Watch vessel identity database for fishing vessels by name, MMSI, or IMO number.
       Returns JSON with matching vessel records including flags, gear types, vessel IDs, and identity sources.

@@ -30,8 +30,7 @@ docs:
 	mv osint/site site/osint
 
 serve:
-	cd site
-	uv run python -m http.server
+	uv run python -m http.server -d site -b 127.0.0.1
 
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 

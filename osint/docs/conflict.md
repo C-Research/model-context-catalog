@@ -22,6 +22,17 @@ Search the [Uppsala Conflict Data Program (UCDP)](https://ucdp.uu.se) Georeferen
 **Returns:** JSON with conflict events — date, latitude/longitude, actor names, fatality estimates (best/low/high), and conflict type.  
 **Auth:** None. Covers 1989 to present.
 
+??? example "Usage examples"
+    Get all recorded conflict events in Ukraine since 2022:
+    ```
+    ucdp_search(country="Ukraine", year_from=2022)
+    ```
+
+    Get conflict events in Sudan for a specific year range:
+    ```
+    ucdp_search(country="Sudan", year_from=2023, year_to=2024)
+    ```
+
 ---
 
 ### `reliefweb_search`
@@ -37,6 +48,17 @@ Search [ReliefWeb](https://reliefweb.int) for humanitarian reports, situation re
 **Returns:** JSON with title, publication date, source organization, URL, and primary country.  
 **Auth:** None.
 
+??? example "Usage examples"
+    Search for humanitarian reports on a crisis:
+    ```
+    reliefweb_search(q="Gaza humanitarian")
+    ```
+
+    Find situation reports only:
+    ```
+    reliefweb_search(q="Sudan famine", content_type="report")
+    ```
+
 ---
 
 ### `gdelt_search`
@@ -51,3 +73,14 @@ Search the [GDELT Project](https://www.gdeltproject.org) 2.0 event database for 
 
 **Returns:** List of article records with `url`, `title`, `seendate`, `domain`, `language`, `sourcecountry`, `tone`, and `socialimage`.  
 **Auth:** None. Requires `gdeltdoc` Python library (`pip install mcc[osint]`).
+
+??? example "Usage examples"
+    Search global news coverage of a topic over a year:
+    ```
+    gdelt_search(query="Wagner Group Africa", start_date="2023-01-01", end_date="2023-12-31")
+    ```
+
+    Search coverage of a specific incident:
+    ```
+    gdelt_search(query="Zaporizhzhia nuclear", start_date="2022-03-01", end_date="2022-04-01")
+    ```

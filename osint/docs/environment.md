@@ -21,6 +21,17 @@ Retrieve active fire and thermal anomaly detections from [NASA FIRMS](https://fi
 **Returns:** CSV with fire radiative power, confidence level, latitude, longitude, brightness temperature, satellite, instrument, and acquisition timestamp for each detected hotspot.  
 **Auth:** `NASA_FIRMS_API_KEY` — [register free](https://firms.modaps.eosdis.nasa.gov/api/map_key/).
 
+??? example "Usage examples"
+    Get active fires in Ukraine over the last 3 days:
+    ```
+    nasa_firms(country="UKR", days=3)
+    ```
+
+    Get Amazon deforestation fire detections using high-resolution VIIRS:
+    ```
+    nasa_firms(country="BRA", source="VIIRS_SNPP_NRT", days=7)
+    ```
+
 !!! note "Source selection"
     VIIRS (375m resolution) provides finer spatial detail than MODIS (1km). `_NRT` sources are near-real-time (within hours); `MODIS_SP` is a science-grade reprocessed product.
 
@@ -37,6 +48,22 @@ Search the [Global Fishing Watch](https://globalfishingwatch.org) vessel identit
 
 **Returns:** JSON with matching vessel records including flags, gear types, vessel IDs, and identity sources.  
 **Auth:** `GFW_API_KEY` — [register free](https://globalfishingwatch.org/our-apis/).
+
+??? example "Usage examples"
+    Search for a vessel by name:
+    ```
+    gfw_vessels(query="Andromeda")
+    ```
+
+    Look up a vessel by MMSI number:
+    ```
+    gfw_vessels(query="636012345")
+    ```
+
+    Search by IMO number:
+    ```
+    gfw_vessels(query="IMO9234567")
+    ```
 
 !!! tip "Use cases"
     - Track vessels implicated in IUU (illegal, unreported, unregulated) fishing
