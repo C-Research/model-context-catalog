@@ -1,12 +1,17 @@
 groups: [public, text]
 tools:
   - fn: mcc.contrib.text:base64_encode
+    example: 'base64_encode(text="hello world")'
   - fn: mcc.contrib.text:base64_decode
+    example: 'base64_decode(text="aGVsbG8gd29ybGQ=")'
   - fn: mcc.contrib.text:hash
+    example: 'hash(text="hello world", algo="sha256")'
   - fn: mcc.contrib.text:diff
+    example: 'diff(a="foo\nbar\n", b="foo\nbaz\n")'
 
   - name: regex_search
     fn: re:findall
+    example: 'regex_search(pattern="\\d+\\.\\d+\\.\\d+\\.\\d+", string="server at 192.168.1.1 port 80")'
     params:
       - name: pattern
         type: str
@@ -17,6 +22,7 @@ tools:
         default: 0
   - name: regex_replace
     fn: re:sub
+    example: 'regex_replace(pattern="\\s+", repl=" ", string="too   many   spaces")'
     params:
       - name: pattern
         type: str
@@ -30,6 +36,7 @@ tools:
   
   - name: jq
     exec: echo {{ content | quote }} | jq {{ opts }} {{ filter | quote }}
+    example: 'jq(filter=".items[].name", content="{\"items\":[{\"name\":\"alice\"},{\"name\":\"bob\"}]}")'
     params:
       - name: filter
         type: str

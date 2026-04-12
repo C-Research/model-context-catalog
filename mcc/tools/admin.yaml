@@ -9,24 +9,32 @@ tools:
     groups: *users
   - fn: mcc.auth.create_user
     groups: *users
+    example: 'create_user(username="alice", email="alice@example.com", groups=["osint"])'
   - fn: mcc.auth.list_users
     groups: *users
   - fn: mcc.auth.delete_user
     groups: *users
+    example: 'delete_user(username="alice")'
   - fn: mcc.auth.get_user_by_username
     groups: *users
+    example: 'get_user_by_username(username="alice")'
   - fn: mcc.auth.get_user_by_email
     groups: *users
+    example: 'get_user_by_email(email="alice@example.com")'
 
   - fn: mcc.auth.remove_group
     groups: *groups
+    example: 'remove_group(username="alice", group="osint")'
   - fn: mcc.auth.add_group
     groups: *groups
+    example: 'add_group(username="alice", group="osint")'
 
   - fn: mcc.auth.add_tool
     groups: *tools
+    example: 'add_tool(username="alice", tool="infosec.nmap_scan")'
   - fn: mcc.auth.remove_tool
     groups: *tools
+    example: 'remove_tool(username="alice", tool="infosec.nmap_scan")'
 
   - fn: mcc.loader:loader.reload
     groups: *loader

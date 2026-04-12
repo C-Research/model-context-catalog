@@ -1,17 +1,21 @@
 groups: [admin, system]
 tools:
   - fn: mcc.contrib.system:get_env
+    example: 'get_env(keys=["PATH", "HOME", "USER"])'
   - fn: mcc.contrib.system:list_env
   - fn: mcc.contrib.system:info
     name: platform
   - fn: mcc.contrib.system:path
     name: pythonpath
   - fn: mcc.contrib.system:set_env
+    example: 'set_env(key="MY_VAR", value="my_value")'
   - fn: mcc.contrib.subprocess:bash
+    example: 'bash(command="ps aux | grep python")'
   - name: python
     exec: python -c 'import json, sys; exec(json.load(sys.stdin)["source"])'
     description: run arbitrary python code
     stdin: true
+    example: 'python(source="import sys; print(sys.version)")'
     params:
       - name: source
         type: str
@@ -19,6 +23,7 @@ tools:
   - name: man
     exec: man {{ cmd | quote }} | cat
     description: The man utility finds and displays online manual documentation pages.
+    example: 'man(cmd="curl")'
     params:
       - name: cmd
         type: str

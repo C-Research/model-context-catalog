@@ -3,4 +3,5 @@ tools:
     groups: [public, auth, users]
   - fn: mcc.auth.list_tools
     groups: [public, auth, tools]
+    example: 'list_tools(text=True)'
 

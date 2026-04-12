@@ -2,13 +2,18 @@ groups: [admin, fs]
 tools:
   - fn: mcc.contrib.fs:read_file
     groups: [read]
+    example: 'read_file(path="/etc/hosts")'
   - fn: mcc.contrib.fs:stat
     groups: [read]
+    example: 'stat(path="/var/log/app.log")'
   - fn: mcc.contrib.fs:list_dir
     groups: [read]
+    example: 'list_dir(path="/tmp", pattern="*.json")'
 
   - fn: mcc.contrib.fs:move
     groups: [write]
+    example: 'move(source="/tmp/old.txt", destination="/tmp/new.txt")'
   - fn: mcc.contrib.fs:write_file
     groups: [write]
+    example: 'write_file(path="/tmp/output.txt", content="hello world")'
 
