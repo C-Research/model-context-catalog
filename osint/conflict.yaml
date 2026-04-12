@@ -2,7 +2,7 @@ env_file: osint.env
 groups: [osint, conflict]
 tools:
   - name: ucdp_search
-    curl: "https://ucdpapi.pcr.uu.se/api/gedevents/23.1?pagesize={{ pagesize }}&country={{ country | urlencode }}{% if year_from %}&year_from={{ year_from }}{% endif %}{% if year_to %}&year_to={{ year_to }}{% endif %}"
+    curl: "-H \"x-ucdp-access-token: ${UCDP_API_KEY}\" 'https://ucdpapi.pcr.uu.se/api/gedevents/23.1?pagesize={{ pagesize }}&country={{ country | urlencode }}{% if year_from %}&year_from={{ year_from }}{% endif %}{% if year_to %}&year_to={{ year_to }}{% endif %}'"
     example: 'ucdp_search(country="Ukraine", year_from=2022)'
     description: |
       Search the Uppsala Conflict Data Program (UCDP) Georeferenced Event Dataset (GED)
@@ -31,7 +31,7 @@ tools:
         description: Number of results per page. Default 50, max 1000.
 
   - name: reliefweb_search
-    curl: "https://api.reliefweb.int/v1/reports?appname=mcc-osint&query[value]={{ q | urlencode }}&limit={{ limit }}{% if content_type %}&filter[field]=type&filter[value]={{ content_type | urlencode }}{% endif %}&fields[include][]=title&fields[include][]=date.original&fields[include][]=source.name&fields[include][]=url&fields[include][]=primary_country.name"
+    curl: "https://api.reliefweb.int/v2/reports?appname=mcc-osint&query={{ q | urlencode }}&limit={{ limit }}"
     example: 'reliefweb_search(q="Gaza humanitarian")'
     description: |
       Search ReliefWeb for humanitarian reports, situation reports, news, and crisis data

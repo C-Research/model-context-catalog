@@ -3,11 +3,12 @@ groups: [osint,academic]
 tools:
   - name: arxiv_search
     curl: "https://export.arxiv.org/api/query?search_query=all:{{ query | urlencode }}&max_results={{ max_results }}"
-    example: 'arxiv_search(query="ti:transformer attention")'
+    example: 'arxiv_search(query="transformer")'
     description: |
       Search arXiv preprints across physics, CS, math, biology, and more.
       Returns an Atom XML feed with paper titles, authors, abstracts, and PDF links.
       No API key required.
+    transform: "uvx --from yq xq -r '[(.feed.entry | if type==\"array\" then .[] else . end) | {id: .id, title: .title, published: .published, summary: .summary, authors: [.author | if type==\"array\" then .[].name else .name end]}]'"
     params:
       - name: query
         type: str
@@ -36,6 +37,8 @@ tools:
         required: false
         default: 10
         description: Number of results to return. Default 10.
+    transform:
+      - jq '.message.items[] | {title,"reference-count","created.date-time",DOI,type,subtype,source,author,resource,URL}'
 
   - name: semantic_scholar_search
     curl: "https://api.semanticscholar.org/graph/v1/paper/search?query={{ query | urlencode }}&limit={{ limit }}&fields=title,authors,year,abstract,citationCount,openAccessPdf"
@@ -72,3 +75,5 @@ tools:
         required: false
         default: 10
         description: Number of results per page. Default 10, max 200.
+    transform:
+      - jq '.results[] | {id,title,publication_date,type,primary_topic,"authorships[].author"}'

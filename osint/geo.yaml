@@ -2,9 +2,7 @@ env_file: osint.env
 groups: [osint, geo]
 tools:
   - name: nominatim_geocode
-    curl: >-
-      -H 'User-Agent: mcc-osint/1.0'
-      'https://nominatim.openstreetmap.org/search?q={{ q | urlencode }}&format=json&limit={{ limit }}'
+    curl: 'https://nominatim.openstreetmap.org/search?q={{ q | urlencode }}&format=json&limit={{ limit }}'
     example: 'nominatim_geocode(q="Berlin, Germany")'
     description: |
       Forward geocode a place name or address to latitude/longitude coordinates using Nominatim (OpenStreetMap).
@@ -22,9 +20,7 @@ tools:
         description: Maximum number of results to return (default 5).
 
   - name: nominatim_reverse
-    curl: >-
-      -H 'User-Agent: mcc-osint/1.0'
-      'https://nominatim.openstreetmap.org/reverse?lat={{ lat }}&lon={{ lon }}&format=json'
+    curl: 'https://nominatim.openstreetmap.org/reverse?lat={{ lat }}&lon={{ lon }}&format=json'
     example: 'nominatim_reverse(lat="52.5200", lon="13.4050")'
     description: |
       Reverse geocode a latitude/longitude coordinate to a place name and address using Nominatim (OpenStreetMap).
@@ -41,7 +37,7 @@ tools:
         description: Longitude in decimal degrees (e.g. "13.4050").
 
   - name: overpass_query
-    example: '[out:json];node["amenity"="hospital"](50.3,30.3,50.6,30.7);out;'
+    example: "overpass_query(query='[out:json];node[\"amenity\"=\"hospital\"](50.3,30.3,50.6,30.7);out;')"
     curl: >-
       -X POST
       https://overpass-api.de/api/interpreter

@@ -20,7 +20,7 @@ tools:
         description: Filter by SEC form type, e.g. 10-K, 8-K, DEF 14A. Leave blank for all forms.
 
   - name: congress_search
-    curl: "https://api.congress.gov/v3/bill?query={{ query | urlencode }}&limit={{ limit }}&format=json"
+    curl: "https://api.congress.gov/v3/bill?query={{ query | urlencode }}&limit={{ limit }}&format=json&api_key=${CONGRESS_API_KEY}"
     example: 'congress_search(query="artificial intelligence")'
     description: |
       Search US Congress bills and resolutions via the Congress.gov API.
@@ -56,13 +56,15 @@ tools:
       - name: award_types
         type: str
         required: false
-        default: '["A","B","C","D","02","03","04","05"]'
+        default: '["A","B","C","D"]'
         description: JSON array of award type codes. Defaults to contracts and grants.
       - name: limit
         type: int
         required: false
         default: 20
         description: Number of results to return. Default 20.
+    transform:
+      - jq '.results[]'
 
   - name: opensecrets_legislators
     curl: >-

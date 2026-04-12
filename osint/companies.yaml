@@ -3,7 +3,7 @@ groups: [osint,companies]
 tools:
   - name: opencorporates_search
     curl: "https://api.opencorporates.com/v0.4/companies/search?q={{ q | urlencode }}{% if jurisdiction_code %}&jurisdiction_code={{ jurisdiction_code }}{% endif %}&per_page={{ per_page }}"
-    example: 'opencorporates_search(q="Acme Corporation")'
+    example: 'opencorporates_search(q="Acme Corporation",jurisdiction_code="us_de")'
     description: |
       Search the OpenCorporates database of 200M+ company registrations worldwide.
       Returns company names, registration numbers, jurisdictions, registered addresses, and status.
@@ -40,6 +40,8 @@ tools:
           Use quotes for exact phrases: "Delta Dental"
           Use + to require terms: delta +evanston
           Use - to exclude terms: delta -dental
+    transform:
+      - jq '.organizations[]'
 
   - name: companies_house_search
     curl: "-u \"$COMPANIES_HOUSE_API_KEY:\" 'https://api.company-information.service.gov.uk/search/companies?q={{ q | urlencode }}&items_per_page={{ per_page }}'"

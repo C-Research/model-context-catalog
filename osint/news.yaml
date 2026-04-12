@@ -18,6 +18,8 @@ tools:
         required: false
         default: ""
         description: "Filter by item type. One of: story, comment, job, poll, show_hn, ask_hn. Leave blank for all types."
+    transform:
+      - jq '.hits[] | {title,author,created_at,updated_at,objectID,_tags}'
 
   - name: hn_item
     curl: "https://hacker-news.firebaseio.com/v0/item/{{ item_id }}.json"
