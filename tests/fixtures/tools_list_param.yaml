@@ -1,0 +1,8 @@
+tools:
+  - name: join
+    exec: "echo joined"
+    params:
+      - name: items
+        type: list
+        required: true
+        description: Items to join
