@@ -1,9 +1,43 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
+from pydantic import BaseModel
 
 from mcc.app import describe_tools, execute, search
 from mcc.auth.models import UserModel
 from mcc.loader import loader
 from mcc.middleware import current_user_var
+from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
+
+
+def _ctx_raises():
+    """Mock ctx whose elicit() raises — simulates a client that doesn't support elicitation."""
+    ctx = MagicMock()
+    ctx.elicit = AsyncMock(side_effect=Exception("elicitation not supported"))
+    return ctx
+
+
+def _ctx_accepts(**data):
+    """Mock ctx whose elicit() returns an AcceptedElicitation with the given data fields."""
+    class _Data(BaseModel):
+        model_config = {"extra": "allow"}
+
+    instance = _Data(**data)
+    ctx = MagicMock()
+    ctx.elicit = AsyncMock(return_value=AcceptedElicitation(data=instance))
+    return ctx
+
+
+def _ctx_declines():
+    ctx = MagicMock()
+    ctx.elicit = AsyncMock(return_value=DeclinedElicitation())
+    return ctx
+
+
+def _ctx_cancels():
+    ctx = MagicMock()
+    ctx.elicit = AsyncMock(return_value=CancelledElicitation())
+    return ctx
 
 
 class TestSearch:
@@ -30,25 +64,59 @@ class TestSearch:
 class TestExecute:
     async def test_execute_public_tool(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
-        result = await execute("echo", {"message": "hi"})
+        result = await execute(_ctx_raises(), "echo", {"message": "hi"})
         assert result == ["hi"]
 
     @pytest.mark.smoke
     async def test_execute_grouped_tool_unauthorized(self, load_fixture):
         load_fixture("tools_grouped.yaml")
-        result = await execute("example.echo", {"message": "hi"})
+        result = await execute(_ctx_raises(), "example.echo", {"message": "hi"})
         assert result.startswith("Unauthorized")
 
     @pytest.mark.smoke
     async def test_execute_unknown_tool(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
-        result = await execute("nonexistent", {})
+        result = await execute(_ctx_raises(), "nonexistent", {})
         assert "Unknown tool" in result
 
     @pytest.mark.smoke
     async def test_execute_validation_error(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
-        result = await execute("echo", {})
+        result = await execute(_ctx_raises(), "echo", {})
+        assert "Validation error" in result
+
+    async def test_elicit_accepted_executes_tool(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        result = await execute(_ctx_accepts(message="elicited"), "echo", {})
+        assert result == ["elicited"]
+
+    async def test_elicit_declined_returns_cancelled(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        result = await execute(_ctx_declines(), "echo", {})
+        assert result == "Execution cancelled: required parameters not provided"
+
+    async def test_elicit_cancelled_returns_cancelled(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        result = await execute(_ctx_cancels(), "echo", {})
+        assert result == "Execution cancelled: required parameters not provided"
+
+    async def test_elicit_unsupported_client_falls_through(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        result = await execute(_ctx_raises(), "echo", {})
+        assert "Validation error" in result
+
+    async def test_elicit_not_triggered_when_params_provided(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        ctx = _ctx_accepts(message="should not be called")
+        result = await execute(ctx, "echo", {"message": "direct"})
+        ctx.elicit.assert_not_awaited()
+        assert result == ["direct"]
+
+    async def test_elicit_skipped_for_list_param(self, load_fixture):
+        load_fixture("tools_list_param.yaml")
+        ctx = _ctx_accepts()
+        result = await execute(ctx, "join", {})
+        ctx.elicit.assert_not_awaited()
         assert "Validation error" in result
 
 

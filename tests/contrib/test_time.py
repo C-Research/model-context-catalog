@@ -1,9 +1,12 @@
 from datetime import datetime
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from mcc.app import execute
+
+_CTX = MagicMock()
 
 
 @pytest.fixture(autouse=True)
@@ -13,25 +16,25 @@ async def _load(load_contrib):
 
 class TestNow:
     async def test_returns_iso_string(self):
-        result = await execute("public.time.now", {})
+        result = await execute(_CTX, "public.time.now", {})
         dt = datetime.fromisoformat(result)
         assert dt.tzinfo is not None
 
     async def test_respects_timezone(self):
-        result = await execute("public.time.now", {"tz": "US/Eastern"})
+        result = await execute(_CTX, "public.time.now", {"tz": "US/Eastern"})
         dt = datetime.fromisoformat(result)
         expected_offset = datetime.now(ZoneInfo("US/Eastern")).utcoffset()
         assert dt.utcoffset() == expected_offset
 
     async def test_defaults_to_utc(self):
-        result = await execute("public.time.now", {})
+        result = await execute(_CTX, "public.time.now", {})
         dt = datetime.fromisoformat(result)
         assert dt.utcoffset().total_seconds() == 0
 
 
 class TestFormat:
     async def test_format_date(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.format",
             {
                 "dt": "2025-06-15T10:30:00",
@@ -41,7 +44,7 @@ class TestFormat:
         assert result == "2025-06-15"
 
     async def test_format_time(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.format",
             {
                 "dt": "2025-06-15T10:30:00",
@@ -51,7 +54,7 @@ class TestFormat:
         assert result == "10:30"
 
     async def test_format_custom(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.format",
             {
                 "dt": "2025-06-15T10:30:00",
@@ -63,7 +66,7 @@ class TestFormat:
 
 class TestDelta:
     async def test_add_days(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.delta",
             {
                 "dt": "2025-06-15T10:00:00",
@@ -73,7 +76,7 @@ class TestDelta:
         assert result == "2025-06-18T10:00:00"
 
     async def test_subtract_hours(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.delta",
             {
                 "dt": "2025-06-15T10:00:00",
@@ -83,7 +86,7 @@ class TestDelta:
         assert result == "2025-06-15T08:00:00"
 
     async def test_combined_delta(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.delta",
             {
                 "dt": "2025-06-15T10:00:00",
@@ -95,7 +98,7 @@ class TestDelta:
         assert result == "2025-06-16T12:30:00"
 
     async def test_preserves_timezone(self):
-        result = await execute(
+        result = await execute(_CTX,
             "public.time.delta",
             {
                 "dt": "2025-06-15T10:00:00+05:30",

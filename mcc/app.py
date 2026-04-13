@@ -2,9 +2,14 @@ import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
+from fastmcp.server.elicitation import (
+    AcceptedElicitation,
+    CancelledElicitation,
+    DeclinedElicitation,
+)
 from fastmcp.server.middleware.timing import TimingMiddleware
-from pydantic import ValidationError
+from pydantic import Field, ValidationError, create_model
 
 from mcc.auth.backend import get_provider
 from mcc.loader import loader
@@ -80,7 +85,7 @@ async def search(query: str, min_score: Optional[float] = None) -> str:
 
 
 @mcp.tool()
-async def execute(key: str, params: Optional[dict] = None):
+async def execute(ctx: Context, key: str, params: Optional[dict] = None):
     """Execute a tool from the catalog by its exact key.
 
     The tool key is shown in search() results (e.g. "admin.shell", "public.request").
@@ -107,6 +112,27 @@ async def execute(key: str, params: Optional[dict] = None):
         username = user.username if user else "anonymous"
         logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
+    _ELICITABLE = {"str", "int", "float", "bool"}
+    missing = [
+        p for p in tool.visible_params
+        if p.required and p.name not in (params or {}) and p.type in _ELICITABLE
+    ]
+    if missing:
+        fields: dict = {p.name: (p.py_type, Field(..., description=p.description)) for p in missing}
+        MissingModel = create_model("MissingParams", **fields)
+        summary = ", ".join(f"{p.name} ({p.type})" for p in missing)
+        try:
+            result = await ctx.elicit(
+                f"Tool '{key}' requires: {summary}",
+                MissingModel,
+            )
+            if isinstance(result, AcceptedElicitation):
+                params = {**(params or {}), **result.data.model_dump()}
+            elif isinstance(result, (DeclinedElicitation, CancelledElicitation)):
+                return "Execution cancelled: required parameters not provided"
+        except Exception:
+            pass
+
     try:
         result = await tool.call(**params or {})
         # fn tools return JSON-encoded strings via subprocess; parse for natural values

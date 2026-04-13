@@ -1,8 +1,11 @@
 import platform
+from unittest.mock import MagicMock
 
 import pytest
 
 from mcc.app import execute
+
+_CTX = MagicMock()
 
 
 @pytest.fixture(autouse=True)
@@ -14,13 +17,13 @@ class TestGetEnv:
     async def test_returns_values(self, monkeypatch):
         monkeypatch.setenv("MCC_TEST_A", "alpha")
         monkeypatch.setenv("MCC_TEST_B", "beta")
-        result = await execute(
+        result = await execute(_CTX,
             "admin.system.get_env", {"keys": ["MCC_TEST_A", "MCC_TEST_B"]}
         )
         assert result == {"MCC_TEST_A": "alpha", "MCC_TEST_B": "beta"}
 
     async def test_missing_key_returns_none(self):
-        result = await execute(
+        result = await execute(_CTX,
             "admin.system.get_env", {"keys": ["MCC_DEFINITELY_NOT_SET"]}
         )
         assert result == {"MCC_DEFINITELY_NOT_SET": None}
@@ -29,7 +32,7 @@ class TestGetEnv:
 class TestSetEnv:
     async def test_sets_variable(self):
         # set_env runs in a subprocess; the env change is isolated to that process
-        result = await execute(
+        result = await execute(_CTX,
             "admin.system.set_env", {"key": "MCC_TEST_SET", "value": "hello"}
         )
         assert result is None  # function returns None on success
@@ -37,7 +40,7 @@ class TestSetEnv:
 
 class TestListEnv:
     async def test_returns_sorted_keys(self):
-        result = await execute("admin.system.list_env", {})
+        result = await execute(_CTX, "admin.system.list_env", {})
         assert isinstance(result, list)
         assert result == sorted(result)
         assert "PATH" in result
@@ -45,7 +48,7 @@ class TestListEnv:
 
 class TestPlatform:
     async def test_returns_system_info(self):
-        result = await execute("admin.system.platform", {})
+        result = await execute(_CTX, "admin.system.platform", {})
         assert isinstance(result, dict)
         assert result["os"] == platform.system()
         assert result["python"] == platform.python_version()
@@ -55,7 +58,7 @@ class TestPlatform:
 
 class TestPath:
     async def test_returns_sys_path(self):
-        result = await execute("admin.system.pythonpath", {})
+        result = await execute(_CTX, "admin.system.pythonpath", {})
         assert isinstance(result, list)
         # subprocess sys.path shares the same venv but may differ slightly from parent
         assert all(isinstance(p, str) for p in result)
