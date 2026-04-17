@@ -309,6 +309,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cashews"
+version = "7.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/73/31598b352165cd0f0b777df1eb67e33f334e29fcd7eb4f4bb48a41b9affe/cashews-7.5.0.tar.gz", hash = "sha256:3f88b8c5ced0ea4826915a1ff67055b647252dd65ef25f4813316a6341f00b37", size = 97699, upload-time = "2026-03-02T22:28:52.462Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/14/06cca741567a2ec458fb1db9d053e72477d9da2be387c1d705cb1060b2c6/cashews-7.5.0-py3-none-any.whl", hash = "sha256:e79cb4e5cc164d8f2d2856b166d45dcc2dd8d53b95874d2c6d07dfdb1c9ac3c4", size = 82413, upload-time = "2026-03-02T22:28:50.98Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.2.25"
 source = { registry = "https://pypi.org/simple" }
@@ -1637,6 +1646,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
+    { name = "cashews" },
     { name = "dynaconf" },
     { name = "elasticsearch", extra = ["async"] },
     { name = "envyaml" },
@@ -1665,6 +1675,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=25.1.0" },
+    { name = "cashews", specifier = ">=7.5.0" },
     { name = "dynaconf", specifier = ">=3.0" },
     { name = "elasticsearch", extras = ["async"], specifier = ">=8,<9" },
     { name = "envyaml", specifier = ">=1.10" },

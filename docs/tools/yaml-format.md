@@ -110,76 +110,20 @@ The following fields apply to both `fn` and `exec` tools. They control the subpr
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `cwd` | `str` | inherit | Working directory for the subprocess |
-| `timeout` | `int` | none | Kill subprocess after N seconds |
 | `env` | `dict` | `{}` | Explicit environment variables |
 | `env_file` | `str` | none | Path to a `.env` file to source |
 | `env_passthrough` | `bool` | `false` | Inherit the parent process environment |
-| `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) |
 | `transform` | `str` or `list[str]` | none | Shell pipeline to filter output before returning to the LLM |
-
----
-
-### `cwd`
-
-Set the working directory for the subprocess. Defaults to the MCC server's working directory.
-
-```yaml
-tools:
-  - name: build
-    exec: make all
-    cwd: /srv/myproject
-
-  - fn: mypackage.jobs:run
-    cwd: /data/workspace
-```
-
-Useful when a tool reads relative paths or relies on a specific project root.
-
----
-
-### `timeout`
-
-Kill the subprocess after N seconds. Without it, long-running tools run indefinitely.
-
-```yaml
-tools:
-  - name: report
-    exec: python generate_report.py
-    timeout: 120    # 2 minutes
-
-  - fn: mypackage.jobs:run_analysis
-    timeout: 30
-```
-
-On timeout the process is killed and the tool returns `(-1, "", "timeout after Ns")`.
+| `cwd` | `str` | inherit | Working directory for the subprocess |
+| `timeout` | `int` | none | Kill subprocess after N seconds |
+| `cache_ttl` | `int` | none | Cache responses for N seconds; omit to disable caching |
+| `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) |
 
 ---
 
 ### `env`, `env_file`, and `env_passthrough`
 
 Control what environment variables the subprocess receives. See [Environment Variables](env-vars.md) for the full reference — including `env:` key/value pairs, `env_file:` dotenv files, combining them, and the `env_passthrough` flag that controls whether the subprocess inherits the parent environment.
-
----
-
-### `limits`
-
-Unix only. Cap CPU time, memory, file sizes, and open file descriptors via `setrlimit`. See [Resource Limits](limits.md) for a full reference of each field, what it measures, and how violations are reported.
-
-```yaml
-tools:
-  - name: sandbox
-    exec: python {{ script | quote }}
-    limits:
-      mem_mb: 256      # max virtual memory
-      cpu_sec: 10      # max CPU time in seconds
-      fsize_mb: 50     # max file write size
-      nofile: 64       # max open file descriptors
-    params:
-      - name: script
-        type: str
-        required: true
-```
 
 ---
 
@@ -219,3 +163,79 @@ tools:
 ```
 
 Works with both `exec`/`curl` tools and `fn` tools. If the tool call fails, the transform is skipped and the error is returned unchanged. The transform shares the tool's `timeout` budget.
+
+---
+
+### `cwd`
+
+Set the working directory for the subprocess. Defaults to the MCC server's working directory.
+
+```yaml
+tools:
+  - name: build
+    exec: make all
+    cwd: /srv/myproject
+
+  - fn: mypackage.jobs:run
+    cwd: /data/workspace
+```
+
+Useful when a tool reads relative paths or relies on a specific project root.
+
+---
+
+### `timeout`
+
+Kill the subprocess after N seconds. Without it, long-running tools run indefinitely.
+
+```yaml
+tools:
+  - name: report
+    exec: python generate_report.py
+    timeout: 120    # 2 minutes
+
+  - fn: mypackage.jobs:run_analysis
+    timeout: 30
+```
+
+On timeout the process is killed and the tool returns `(-1, "", "timeout after Ns")`.
+
+---
+
+### `cache_ttl`
+
+Cache tool responses for N seconds. When set, identical calls (same tool key and parameters) return the cached result without re-executing the tool. Useful for slow or rate-limited tools like OSINT lookups.
+
+Omit `cache_ttl` entirely to disable caching for a tool (the default).
+
+```yaml
+tools:
+  - fn: osint.crtsh:search
+    cache_ttl: 300    # cache certificate transparency results for 5 minutes
+
+  - fn: osint.abuseipdb:check_ip
+    cache_ttl: 60     # IP reputation data — shorter TTL, changes more often
+```
+
+The cache backend is configured in `settings.yaml` under `cache.backend` (defaults to in-memory; set to a Redis URI for shared caching across instances).
+
+---
+
+### `limits`
+
+Unix only. Cap CPU time, memory, file sizes, and open file descriptors via `setrlimit`. See [Resource Limits](limits.md) for a full reference of each field, what it measures, and how violations are reported.
+
+```yaml
+tools:
+  - name: sandbox
+    exec: python {{ script | quote }}
+    limits:
+      mem_mb: 256      # max virtual memory
+      cpu_sec: 10      # max CPU time in seconds
+      fsize_mb: 50     # max file write size
+      nofile: 64       # max open file descriptors
+    params:
+      - name: script
+        type: str
+        required: true
+```

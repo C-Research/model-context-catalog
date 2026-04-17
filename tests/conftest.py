@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-
 os.environ.update(
     {
         "MCC_AUTH": "dev-admin",
@@ -16,11 +15,20 @@ CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-from mcc.db import ToolIndex, UsersIndex  # noqa: E402
-from mcc.loader import loader, load_file as load  # noqa: E402
 from mcc.auth import create_user  # noqa: E402
 from mcc.auth.models import UserModel  # noqa: E402
+from mcc.cache import cache  # noqa: E402
+from mcc.db import ToolIndex, UsersIndex  # noqa: E402
+from mcc.loader import load_file as load  # noqa: E402
+from mcc.loader import loader  # noqa: E402
 from mcc.middleware import current_user_var  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+async def clear_cache():
+    await cache.clear()
+    yield
+    await cache.clear()
 
 
 @pytest.fixture

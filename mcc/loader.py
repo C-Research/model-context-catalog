@@ -7,7 +7,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from time import time
-from typing import Optional
+from typing import Optional, cast
 
 from envyaml import EnvYAML
 
@@ -194,13 +194,29 @@ class Loader(dict):
         for path in self.paths:
             self.load(path)
         await self.save()
+        from mcc.cache import cache
+        await cache.delete_match("search:*")
         logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
         self, query: str, min_score: Optional[float] = None
     ) -> list[tuple[ToolModel, float]]:
+        from mcc.cache import _MISS, cache, params_hash
+        from mcc.settings import settings
+
+        search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
+        cache_key = f"search:{params_hash({'q': query, 's': min_score})}" if search_ttl else None
+        if cache_key:
+            cached = await cache.get(cache_key, default=_MISS)
+            if cached is not _MISS:
+                hits = cast(list[tuple[str, float]], cached)
+                return [(self[k], score) for k, score in hits if k in self]
+
         async with ToolIndex() as idx:
             hits = await idx.query(query, min_score)
+
+        if cache_key:
+            await cache.set(cache_key, hits, expire=search_ttl)
         return [(self[k], score) for k, score in hits if k in self]
 
     def list_all(self):

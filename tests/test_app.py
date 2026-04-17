@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from mcc.app import describe_tools, execute, search
 from mcc.auth.models import UserModel
+from mcc.cache import cache, params_hash
 from mcc.loader import loader
 from mcc.middleware import current_user_var
 from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
@@ -161,3 +162,67 @@ class TestDescribeTools:
         load_fixture("tools_no_description.yaml")
         result = await describe_tools()
         assert "## doc_tool" in result
+
+
+class TestExecuteCache:
+    async def test_cache_hit_skips_tool_call(self, load_fixture):
+        # First call populates the cache with the real result.
+        # We then overwrite the cache entry with a sentinel.
+        # If the second call returns the sentinel, the cache was used.
+        load_fixture("tools_cached.yaml")
+        ctx = _ctx_raises()
+        result1 = await execute(ctx, "echo", {"message": "hi"})
+        assert result1 == ["hi"]
+        cache_key = f"exec:echo:{params_hash({'message': 'hi'})}"
+        await cache.set(cache_key, "sentinel", expire=60)
+        result2 = await execute(ctx, "echo", {"message": "hi"})
+        assert result2 == "sentinel"
+
+    async def test_no_cache_ttl_always_calls_tool(self, load_fixture):
+        # Tool without cache_ttl: manually set a cache entry and verify it's ignored.
+        load_fixture("tools_ungrouped.yaml")
+        ctx = _ctx_raises()
+        result1 = await execute(ctx, "echo", {"message": "hi"})
+        assert result1 == ["hi"]
+        cache_key = f"exec:echo:{params_hash({'message': 'hi'})}"
+        await cache.set(cache_key, "sentinel", expire=60)
+        result2 = await execute(ctx, "echo", {"message": "hi"})
+        assert result2 == ["hi"]  # real result, not sentinel
+
+    async def test_different_params_different_cache_keys(self, load_fixture):
+        load_fixture("tools_cached.yaml")
+        ctx = _ctx_raises()
+        result_a = await execute(ctx, "echo", {"message": "a"})
+        result_b = await execute(ctx, "echo", {"message": "b"})
+        assert result_a == ["a"]
+        assert result_b == ["b"]
+
+
+class TestSearchCache:
+    async def test_second_search_uses_cache(self, load_fixture):
+        load_fixture("tools_ungrouped.yaml")
+        await loader.save()
+        result1 = await search("echo")
+        assert "echo" in result1
+        # Override cache with a nonexistent key sentinel — if cache is hit,
+        # the loader filter drops it and search returns the "no results" message.
+        cache_key = f"search:{params_hash({'q': 'echo', 's': None})}"
+        await cache.set(cache_key, [("__nonexistent__", 99.0)], expire=60)
+        result2 = await search("echo")
+        assert result2.startswith("No tools matched")
+
+    async def test_reload_clears_search_cache(self, load_fixture):
+        from pathlib import Path
+        fixture_path = str(Path(__file__).parent / "fixtures" / "tools_ungrouped.yaml")
+        load_fixture("tools_ungrouped.yaml")
+        loader.paths = {fixture_path}
+        await loader.save()
+        # Prime cache with a nonexistent key sentinel
+        cache_key = f"search:{params_hash({'q': 'echo', 's': None})}"
+        await cache.set(cache_key, [("__nonexistent__", 99.0)], expire=60)
+        result1 = await search("echo")
+        assert result1.startswith("No tools matched")  # served from cache
+        # After reload the cache is busted — ES is hit and returns real results
+        await loader.reload()
+        result2 = await search("echo")
+        assert "echo" in result2

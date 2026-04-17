@@ -17,6 +17,7 @@ dependencies = [
     "rich-click>=1.8",
     "aiofiles>=25.1.0",
     "jinja2>=3.1.6",
+    "cashews>=7.5.0",
 ]
 
 [project.optional-dependencies]

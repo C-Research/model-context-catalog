@@ -12,6 +12,7 @@ from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field, ValidationError, create_model
 
 from mcc.auth.backend import get_provider
+from mcc.cache import _MISS, cache, params_hash
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
 from mcc.settings import logger, settings
@@ -112,13 +113,21 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         username = user.username if user else "anonymous"
         logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
+    cache_key = f"exec:{tool.key}:{params_hash(params)}" if tool.cache_ttl else None
+    if cache_key:
+        cached = await cache.get(cache_key, default=_MISS)
+        if cached is not _MISS:
+            return cached
     _ELICITABLE = {"str", "int", "float", "bool"}
     missing = [
-        p for p in tool.visible_params
+        p
+        for p in tool.visible_params
         if p.required and p.name not in (params or {}) and p.type in _ELICITABLE
     ]
     if missing:
-        fields: dict = {p.name: (p.py_type, Field(..., description=p.description)) for p in missing}
+        fields: dict = {
+            p.name: (p.py_type, Field(..., description=p.description)) for p in missing
+        }
         MissingModel = create_model("MissingParams", **fields)
         summary = ", ".join(f"{p.name} ({p.type})" for p in missing)
         try:
@@ -138,9 +147,11 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         # fn tools return JSON-encoded strings via subprocess; parse for natural values
         if isinstance(result, str):
             try:
-                return json.loads(result)
+                result = json.loads(result)
             except (json.JSONDecodeError, ValueError):
                 pass
+        if cache_key:
+            await cache.set(cache_key, result, expire=tool.cache_ttl)
         return result
     except ValidationError as e:
         return f"Validation error for tool '{key}': {e}"

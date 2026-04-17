@@ -3,6 +3,10 @@ default:
   contrib: false
   tools: []
 
+  cache:
+    backend: "mem://"
+    search_ttl: 60
+
   embedding_model: "BAAI/bge-small-en-v1.5"
   embedding_dims: 384
 

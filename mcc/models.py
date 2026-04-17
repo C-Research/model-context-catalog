@@ -74,6 +74,7 @@ class ToolModel(BaseModel):
     env_file: str | None = None
     env_passthrough: bool = False
     transform: str | list[str] | None = None
+    cache_ttl: int | None = None
     description: str = ""
     example: str = ""
     params: list[ParamModel] | None = None

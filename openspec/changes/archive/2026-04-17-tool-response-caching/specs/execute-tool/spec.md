@@ -1,0 +1,24 @@
+## MODIFIED Requirements
+
+### Requirement: Execute tool by key
+The `execute` tool SHALL look up a tool by key and call it with the provided parameters. Auth resolution and logging SHALL be handled by middleware, not inline in the handler. The handler SHALL still check `tool.allows(user)` using the user resolved by middleware, and return "Unauthorized" if access is denied. When the tool declares a `cache_ttl`, the handler SHALL check the cache before calling the tool and store the result after a miss.
+
+#### Scenario: Successful execution
+- **WHEN** a user calls execute with a valid tool key and params
+- **THEN** the tool is executed and the result is returned
+
+#### Scenario: Unknown tool
+- **WHEN** a user calls execute with an unknown tool key
+- **THEN** the handler returns "Unknown tool: {name}"
+
+#### Scenario: Unauthorized
+- **WHEN** a user without access calls execute on a restricted tool
+- **THEN** the handler returns "Unauthorized"
+
+#### Scenario: Validation error
+- **WHEN** params fail the tool's parameter validation
+- **THEN** the handler returns a validation error message
+
+#### Scenario: Cache hit returns without calling tool
+- **WHEN** a tool with `cache_ttl` set is called and a cached result exists for the same key and params
+- **THEN** the cached result is returned and `tool.call()` is not invoked
