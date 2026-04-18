@@ -3,3 +3,120 @@ groups: [osint, people]
 tools:
   - fn: osint:sherlock_search
     example: 'sherlock_search(username="johndoe")'
+
+  - name: pipl_search
+    curl: >
+      -G "https://api.pipl.com/search"
+      -d "key=${PIPL_API_KEY}"
+      {% if first_name %}-d "first_name={{ first_name | urlencode }}"{% endif %}
+      {% if middle_name %}-d "middle_name={{ middle_name | urlencode }}"{% endif %}
+      {% if last_name %}-d "last_name={{ last_name | urlencode }}"{% endif %}
+      {% if raw_name %}-d "raw_name={{ raw_name | urlencode }}"{% endif %}
+      {% if email %}-d "email={{ email | urlencode }}"{% endif %}
+      {% if phone %}-d "phone={{ phone | urlencode }}"{% endif %}
+      {% if username %}-d "username={{ username | urlencode }}"{% endif %}
+      {% if user_id %}-d "user_id={{ user_id | urlencode }}"{% endif %}
+      {% if url %}-d "url={{ url | urlencode }}"{% endif %}
+      {% if age %}-d "age={{ age | urlencode }}"{% endif %}
+      {% if house %}-d "house={{ house | urlencode }}"{% endif %}
+      {% if street %}-d "street={{ street | urlencode }}"{% endif %}
+      {% if city %}-d "city={{ city | urlencode }}"{% endif %}
+      {% if state %}-d "state={{ state | urlencode }}"{% endif %}
+      {% if zipcode %}-d "zipcode={{ zipcode | urlencode }}"{% endif %}
+      {% if country %}-d "country={{ country | urlencode }}"{% endif %}
+      {% if raw_address %}-d "raw_address={{ raw_address | urlencode }}"{% endif %}
+      -d "minimum_probability={{ minimum_probability }}"
+      -d "minimum_match={{ minimum_match }}"
+      -d "show_sources={{ show_sources }}"
+      -d "live_feeds={{ live_feeds }}"
+      -d "top_match={{ top_match }}"
+      -d "hide_sponsored={{ hide_sponsored }}"
+      {% if match_requirements %}-d "match_requirements={{ match_requirements | urlencode }}"{% endif %}
+      {% if source_category_requirements %}-d "source_category_requirements={{ source_category_requirements | urlencode }}"{% endif %}
+    example: 'pipl_search(email="clark.kent@example.com")'
+    description: |
+      Search the PIPL people search API. At least one identifying field is required
+      (name, email, phone, username, user_id, url, or address component).
+      Requires PIPL_API_KEY in osint.env.
+    params:
+      - name: first_name
+        type: str
+        description: First name.
+      - name: middle_name
+        type: str
+        description: Middle name.
+      - name: last_name
+        type: str
+        description: Last name.
+      - name: raw_name
+        type: str
+        description: Full name as a single raw string (alternative to first/middle/last).
+      - name: email
+        type: str
+        description: Email address.
+      - name: phone
+        type: str
+        description: Phone number.
+      - name: username
+        type: str
+        description: Username or handle.
+      - name: user_id
+        type: str
+        description: User ID on a social platform.
+      - name: url
+        type: str
+        description: Profile or website URL.
+      - name: age
+        type: str
+        description: Age or age range (e.g. "30" or "25-35").
+      - name: house
+        type: str
+        description: House number.
+      - name: street
+        type: str
+        description: Street name.
+      - name: city
+        type: str
+        description: City.
+      - name: state
+        type: str
+        description: State (2-letter code recommended).
+      - name: zipcode
+        type: str
+        description: ZIP or postal code.
+      - name: country
+        type: str
+        description: Country code (e.g. "US").
+      - name: raw_address
+        type: str
+        description: Full address as a single raw string.
+      - name: minimum_probability
+        type: str
+        default: "0.9"
+        description: "0-1. Minimum acceptable probability for inferred data."
+      - name: minimum_match
+        type: str
+        default: "0"
+        description: "0-1. Minimum required match score for possible persons."
+      - name: show_sources
+        type: str
+        default: "false"
+        description: "all, matching/true, or false."
+      - name: live_feeds
+        type: str
+        default: "true"
+        description: Whether to use live data sources.
+      - name: top_match
+        type: str
+        default: "false"
+        description: Return only the single best high-probability match.
+      - name: hide_sponsored
+        type: str
+        default: "false"
+        description: Omit results marked as sponsored.
+      - name: match_requirements
+        type: str
+        description: Condition specifying fields that must be returned; empty responses won't be charged.
+      - name: source_category_requirements
+        type: str
+        description: Condition specifying source categories that must be returned; empty responses won't be charged.
