@@ -1,6 +1,8 @@
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (layer caching)
 COPY pyproject.toml uv.lock ./
@@ -15,4 +17,4 @@ EXPOSE 8000
 # Cache dir for fastembed model downloads
 ENV HF_HOME=/cache/huggingface
 
-CMD ["uv", "run", "--no-dev", "mcc", "mcp", "serve"]
+CMD [".venv/bin/mcc", "mcp", "serve"]
