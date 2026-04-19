@@ -18,7 +18,7 @@ A collection of open-source intelligence tools for research, investigations, and
 | [Environment & Maritime](environment.md) | 2 | NASA FIRMS, Global Fishing Watch |
 | [Conflict & Humanitarian](conflict.md) | 3 | UCDP, ReliefWeb, GDELT |
 | [Cryptocurrency](crypto.md) | 4 | Blockchain.info, Blockchair |
-| [People & Social](people.md) | 1 | Sherlock Project |
+| [People & Social](people.md) | 2 | Sherlock Project, PIPL |
 | [News & Media](news.md) | 2 | Hacker News, Algolia |
 | [Academic Research](academic.md) | 4 | arXiv, CrossRef, Semantic Scholar, OpenAlex |
 | [Web Archives](search.md) | 1 | Internet Archive |
