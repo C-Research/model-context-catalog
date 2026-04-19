@@ -1,4 +1,5 @@
 tools:
   - name: slow
     exec: "sleep 10"
-    timeout: 1
+    limits:
+      timeout: 1

@@ -4,10 +4,7 @@ icon: lucide/gauge
 
 # Resource Limits
 
-Resource limits cap how much CPU, memory, and other OS resources a tool's subprocess can consume. They are applied via [`setrlimit`](https://man7.org/linux/man-pages/man2/setrlimit.2.html) in the child process before the tool runs.
-
-!!! note "Unix only"
-    Resource limits use POSIX `setrlimit` and are only enforced on Linux and macOS. The `limits:` field is silently ignored on Windows.
+Resource limits control how long a tool can run and how much CPU, memory, and other OS resources its subprocess can consume.
 
 ## Configuration
 
@@ -16,6 +13,7 @@ tools:
   - name: sandbox
     exec: python {{ script | quote }}
     limits:
+      timeout: 30
       mem_mb: 256
       cpu_sec: 10
       fsize_mb: 50
@@ -28,7 +26,25 @@ tools:
 
 All fields are optional — set only the ones you need. Limits apply to both `exec:` and `fn:` tools.
 
+!!! note "Unix only (except `timeout`)"
+    `mem_mb`, `cpu_sec`, `fsize_mb`, and `nofile` use POSIX `setrlimit` and are only enforced on Linux and macOS. `timeout` enforces a wall-clock deadline and works on all platforms.
+
 ## Limit types
+
+### `timeout` — wall-clock deadline
+
+Kill the subprocess after N seconds, measured from when the process starts. Without it, long-running tools run indefinitely.
+
+```yaml
+limits:
+  timeout: 120    # kill after 2 minutes
+```
+
+On timeout the process is killed and the tool returns `(-1, "", "timeout after Ns")`.
+
+The transform pipeline shares the same timeout budget.
+
+---
 
 ### `mem_mb` — virtual memory (`RLIMIT_AS`)
 
@@ -65,12 +81,12 @@ When the soft limit is reached the OS sends `SIGXCPU`; if execution continues to
 
 **CPU time vs. wall time:** a process that sleeps for 60 seconds uses almost no CPU time and will not hit a 10-second `cpu_sec` limit. A process that runs a tight compute loop for 10 seconds will. Use `timeout:` to enforce wall-clock deadlines; use `cpu_sec` to cap compute cost.
 
-**Typical values:** 5–60 seconds for interactive tools; higher for batch jobs. Combine with `timeout:` if you want to cap both:
+**Typical values:** 5–60 seconds for interactive tools; higher for batch jobs. Combine with `timeout` if you want to cap both:
 
 ```yaml
 limits:
+  timeout: 60     # must finish within 60 wall-clock seconds
   cpu_sec: 30     # can't burn more than 30 CPU seconds
-timeout: 60       # must finish within 60 wall-clock seconds
 ```
 
 ---
@@ -125,8 +141,8 @@ All four limits can be set together. Each is enforced independently:
 tools:
   - name: user_script
     exec: python {{ script | quote }}
-    timeout: 30           # wall-clock: killed after 30 seconds regardless
     limits:
+      timeout: 30         # wall-clock: killed after 30 seconds regardless
       mem_mb: 256         # can't allocate more than 256 MB of address space
       cpu_sec: 20         # can't burn more than 20 CPU seconds
       fsize_mb: 10        # can't write files larger than 10 MB

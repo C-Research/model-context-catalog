@@ -115,9 +115,8 @@ The following fields apply to both `fn` and `exec` tools. They control the subpr
 | `env_passthrough` | `bool` | `false` | Inherit the parent process environment |
 | `transform` | `str` or `list[str]` | none | Shell pipeline to filter output before returning to the LLM |
 | `cwd` | `str` | inherit | Working directory for the subprocess |
-| `timeout` | `int` | none | Kill subprocess after N seconds |
 | `cache_ttl` | `int` | none | Cache responses for N seconds; omit to disable caching |
-| `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) |
+| `limits` | `dict` | none | Unix resource limits (memory, CPU, etc.) and wall-clock `timeout` |
 
 ---
 
@@ -162,7 +161,7 @@ tools:
         default: data
 ```
 
-Works with both `exec`/`curl` tools and `fn` tools. If the tool call fails, the transform is skipped and the error is returned unchanged. The transform shares the tool's `timeout` budget.
+Works with both `exec`/`curl` tools and `fn` tools. If the tool call fails, the transform is skipped and the error is returned unchanged. The transform shares the tool's `limits.timeout` budget.
 
 ---
 
@@ -181,24 +180,6 @@ tools:
 ```
 
 Useful when a tool reads relative paths or relies on a specific project root.
-
----
-
-### `timeout`
-
-Kill the subprocess after N seconds. Without it, long-running tools run indefinitely.
-
-```yaml
-tools:
-  - name: report
-    exec: python generate_report.py
-    timeout: 120    # 2 minutes
-
-  - fn: mypackage.jobs:run_analysis
-    timeout: 30
-```
-
-On timeout the process is killed and the tool returns `(-1, "", "timeout after Ns")`.
 
 ---
 
@@ -223,13 +204,14 @@ The cache backend is configured in `settings.yaml` under `cache.backend` (defaul
 
 ### `limits`
 
-Unix only. Cap CPU time, memory, file sizes, and open file descriptors via `setrlimit`. See [Resource Limits](limits.md) for a full reference of each field, what it measures, and how violations are reported.
+Cap CPU time, memory, file sizes, open file descriptors, and wall-clock timeout. See [Resource Limits](limits.md) for a full reference.
 
 ```yaml
 tools:
   - name: sandbox
     exec: python {{ script | quote }}
     limits:
+      timeout: 30      # kill after 30 wall-clock seconds
       mem_mb: 256      # max virtual memory
       cpu_sec: 10      # max CPU time in seconds
       fsize_mb: 50     # max file write size
@@ -239,3 +221,5 @@ tools:
         type: str
         required: true
 ```
+
+`timeout` is the only limit that applies on all platforms; the others are Unix only.

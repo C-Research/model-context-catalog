@@ -177,7 +177,7 @@ class TestStdinWithInterpolation:
 
 class TestTimeout:
     async def test_timeout_kills_and_returns(self):
-        tool = ToolModel(name="slow", **{"exec": "sleep 10"}, timeout=1)
+        tool = ToolModel(name="slow", **{"exec": "sleep 10"}, limits={"timeout": 1})
         code, stdout, stderr = await tool.call()
         assert code == -1
         assert "timeout after 1s" in stderr
@@ -208,7 +208,7 @@ class TestPyCallable:
         tool = ToolModel(
             fn="tests.example:add",
             python=sys.executable,
-            timeout=1,
+            limits={"timeout": 1},
             params=[
                 {"name": "x", "type": "int", "required": True},
                 {"name": "y", "type": "int", "required": True},

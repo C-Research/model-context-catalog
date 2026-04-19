@@ -125,46 +125,32 @@ async def _apply_transform(
     return await _communicate_and_return(proc, data.encode(), timeout, limits=None)
 
 
-def make_exec_callable(
-    cmd: str,
-    use_stdin: bool,
-    timeout: int | None,
-    limits: dict | None,
-    cwd: str | None = None,
-    env: dict[str, str] | None = None,
-    env_file: str | None = None,
-    env_passthrough: bool = False,
-    transform: str | None = None,
-) -> Callable:
-    """Generate an async closure that runs cmd as a subprocess."""
-    preexec_fn = _build_preexec_fn(limits or {})
-    merged_env = _build_env(env, env_file, env_passthrough)
+def _proc_extra(
+    preexec_fn: Callable | None,
+    cwd: str | None,
+    merged_env: dict[str, str] | None,
+) -> dict[str, Any]:
+    extra: dict[str, Any] = {}
+    if preexec_fn is not None:
+        extra["preexec_fn"] = preexec_fn
+    if cwd is not None:
+        extra["cwd"] = cwd
+    if merged_env is not None:
+        extra["env"] = merged_env
+    return extra
 
-    template = jinja_env.from_string(cmd)
+
+def _make_callable(
+    limits: dict | None,
+    transform: str | None,
+    create_proc: Callable,
+) -> Callable:
+    """Wrap a proc-spawning coroutine into an MCC tool callable."""
+    timeout = limits.get("timeout") if limits else None
     transform_template = jinja_env.from_string(transform) if transform else None
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
-        run_cmd = template.render(**kwargs)
-        logger.info("exec: %s | %s", json.dumps(kwargs), run_cmd)
-        stdin_pipe = asyncio.subprocess.PIPE if use_stdin else None
-
-        extra: dict[str, Any] = {}
-        if preexec_fn is not None:
-            extra["preexec_fn"] = preexec_fn
-        if cwd is not None:
-            extra["cwd"] = cwd
-        if merged_env is not None:
-            extra["env"] = merged_env
-
-        proc = await asyncio.create_subprocess_shell(
-            run_cmd,
-            stdin=stdin_pipe,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            **extra,
-        )
-
-        blob = json.dumps(kwargs).encode() if use_stdin else None
+        proc, blob = await create_proc(**kwargs)
         result = await _communicate_and_return(proc, blob, timeout, limits)
         if isinstance(result, str) and transform_template:
             result = await _apply_transform(
@@ -175,10 +161,40 @@ def make_exec_callable(
     return _exec
 
 
+def make_exec_callable(
+    cmd: str,
+    use_stdin: bool,
+    limits: dict | None,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
+    env_file: str | None = None,
+    env_passthrough: bool = False,
+    transform: str | None = None,
+) -> Callable:
+    """Generate an async closure that runs cmd as a subprocess."""
+    extra = _proc_extra(
+        _build_preexec_fn(limits or {}), cwd, _build_env(env, env_file, env_passthrough)
+    )
+    template = jinja_env.from_string(cmd)
+
+    async def _spawn(**kwargs: Any):
+        run_cmd = template.render(**kwargs)
+        logger.info("exec: %s | %s", json.dumps(kwargs), run_cmd)
+        proc = await asyncio.create_subprocess_shell(
+            run_cmd,
+            stdin=asyncio.subprocess.PIPE if use_stdin else None,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            **extra,
+        )
+        return proc, (json.dumps(kwargs).encode() if use_stdin else None)
+
+    return _make_callable(limits, transform, _spawn)
+
+
 def make_py_callable(
     fn_path: str,
     python: str,
-    timeout: int | None,
     limits: dict | None,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
@@ -188,22 +204,12 @@ def make_py_callable(
 ) -> Callable:
     """Generate an async closure that runs fn_path in a separate Python interpreter."""
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
-    preexec_fn = _build_preexec_fn(limits or {})
-    merged_env = _build_env(env, env_file, env_passthrough)
+    extra = _proc_extra(
+        _build_preexec_fn(limits or {}), cwd, _build_env(env, env_file, env_passthrough)
+    )
 
-    transform_template = jinja_env.from_string(transform) if transform else None
-
-    async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
+    async def _spawn(**kwargs: Any):
         logger.info("py_exec: %s | %s %s", json.dumps(kwargs), python, fn_path)
-
-        extra: dict[str, Any] = {}
-        if preexec_fn is not None:
-            extra["preexec_fn"] = preexec_fn
-        if cwd is not None:
-            extra["cwd"] = cwd
-        if merged_env is not None:
-            extra["env"] = merged_env
-
         proc = await asyncio.create_subprocess_exec(
             python,
             pyrunner_path,
@@ -214,13 +220,6 @@ def make_py_callable(
             stderr=asyncio.subprocess.PIPE,
             **extra,
         )
+        return proc, json.dumps(kwargs).encode()
 
-        blob = json.dumps(kwargs).encode()
-        result = await _communicate_and_return(proc, blob, timeout, limits)
-        if isinstance(result, str) and transform_template:
-            result = await _apply_transform(
-                result, transform_template.render(**kwargs), timeout
-            )
-        return result
-
-    return _exec
+    return _make_callable(limits, transform, _spawn)

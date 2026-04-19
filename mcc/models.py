@@ -4,18 +4,18 @@ import os
 import shutil
 import subprocess
 import sys
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
-
-if TYPE_CHECKING:
-    from mcc.auth.models import UserModel
-from functools import cached_property
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
 from mcc.exec import _build_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
+
+if TYPE_CHECKING:
+    from mcc.auth.models import UserModel
 
 TYPE_MAP: dict[str, type] = {
     "str": str,
@@ -67,7 +67,6 @@ class ToolModel(BaseModel):
     curl: str | None = None
     python: str | None = None
     stdin: bool = False
-    timeout: int | None = None
     limits: dict | None = None
     cwd: str | None = None
     env: dict[str, str] | None = None
@@ -192,7 +191,6 @@ class ToolModel(BaseModel):
             return make_exec_callable(
                 self.exec,
                 self.stdin,
-                self.timeout,
                 self.limits,
                 self.cwd,
                 self.env,
@@ -205,7 +203,6 @@ class ToolModel(BaseModel):
         return make_py_callable(
             self.fn,
             self.python,
-            self.timeout,
             self.limits,
             self.cwd,
             self.env,

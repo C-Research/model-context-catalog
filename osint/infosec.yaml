@@ -135,7 +135,8 @@ tools:
 
   - name: nmap_scan
     exec: "nmap -oN - -p {{ ports }} -T{{ timing }} {{ arguments }} {{ target }}"
-    timeout: 300
+    limits:
+      timeout: 300
     example: 'nmap_scan(target="192.168.1.1")'
     description: |
       Scan a host, IP address, or CIDR range with nmap.
