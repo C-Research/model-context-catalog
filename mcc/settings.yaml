@@ -1,6 +1,5 @@
 default:
   auth: "dev-admin"
-  contrib: false
   tools: []
 
   cache:
@@ -58,7 +57,6 @@ default:
 
 development:
   dynaconf_merge: true
-  
 
   logging:
     loggers:
@@ -69,8 +67,8 @@ production:
   dynaconf_merge: true
 
   embedding_model: "snowflake/snowflake-arctic-embed-m"
-  embedding_dims: 768  
-  
+  embedding_dims: 768
+
   logging:
     handlers:
       console:

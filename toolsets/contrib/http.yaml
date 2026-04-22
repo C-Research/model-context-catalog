@@ -1,5 +1,5 @@
 tools:
-  - fn: mcc.contrib.http:request
+  - fn: toolsets.contrib.http:request
     groups: [ admin, http ]
     example: "request(method=\"POST\", url=\"https://api.example.com/data\",
       json={\"key\": \"value\"})"
@@ -12,7 +12,7 @@ tools:
       - name: json
         type: dict
         description: JSON payload to pass to request
-  - fn: mcc.contrib.http:request
+  - fn: toolsets.contrib.http:request
     name: responsible-get
     groups: [ public, http ]
     example: "responsible-get(url=\"https://example.com\")"

@@ -20,7 +20,6 @@ services:
     environment:
       - MCC_ELASTICSEARCH__HOST=elasticsearch
       - MCC_AUTH=dev-admin
-      - MCC_CONTRIB=true
     volumes:
       - model-cache:/cache
       # Mount local tool files:

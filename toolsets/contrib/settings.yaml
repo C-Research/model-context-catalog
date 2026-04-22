@@ -1,0 +1,11 @@
+default:
+  embedding_model: asdf
+  dynaconf_merge: true
+  tools:
+    - toolsets/contrib/archive.yaml
+    - toolsets/contrib/fs.yaml
+    - toolsets/contrib/system.yaml
+    - toolsets/contrib/time.yaml
+    - toolsets/contrib/cache.yaml
+    - toolsets/contrib/http.yaml
+    - toolsets/contrib/text.yaml

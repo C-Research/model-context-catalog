@@ -1,4 +1,4 @@
-groups: [admin]
+groups: [ admin ]
 tools:
-  - fn: mcc.contrib.cache:cache_stats
+  - fn: toolsets.contrib.cache:cache_stats
     name: cache_stats

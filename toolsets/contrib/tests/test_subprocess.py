@@ -1,4 +1,4 @@
-from mcc.contrib.subprocess import bash
+from toolsets.contrib.subprocess import bash
 
 
 class TestBash:

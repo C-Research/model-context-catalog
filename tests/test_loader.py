@@ -10,7 +10,6 @@ from mcc.loader import Loader, load_file
 from mcc.models import ToolModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
-CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
 
 
 @pytest.mark.smoke
@@ -362,17 +361,6 @@ tools:
         loader.load(pattern)
         assert "tool_a" in loader
         assert "tool_b" in loader
-
-
-class TestContribLoading:
-    def test_contrib_fn_loads_via_subprocess(self):
-        # mcc.contrib.system is importable in the test env — verifies the subprocess path works
-        tools = load_file(CONTRIB / "system.yaml")
-        tool_map = {t.name: t for t in tools}
-        assert "get_env" in tool_map
-        get_env = tool_map["get_env"]
-        assert len(get_env.params) > 0
-        assert any(p.name == "keys" for p in get_env.params)
 
 
 class TestFileLevelEnv:

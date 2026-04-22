@@ -24,7 +24,7 @@ Tools return raw subprocess stdout or fn return values to the LLM. When a tool f
 
 Shell commands cover the primary use cases (jq, xmllint, pup, html2text, sed, awk, head) without requiring new Python dependencies or a fn-resolution path. A Python fn transform layer can be added later if needed.
 
-**Alternative considered**: Dict-style `{fn: mcc.contrib.text:xpath, expr: "//p"}` items in the pipeline. Rejected: more complex parsing, requires in-process fn loading, and shell covers the same cases with existing tools.
+**Alternative considered**: Dict-style `{fn: toolsets.contrib.text:xpath, expr: "//p"}` items in the pipeline. Rejected: more complex parsing, requires in-process fn loading, and shell covers the same cases with existing tools.
 
 ### 2. String or list, joined with `|`
 

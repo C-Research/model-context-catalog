@@ -8,20 +8,15 @@ os.environ.update(
         "MCC_AUTH": "dev-admin",
         "MCC_ELASTICSEARCH__USER_INDEX": "mcc-users-test",
         "MCC_ELASTICSEARCH__TOOL_INDEX": "mcc-tools-test",
-        "MCC_CONTRIB": "true",
     }
 )
-CONTRIB = Path(__file__).parents[1] / "mcc" / "contrib"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-from mcc.auth import create_user  # noqa: E402
-from mcc.auth.models import UserModel  # noqa: E402
 from mcc.cache import cache  # noqa: E402
 from mcc.db import ToolIndex, UsersIndex  # noqa: E402
 from mcc.loader import load_file as load  # noqa: E402
 from mcc.loader import loader  # noqa: E402
-from mcc.middleware import current_user_var  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -47,16 +42,6 @@ async def users_idx():
         await idx.create()
         yield idx
         await idx.drop()
-
-
-@pytest.fixture
-async def load_contrib(users_idx):
-    loader.clear()
-    await create_user("test", groups=["admin"])
-    current_user_var.set(UserModel(username="test", groups=["admin"]))
-    yield lambda fn: loader.load(CONTRIB / fn)
-    loader.clear()
-    current_user_var.set(None)
 
 
 @pytest.fixture

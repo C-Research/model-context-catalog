@@ -1,6 +1,6 @@
 import pytest
 
-from mcc.contrib.fs import list_dir, move, read_file, stat, write_file
+from toolsets.contrib.fs import list_dir, move, read_file, stat, write_file
 
 
 class TestReadFile:

@@ -1,9 +1,10 @@
-groups: [admin, archive]
+groups: [ admin, archive ]
 tools:
-  - fn: mcc.contrib.archive:list_archive
+  - fn: toolsets.contrib.archive:list_archive
     name: list
-    example: 'list(path="/tmp/data.zip")'
-  - fn: mcc.contrib.archive:extract
-    example: 'extract(path="/tmp/data.zip", dest="/tmp/data/")'
-  - fn: mcc.contrib.archive:create
-    example: 'create(dest="/tmp/output.tar.gz", files=["/tmp/a.txt", "/tmp/b.txt"])'
+    example: "list(path=\"/tmp/data.zip\")"
+  - fn: toolsets.contrib.archive:extract
+    example: "extract(path=\"/tmp/data.zip\", dest=\"/tmp/data/\")"
+  - fn: toolsets.contrib.archive:create
+    example: "create(dest=\"/tmp/output.tar.gz\", files=[\"/tmp/a.txt\",
+      \"/tmp/b.txt\"])"

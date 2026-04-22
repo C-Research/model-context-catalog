@@ -1,17 +1,18 @@
-groups: [public, text]
+groups: [ public, text ]
 tools:
-  - fn: mcc.contrib.text:base64_encode
-    example: 'base64_encode(text="hello world")'
-  - fn: mcc.contrib.text:base64_decode
-    example: 'base64_decode(text="aGVsbG8gd29ybGQ=")'
-  - fn: mcc.contrib.text:hash
-    example: 'hash(text="hello world", algo="sha256")'
-  - fn: mcc.contrib.text:diff
-    example: 'diff(a="foo\nbar\n", b="foo\nbaz\n")'
+  - fn: toolsets.contrib.text:base64_encode
+    example: "base64_encode(text=\"hello world\")"
+  - fn: toolsets.contrib.text:base64_decode
+    example: "base64_decode(text=\"aGVsbG8gd29ybGQ=\")"
+  - fn: toolsets.contrib.text:hash
+    example: "hash(text=\"hello world\", algo=\"sha256\")"
+  - fn: toolsets.contrib.text:diff
+    example: "diff(a=\"foo\\nbar\\n\", b=\"foo\\nbaz\\n\")"
 
   - name: regex_search
     fn: re:findall
-    example: 'regex_search(pattern="\\d+\\.\\d+\\.\\d+\\.\\d+", string="server at 192.168.1.1 port 80")'
+    example: "regex_search(pattern=\"\\\\d+\\\\.\\\\d+\\\\.\\\\d+\\\\.\\\\d+\",
+      string=\"server at 192.168.1.1 port 80\")"
     params:
       - name: pattern
         type: str
@@ -22,7 +23,8 @@ tools:
         default: 0
   - name: regex_replace
     fn: re:sub
-    example: 'regex_replace(pattern="\\s+", repl=" ", string="too   many   spaces")'
+    example: "regex_replace(pattern=\"\\\\s+\", repl=\" \",
+      string=\"too   many   spaces\")"
     params:
       - name: pattern
         type: str
@@ -33,10 +35,12 @@ tools:
       - name: flags
         type: int
         default: 0
-  
+
   - name: jq
     exec: echo {{ content | quote }} | jq {{ opts }} {{ filter | quote }}
-    example: 'jq(filter=".items[].name", content="{\"items\":[{\"name\":\"alice\"},{\"name\":\"bob\"}]}")'
+    example: "jq(filter=\".items[].name\",
+      content=\"{\\\"items\\\":[{\\\"name\\\":\\\"alice\\\"},{\\\"name\\\":\\\"\
+      bob\\\"}]}\")"
     params:
       - name: filter
         type: str
@@ -49,7 +53,7 @@ tools:
         type: str
         default: ""
         description: options for jq command
-    description: | 
+    description: |
       jq is a tool for processing JSON inputs, applying the given filter to
       its JSON text inputs and producing the filter's results as JSON on
       standard output.

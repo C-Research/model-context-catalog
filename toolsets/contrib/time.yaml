@@ -1,8 +1,8 @@
-groups: [public, time]
+groups: [ public, time ]
 tools:
-  - fn: mcc.contrib.time:now
-    example: 'now(tz="America/New_York")'
-  - fn: mcc.contrib.time:format
-    example: 'format(dt="2026-04-12T14:30:00", fmt="%B %d, %Y")'
-  - fn: mcc.contrib.time:delta
-    example: 'delta(dt="2026-04-12T00:00:00", days=-7)'
+  - fn: toolsets.contrib.time:now
+    example: "now(tz=\"America/New_York\")"
+  - fn: toolsets.contrib.time:format
+    example: "format(dt=\"2026-04-12T14:30:00\", fmt=\"%B %d, %Y\")"
+  - fn: toolsets.contrib.time:delta
+    example: "delta(dt=\"2026-04-12T00:00:00\", days=-7)"

@@ -111,7 +111,7 @@ Only entries with `fn` set (after resolving python default) participate in batch
 
 ## Risks / Trade-offs
 
-**Subprocess overhead for previously-in-process tools** → Contrib tools (`mcc.contrib.*`) and any fn tool that previously ran in-process now pays subprocess overhead at load time (one batch call for all tools sharing `sys.executable`). At call time, each invocation still spawns a fresh process. For typical catalog sizes this is acceptable; the batch call amortizes load cost.
+**Subprocess overhead for previously-in-process tools** → Contrib tools (`toolsets.contrib.*`) and any fn tool that previously ran in-process now pays subprocess overhead at load time (one batch call for all tools sharing `sys.executable`). At call time, each invocation still spawns a fresh process. For typical catalog sizes this is acceptable; the batch call amortizes load cost.
 
 **sys.executable may differ from the mcc venv python** → In normal operation `sys.executable` is the venv python, which has all contrib dependencies. In unusual setups (e.g. running mcc with a bare python) contrib tools may fail to import. This was already possible with explicit `python:` fields; now it applies universally.
 
