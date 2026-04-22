@@ -47,6 +47,25 @@ def _build_env(
     return merged
 
 
+def _build_pyrunner_env(
+    env: dict[str, str] | None,
+    env_file: str | None,
+    env_passthrough: bool,
+    cwd: str,
+) -> dict[str, str]:
+    """Build the environment for any pyrunner subprocess (introspect or exec).
+
+    Prepends cwd to PYTHONPATH so tool fn modules are importable, and sets
+    MCC_SKIP_AUTOLOAD to prevent recursive loader spawning on import.
+    """
+    base = _build_env(env, env_file, env_passthrough)
+    result = dict(base if base is not None else os.environ)
+    result["MCC_SKIP_AUTOLOAD"] = "1"
+    existing = result.get("PYTHONPATH", "")
+    result["PYTHONPATH"] = f"{cwd}{os.pathsep}{existing}" if existing else cwd
+    return result
+
+
 def _build_preexec_fn(limits: dict) -> Callable | None:
     """Build a preexec_fn that sets resource limits. Unix only."""
     if sys.platform == "win32" or not limits:
@@ -204,8 +223,11 @@ def make_py_callable(
 ) -> Callable:
     """Generate an async closure that runs fn_path in a separate Python interpreter."""
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
+    effective_cwd = cwd if cwd else os.getcwd()
     extra = _proc_extra(
-        _build_preexec_fn(limits or {}), cwd, _build_env(env, env_file, env_passthrough)
+        _build_preexec_fn(limits or {}),
+        effective_cwd,
+        _build_pyrunner_env(env, env_file, env_passthrough, effective_cwd),
     )
 
     async def _spawn(**kwargs: Any):

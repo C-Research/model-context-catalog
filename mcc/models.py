@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
-from mcc.exec import _build_env, make_exec_callable, make_py_callable
+from mcc.exec import _build_env, _build_pyrunner_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
 
@@ -127,13 +127,14 @@ class ToolModel(BaseModel):
         if self.params is None:
             pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
 
-            run_kwargs: dict = {"capture_output": True, "text": True, "timeout": 30}
-            if self.cwd is not None:
-                run_kwargs["cwd"] = self.cwd
-            merged_env = _build_env(self.env, self.env_file)
-            introspect_env = dict(merged_env if merged_env is not None else os.environ)
-            introspect_env["MCC_SKIP_AUTOLOAD"] = "1"
-            run_kwargs["env"] = introspect_env
+            effective_cwd = self.cwd if self.cwd is not None else os.getcwd()
+            run_kwargs: dict = {
+                "capture_output": True,
+                "text": True,
+                "timeout": 30,
+                "cwd": effective_cwd,
+                "env": _build_pyrunner_env(self.env, self.env_file, False, effective_cwd),
+            }
             result = subprocess.run(
                 [self.python, pyrunner_path, "introspect", self.fn],
                 **run_kwargs,
