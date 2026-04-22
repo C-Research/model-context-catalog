@@ -1,0 +1,27 @@
+tools:
+  - fn: mcc.contrib.http:request
+    groups: [ admin, http ]
+    example: "request(method=\"POST\", url=\"https://api.example.com/data\",
+      json={\"key\": \"value\"})"
+    params:
+      - name: method
+        default: GET
+        description: HTTP method ie GET/POST/PUT
+      - name: url
+        description: HTTP URL to request
+      - name: json
+        type: dict
+        description: JSON payload to pass to request
+  - fn: mcc.contrib.http:request
+    name: responsible-get
+    groups: [ public, http ]
+    example: "responsible-get(url=\"https://example.com\")"
+    params:
+      - name: method
+        type: str
+        override: GET
+      - name: responsible
+        type: bool
+        override: true
+      - name: url
+        type: str

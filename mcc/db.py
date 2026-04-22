@@ -6,7 +6,7 @@ from elasticsearch import AsyncElasticsearch
 from fastembed import TextEmbedding
 
 from mcc.models import ToolModel
-from mcc.settings import settings, logger
+from mcc.settings import logger, settings
 
 _embedding_model: Optional[TextEmbedding] = None
 
@@ -152,3 +152,8 @@ class ToolIndex(ESIndex):
             "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000
         )
         return hits
+
+
+if __name__ == "__main__":
+    # TODO: make sure this works and downloads the model for future use
+    _get_model()
