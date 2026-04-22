@@ -1,6 +1,6 @@
 site_name: Model Context Catalog
 site_description: A permission-controlled MCP tool catalog for LLM clients
-repo_url: https://github.com/opensanctions/followthemoney
+repo_url: https://github.com/C-Research/model-context-catalog
 repo_name: model-context-catalog
 theme:
   name: material
