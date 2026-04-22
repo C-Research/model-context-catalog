@@ -10,7 +10,7 @@ An MCP server that exposes Python functions as a permission-controlled tool cata
 - Published catalog of tools for easy discoverability and llm execution
 - Built in RBAC with user management and tool groups
 - Multiple auth backends (dev unauthed, Github OAuth2, PAT)
-- Optional contrib tools for admin and public users
+- Optional contrib toolsets (utils and OSINT) loaded via `MCC_SETTINGS_FILES`
 - CLI management of users and tools
 - Async tool support
 
@@ -34,11 +34,9 @@ Claude → execute("myteam.deploy", {"environment": "prod"})  →  result
 uv add model-context-catalog
 ```
 
-**1. Configure auth and extras** (`settings.local.yaml`):
+**1. Configure auth** (`settings.local.yaml`):
 ```yaml
-default:
-  auth: "dangerous"   # dev mode: auto-uses first admin user
-  contrib: true       # enable built-in HTTP and shell tools
+auth: dev-admin   # dev mode: no auth
 ```
 
 **2. Add an admin user:**
@@ -119,9 +117,20 @@ Exec tools always return `(returncode, stdout, stderr)`. Params must be declared
 
 Register it in `settings.local.yaml`:
 ```yaml
-default:
-  tools: 
-    - "path/to/mytools.yaml"
+tools:
+  - path/to/mytools.yaml
+```
+
+To load optional contrib toolsets, use `MCC_SETTINGS_FILES`:
+```bash
+# utils — HTTP, filesystem, shell, text, time, archives
+MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml
+
+# OSINT — threat intel, corporate records, geolocation, and more
+MCC_SETTINGS_FILES=toolsets/osint/settings.yaml
+
+# both
+MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml;toolsets/osint/settings.yaml
 ```
 
 ---
@@ -177,6 +186,13 @@ mcc user remove alice
 
 ---
 
+
+## Documentation
+
+- **[Getting Started](docs/getting-started/installation.md)** — installation, quickstart, configuration
+- **[Tools](docs/tools/yaml-format.md)** — YAML format, Python tools, exec tools, parameters, resource limits
+- **[Auth & Permissions](docs/auth/overview.md)** — backends, users, groups
+- **[Contrib Toolsets](toolsets/docs/index.md)** — utils (HTTP, filesystem, shell, text, time, archives) and OSINT (threat intel, corporate records, geolocation, and more)
 
 See [`openspec/project.md`](openspec/project.md) for a full architectural breakdown.
 Inspiration [How to build an enterprise-grade MCP registry](https://www.infoworld.com/article/4145014/how-to-build-an-enterprise-grade-mcp-registry.html)

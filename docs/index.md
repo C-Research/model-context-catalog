@@ -39,6 +39,8 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - **Hot reload** catalog tool defs without restarting the server
 - **MCP resources and prompts** for catalog browsing and guided workflows
 
+Project inspiration [How to build an enterprise-grade MCP registry](https://www.infoworld.com/article/4145014/how-to-build-an-enterprise-grade-mcp-registry.html)
+
 ## Next steps
 
 - [Installation](getting-started/installation.md)
