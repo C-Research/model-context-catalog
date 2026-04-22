@@ -21,9 +21,6 @@ def err(msg, exit=1):
 @click.group()
 @click.option("-t", "--tool", multiple=True, help="Tool files to load on startup")
 @click.option(
-    "-c", "--config", multiple=True, help="MCC config files to load into Dynaconf"
-)
-@click.option(
     "-e",
     "--env",
     default=None,
@@ -32,7 +29,7 @@ def err(msg, exit=1):
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Enable debug logging."
 )
-def cli(tool, config, env, verbose):
+def cli(tool, env, verbose):
     """**MCC** — Model Context Catalog management CLI."""
     logger.setLevel("DEBUG" if verbose else "INFO")
     try:
@@ -42,8 +39,6 @@ def cli(tool, config, env, verbose):
     if env is not None:
         settings.setenv(env)
     loader.load(*tool)
-    for path in config:
-        settings.load_file(path)
 
 
 from mcc.cli.mcp import mcp_cmd  # noqa: E402, F401

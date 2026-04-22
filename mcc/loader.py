@@ -11,7 +11,9 @@ from typing import Optional, cast
 
 from envyaml import EnvYAML
 
+from mcc.cache import _MISS, cache, params_hash
 from mcc.db import ToolIndex
+from mcc.exec import _build_env
 from mcc.models import ToolModel
 from mcc.settings import logger, settings
 
@@ -46,16 +48,14 @@ def _batch_introspect(
     failure or per-item introspection errors, with the source file and full
     traceback in the message.
     """
-    from mcc.exec import _build_env
 
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
     run_kwargs: dict = {"capture_output": True, "text": True, "timeout": 60}
-    if cwd:
-        run_kwargs["cwd"] = cwd
+    run_kwargs["cwd"] = cwd if cwd else os.getcwd()
     merged_env = _build_env(env, env_file)
     # Always set MCC_SKIP_AUTOLOAD to prevent recursive subprocess spawning
     # when introspected tools import mcc.loader (e.g. loader.reload)
-    introspect_env = dict(merged_env if merged_env is not None else os.environ)
+    introspect_env = dict(merged_env if merged_env else os.environ)
     introspect_env["MCC_SKIP_AUTOLOAD"] = "1"
     run_kwargs["env"] = introspect_env
 
@@ -194,18 +194,19 @@ class Loader(dict):
         for path in self.paths:
             self.load(path)
         await self.save()
-        from mcc.cache import cache
+
         await cache.delete_match("search:*")
         logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
         self, query: str, min_score: Optional[float] = None
     ) -> list[tuple[ToolModel, float]]:
-        from mcc.cache import _MISS, cache, params_hash
-        from mcc.settings import settings
-
         search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
-        cache_key = f"search:{params_hash({'q': query, 's': min_score})}" if search_ttl else None
+        cache_key = (
+            f"search:{params_hash({'q': query, 's': min_score})}"
+            if search_ttl
+            else None
+        )
         if cache_key:
             cached = await cache.get(cache_key, default=_MISS)
             if cached is not _MISS:
@@ -226,7 +227,5 @@ class Loader(dict):
 loader = Loader()
 if not os.environ.get("MCC_SKIP_AUTOLOAD"):
     loader.load(Path(__file__).parent / "tools")
-    if settings.contrib:
-        loader.load(Path(__file__).parent / "contrib")
     if settings.tools:
         loader.load(*settings.tools)
