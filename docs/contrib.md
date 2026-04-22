@@ -4,11 +4,10 @@ icon: lucide/package
 
 # Contrib Tools
 
-MCC ships with optional built-in tools. Enable them in `settings.local.toml`:
+MCC ships with optional built-in tools in `toolsets/contrib/`. Load them with:
 
-```toml
-[default]
-contrib = true
+```bash
+MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml
 ```
 
 ## `public.request`

@@ -8,16 +8,19 @@ MCC ships with optional built-in tools covering HTTP, filesystem, shell, text pr
 
 ## Enabling contrib tools
 
-Add to `settings.local.yaml`:
-
-```yaml
-contrib: true
-```
-
-Or set the environment variable:
+Contrib tools live in `toolsets/contrib/`. Load them by pointing `MCC_SETTINGS_FILES` at the bundled settings file:
 
 ```bash
-MCC_CONTRIB=true
+MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml
+```
+
+Or add the tools directly to your `settings.local.yaml`:
+
+```yaml
+tools:
+  - toolsets/contrib/http.yaml
+  - toolsets/contrib/fs.yaml
+  # ... add only what you need
 ```
 
 ## Categories

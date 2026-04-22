@@ -16,7 +16,6 @@ Create `settings.local.yaml` in your project root to override any setting:
 
 ```yaml
 auth: github_pat
-contrib: true
 tools:
   - mytools.yaml
 
@@ -31,12 +30,21 @@ Any setting can be set via environment variable using the `MCC_` prefix. Nested 
 
 ```bash
 MCC_AUTH=dev-admin
-MCC_CONTRIB=true
 MCC_ELASTICSEARCH__HOST=my-es-host.internal
 MCC_ELASTICSEARCH__PORT=9200
 ```
 
 Environment variables always override file-based settings.
+
+### `MCC_SETTINGS_FILES`
+
+A semicolon-separated list of additional settings files to load, appended after `settings.local.yaml`. Use this to layer in toolset configs without modifying your local overrides file:
+
+```bash
+MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml;toolsets/osint/settings.yaml
+```
+
+Each file is merged with `dynaconf_merge: true`, so `tools` lists are additive.
 
 ## Environments
 
@@ -61,16 +69,6 @@ Authentication backend. Default: `dev-admin` (no auth, dev only).
 | `github_pat` | GitHub personal access token |
 
 See [Auth Backends](../auth/backends.md) for backend-specific configuration.
-
-### `contrib`
-
-Enable optional built-in tools. Default: `false`.
-
-```yaml
-contrib: true
-```
-
-See [Contrib Tools](../contrib/index.md) for what's included.
 
 ### `tools`
 
