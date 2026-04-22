@@ -26,8 +26,8 @@ check: lint format typecheck test
 
 docs:
 	uv run zensical build -f mkdocs.yml
-	uv run zensical build -f osint/mkdocs.yml
-	mv osint/site site/osint
+	uv run zensical build -f toolsets/mkdocs.yml
+	mv toolsets/site site/toolsets
 
 serve:
 	uv run python -m http.server -d site -b 127.0.0.1

@@ -1,5 +1,5 @@
-site_name: MCC OSINT Tools
-site_description: "Reference documentation for the OSINT tool catalog — threat intel, corporate records, government data, geolocation, and more."
+site_name: MCC Contrib
+site_description: "Reference documentation for MCC contrib toolsets — utils and OSINT."
 repo_url: https://github.com/opensanctions/followthemoney
 repo_name: model-context-catalog
 
@@ -44,15 +44,24 @@ extra_css:
 
 nav:
   - Overview: index.md
-  - Infosec & Network: infosec.md
-  - Companies & Business: companies.md
-  - Government & Records: gov.md
-  - Geolocation: geo.md
-  - Transport & Aviation: transport.md
-  - Environment & Maritime: environment.md
-  - Conflict & Humanitarian: conflict.md
-  - Cryptocurrency: crypto.md
-  - People & Social: people.md
-  - News & Media: news.md
-  - Academic Research: academic.md
-  - Web Archives: search.md
+  - Utils:
+    - Overview: utils/index.md
+    - HTTP: utils/http.md
+    - Filesystem: utils/fs.md
+    - System: utils/system.md
+    - Text: utils/text.md
+    - Time: utils/time.md
+    - Archives: utils/archive.md
+  - OSINT:
+    - Infosec & Network: infosec.md
+    - Companies & Business: companies.md
+    - Government & Records: gov.md
+    - Geolocation: geo.md
+    - Transport & Aviation: transport.md
+    - Environment & Maritime: environment.md
+    - Conflict & Humanitarian: conflict.md
+    - Cryptocurrency: crypto.md
+    - People & Social: people.md
+    - News & Media: news.md
+    - Academic Research: academic.md
+    - Web Archives: search.md

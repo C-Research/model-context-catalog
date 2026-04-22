@@ -45,26 +45,19 @@ nav:
   - Home: index.md
   - MCP Interface: mcp.md
   - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-    - Configuration: getting-started/configuration.md
-    - CLI Reference: cli.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+      - CLI Reference: cli.md
   - Tools:
-    - Tool Format: tools/yaml-format.md
-    - Python Tools: tools/python.md
-    - Exec Tools: tools/exec.md
-    - Parameters: tools/parameters.md
-    - Environment Variables: tools/env-vars.md
-    - Resource Limits: tools/limits.md
+      - Tool Format: tools/yaml-format.md
+      - Python Tools: tools/python.md
+      - Exec Tools: tools/exec.md
+      - Parameters: tools/parameters.md
+      - Environment Variables: tools/env-vars.md
+      - Resource Limits: tools/limits.md
   - Auth & Permissions:
-    - Overview: auth/overview.md
-    - Users & Groups: auth/users-groups.md
-    - Auth Backends: auth/backends.md
-  - Contrib Tools:
-    - Overview: contrib/index.md
-    - HTTP: contrib/http.md
-    - Filesystem: contrib/fs.md
-    - System: contrib/system.md
-    - Text: contrib/text.md
-    - Time: contrib/time.md
-    - Archives: contrib/archive.md
+      - Overview: auth/overview.md
+      - Users & Groups: auth/users-groups.md
+      - Auth Backends: auth/backends.md
+  - Extra toolsets: ./toolsets/index.html
