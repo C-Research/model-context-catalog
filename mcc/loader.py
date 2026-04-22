@@ -13,7 +13,7 @@ from envyaml import EnvYAML
 
 from mcc.cache import _MISS, cache, params_hash
 from mcc.db import ToolIndex
-from mcc.exec import _build_env, _build_pyrunner_env
+from mcc.exec import _build_pyrunner_env
 from mcc.models import ToolModel
 from mcc.settings import logger, settings
 

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
-from mcc.exec import _build_env, _build_pyrunner_env, make_exec_callable, make_py_callable
+from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
 
