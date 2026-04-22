@@ -1,0 +1,15 @@
+default:
+  dynaconf_merge: true
+  tools:
+    - toolsets/osint/academic.yaml
+    - toolsets/osint/environment.yaml
+    - toolsets/osint/news.yaml
+    - toolsets/osint/companies.yaml
+    - toolsets/osint/geo.yaml
+    - toolsets/osint/people.yaml
+    - toolsets/osint/transport.yaml
+    - toolsets/osint/conflict.yaml
+    - toolsets/osint/gov.yaml
+    - toolsets/osint/search.yaml
+    - toolsets/osint/crypto.yaml
+    - toolsets/osint/infosec.yaml

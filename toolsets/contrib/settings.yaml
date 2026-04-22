@@ -1,5 +1,4 @@
 default:
-  embedding_model: asdf
   dynaconf_merge: true
   tools:
     - toolsets/contrib/archive.yaml
