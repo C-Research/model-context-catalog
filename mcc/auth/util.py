@@ -71,7 +71,7 @@ async def get_current_user() -> Optional[UserModel]:
     return
 
 
-async def list_tools(text: False) -> dict | str:
+async def list_tools(text: bool = False) -> dict | str:
     """
     Returns a list of tools that the current user is allowed to execute
 

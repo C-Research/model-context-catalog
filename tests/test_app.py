@@ -8,7 +8,11 @@ from mcc.auth.models import UserModel
 from mcc.cache import cache, params_hash
 from mcc.loader import loader
 from mcc.middleware import current_user_var
-from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
+from fastmcp.server.elicitation import (
+    AcceptedElicitation,
+    CancelledElicitation,
+    DeclinedElicitation,
+)
 
 
 def _ctx_raises():
@@ -20,6 +24,7 @@ def _ctx_raises():
 
 def _ctx_accepts(**data):
     """Mock ctx whose elicit() returns an AcceptedElicitation with the given data fields."""
+
     class _Data(BaseModel):
         model_config = {"extra": "allow"}
 
@@ -213,6 +218,7 @@ class TestSearchCache:
 
     async def test_reload_clears_search_cache(self, load_fixture):
         from pathlib import Path
+
         fixture_path = str(Path(__file__).parent / "fixtures" / "tools_ungrouped.yaml")
         load_fixture("tools_ungrouped.yaml")
         loader.paths = {fixture_path}

@@ -8,8 +8,8 @@ settings_files = [
     str(Path(__file__).parent / "settings.yaml"),
     str(Path.cwd() / "settings.local.yaml"),
 ]
-if getenv("MCC_SETTINGS_FILES"):
-    settings_files.extend(getenv("MCC_SETTINGS_FILES").split(";"))
+if extra := getenv("MCC_SETTINGS_FILES"):
+    settings_files.extend(extra.split(";"))
 
 settings = Dynaconf(
     envvar_prefix="MCC",

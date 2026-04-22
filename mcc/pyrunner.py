@@ -76,7 +76,7 @@ def resolve(fn_path: str) -> Any:
 
 
 @json_handler
-def introspect(*fn_paths: str) -> str:
+def introspect(*fn_paths: str) -> list[dict]:
     """Inspect functions and print a JSON array of results to stdout.
 
     Two-phase: resolve all first (catches import errors fast), then inspect.

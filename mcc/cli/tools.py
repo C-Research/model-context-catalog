@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import json
+from typing import Any
 
 import rich_click as click
 from rich import print as pretty_print
@@ -66,7 +67,7 @@ def tool_call(tool, params, json_str, pretty):
         err(f" tool `{tool}` not found in loaded tools: {','.join(loader)}")
         return
 
-    kwargs: dict = {}
+    kwargs: dict[str, Any] = {}
     if json_str:
         try:
             kwargs.update(json.loads(json_str))
@@ -97,6 +98,9 @@ def tool_call(tool, params, json_str, pretty):
         # exception
         console.print(result[1]) if pretty else print(result[1])
         err(result[2], result[0])
+        return
+    if result is None:
+        return
     try:
         result = json.loads(result)
     except (json.JSONDecodeError, ValueError):
@@ -133,7 +137,7 @@ def tool_test(tool, pretty):
         tree = ast.parse(t.example, mode="eval")
         if not isinstance(tree.body, ast.Call):
             raise ValueError("example is not a function call expression")
-        kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in tree.body.keywords}
+        kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in tree.body.keywords if kw.arg is not None}
     except Exception as e:
         err(f"could not parse example `{t.example}` — {e}")
         return
@@ -154,6 +158,8 @@ def tool_test(tool, pretty):
     if isinstance(result, tuple):
         console.print(result[1]) if pretty else print(result[1])
         err(result[2], result[0])
+        return
+    if result is None:
         return
     try:
         result = json.loads(result)

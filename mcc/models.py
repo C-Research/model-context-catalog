@@ -175,11 +175,11 @@ class ToolModel(BaseModel):
 
     @property
     def visible_params(self):
-        return [param for param in self.params if not param.has_override]
+        return [param for param in (self.params or []) if not param.has_override]
 
     @property
     def hidden_params(self):
-        return [param for param in self.params if param.has_override]
+        return [param for param in (self.params or []) if param.has_override]
 
     @property
     def sorted_groups(self):

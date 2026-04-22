@@ -145,7 +145,7 @@ def load_file(path: str | Path) -> list[ToolModel]:
 class Loader(dict):
     paths = set()
 
-    def load(self, *paths: str) -> None:
+    def load(self, *paths: str | Path) -> None:
         t0 = time()
         before = len(self)
         for path in paths:
