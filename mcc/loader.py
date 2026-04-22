@@ -51,12 +51,20 @@ def _batch_introspect(
 
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
     run_kwargs: dict = {"capture_output": True, "text": True, "timeout": 60}
-    run_kwargs["cwd"] = cwd if cwd else os.getcwd()
+    effective_cwd = cwd if cwd else os.getcwd()
+    run_kwargs["cwd"] = effective_cwd
     merged_env = _build_env(env, env_file)
     # Always set MCC_SKIP_AUTOLOAD to prevent recursive subprocess spawning
     # when introspected tools import mcc.loader (e.g. loader.reload)
     introspect_env = dict(merged_env if merged_env else os.environ)
     introspect_env["MCC_SKIP_AUTOLOAD"] = "1"
+    # Ensure the subprocess can import packages relative to its cwd (e.g. tests.example)
+    existing_pythonpath = introspect_env.get("PYTHONPATH", "")
+    introspect_env["PYTHONPATH"] = (
+        f"{effective_cwd}{os.pathsep}{existing_pythonpath}"
+        if existing_pythonpath
+        else effective_cwd
+    )
     run_kwargs["env"] = introspect_env
 
     logger.debug("introspecting %d fn(s) with %s: %s", len(fn_paths), python, fn_paths)
