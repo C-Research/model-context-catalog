@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "model-context-catalog"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "An MCP server that exposes Python functions and shell commands as a permission-controlled tool catalog."
 readme = "README.md"
 requires-python = ">=3.10,<4"
 dependencies = [
@@ -19,6 +19,21 @@ dependencies = [
     "jinja2>=3.1.6",
     "cashews>=7.5.0",
 ]
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    'Intended Audience :: Developers',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+]
+[project.urls]
+Homepage = "https://c-research.github.io/model-context-catalog/"
+Documentation = "https://c-research.github.io/model-context-catalog/"
+Repository = "https://github.com/C-Research/model-context-catalog"
+Issues = "https://github.com/C-Research/model-context-catalog/issues"
 
 [project.optional-dependencies]
 osint = [
@@ -31,6 +46,9 @@ mcc = "mcc.cli:cli"
 
 [tool.setuptools.packages.find]
 include = ["mcc*"]
+
+[tool.setuptools.package-data]
+mcc = ["settings.yaml", "tools/*.yaml", "templates/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

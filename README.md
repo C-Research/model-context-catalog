@@ -1,12 +1,12 @@
 # MCC — Model Context Catalog
 
-An MCP server that exposes Python functions as a permission-controlled tool catalog. Claude and other LLM clients discover and call tools through a unified `search` / `execute` interface, with RBAC and pluggable authentication built in.
+An MCP server that exposes Python functions and shell commands as a permission-controlled tool catalog. Claude and other LLM clients discover and call tools through a unified `search` / `execute` interface, with RBAC and pluggable authentication built in.
 
 ---
 
 ## Features
 
-- Serve multiple tools from one mcp by exposing plain python functions
+- Serve multiple tools from one MCP by exposing Python functions or shell/exec commands
 - Published catalog of tools for easy discoverability and llm execution
 - Built in RBAC with user management and tool groups
 - Multiple auth backends (dev unauthed, Github OAuth2, PAT)
@@ -21,7 +21,7 @@ An MCP server that exposes Python functions as a permission-controlled tool cata
 Tools are defined in YAML files pointing at Python callables. MCC loads them, enforces per-user permissions, and serves them to any LLM via MCP.
 
 ```
-Claude → search("deploy") → ["myteam.deploy - Deploys the app  execute(...)"]
+Claude → search("deploy") → ["myteam.deploy - Deploys the app  execute(environment: str = 'dev')"]
 Claude → execute("myteam.deploy", {"environment": "prod"})  →  result
 ```
 
