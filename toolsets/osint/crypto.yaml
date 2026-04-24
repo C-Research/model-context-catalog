@@ -28,7 +28,7 @@ tools:
         description: Bitcoin block hash or block height.
 
   - name: blockchain_rawaddr
-    curl: "https://blockchain.info/rawaddr/{{ bitcoin_address }}"
+    curl: "https://blockchain.info/rawaddr/{{ bitcoin_address }}?limit={{ limit }}&offset={{ offset }}"
     example: 'blockchain_rawaddr(bitcoin_address="1A1zP1eP5QGefi2DMPTfTL5SLmv7Divf")'
     description: |
       Fetch Bitcoin address summary from Blockchain.info.
@@ -39,6 +39,13 @@ tools:
         type: str
         required: true
         description: Bitcoin address (base58 or bech32 format).
+      - name: limit
+        type: int
+        default: 10
+        description: Optional limit parameter to show n transactions
+      - name: offset
+        type: int
+        description: Optional offset parameter to skip the first n transactions
 
   - name: blockchair
     curl: "https://api.blockchair.com/{{ chain }}/dashboards/{% if chain == 'bitcoin' or chain == 'ethereum' or chain == 'litecoin' or chain == 'bitcoin-cash' %}{% if query | length == 64 %}transaction{% else %}address{% endif %}{% else %}address{% endif %}/{{ query }}"
