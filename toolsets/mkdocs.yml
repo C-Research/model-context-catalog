@@ -41,7 +41,8 @@ copyright: "&copy; 2026 C4ADS"
 
 extra_css:
   - stylesheets/blue.css
-
+extra_javascript:
+  - js/posthog.js
 nav:
   - Overview: index.md
   - Utils:

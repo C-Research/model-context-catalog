@@ -120,3 +120,54 @@ tools:
       - name: source_category_requirements
         type: str
         description: Condition specifying source categories that must be returned; empty responses won't be charged.
+
+  - name: whatsapp_profile_picture
+    description: WhatsApp Profile Picture Checker. searches WhatsApp by analyzing various signals and data points. verification status and profile information when available. https://whatsapp.checkleaked.cc/
+    curl: >
+      -G 'https://whatsapp-data1.p.rapidapi.com/phone-numbers/search'
+      -H 'x-rapidapi-host: whatsapp-data1.p.rapidapi.com'
+      -H 'Content-Type: application/json'
+      -d "page={{ page }}""
+      -d "limit={{ limit }}"
+      {% if countryCode %}-d "countryCode={{ countryCode | urlencode }}"{% endif %}
+      {% if search %}-d "search={{ search | urlencode }}"{% endif %}
+      {% if hasProfilePic %}-d "hasProfilePic={{ hasProfilePic | urlencode }}"{% endif %}
+      {% if isBusiness %}-d "isBusiness={{ isBusiness }}"{% endif %}
+      {% if faceMinAge %}-d "faceMinAge={{ faceMinAge }}"{% endif %}
+      {% if faceMaxAge %}-d "faceMaxAge={{ faceMaxAge }}"{% endif %}
+      {% if faceGender %}-d "faceGender={{ faceGender | urlencode }}"{% endif %}
+      {% if facePeopleMin %}-d "facePeopleMin={{ facePeopleMin }}"{% endif %}
+      {% if facePeopleMax %}-d "facePeopleMax={{ facePeopleMax }}'{% endif %}
+    params:
+      - name: page
+        type: int
+        default: 1
+      - name: limit
+        type: int
+        default: 10
+      - name: countryCode
+        description: 2 digit country code
+      - name: hasProfilePic
+        type: bool
+      - name: isBusiness
+        type: bool
+      - name: faceMinAge
+        default: 20
+        type: int
+        description: Min age of at least one individual in the picture.
+      - name: faceMaxAge
+        type: int
+        description: Max age of at least one individual in the picture.
+      - name: faceGender
+        description: Gender of at least one individual in the picture. male|female
+      - name: facePeopleMin
+        type: int
+        default: 0
+        description: Min quantiy of people found in the current profile picture.
+      - name: facePeopleMax
+        type: int
+        default: 1
+        description: Max quantiy of people found in the current profile picture.
+
+
+

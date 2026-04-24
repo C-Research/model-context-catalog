@@ -40,7 +40,8 @@ copyright: "&copy; 2026 C4ADS"
 
 extra_css:
   - stylesheets/orange.css
-
+extra_javascript:
+  - js/posthog.js
 nav:
   - Home: index.md
   - MCP Interface: mcp.md
