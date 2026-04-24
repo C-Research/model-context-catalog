@@ -8,6 +8,7 @@ from fastmcp.server.elicitation import (
     CancelledElicitation,
     DeclinedElicitation,
 )
+from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field, ValidationError, create_model
 
@@ -29,6 +30,9 @@ mcp.loader = loader  # type: ignore[attr-defined]
 mcp.add_middleware(AuthMiddleware())
 mcp.add_middleware(LoggingMiddleware())
 mcp.add_middleware(TimingMiddleware(logger))
+mcp.add_middleware(
+    ResponseLimitingMiddleware(max_size=settings.server.response_max_size)
+)
 
 
 def banner():

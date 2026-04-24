@@ -13,6 +13,7 @@ default:
     transport: sse
     port: 8000
     host: 0.0.0.0
+    response_max_size: 5000000
 
   elasticsearch:
     host: "localhost"

@@ -48,4 +48,4 @@ mcc user grant alice -g admin
 ## Next steps
 
 - [Users & Groups](users-groups.md) — managing users via CLI
-- [Auth Backends](backends.md) — GitHub OAuth, PAT, and dev mode
+- [Auth Backends](backends.md) — OAuth providers and dev mode

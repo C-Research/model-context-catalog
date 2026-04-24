@@ -15,7 +15,7 @@ MCC uses [Dynaconf](https://www.dynaconf.com/) for configuration. Settings are l
 Create `settings.local.yaml` in your project root to override any setting:
 
 ```yaml
-auth: github_pat
+auth: github
 tools:
   - mytools.yaml
 
@@ -64,9 +64,23 @@ Authentication backend. Default: `dev-admin` (no auth, dev only).
 
 | Value | Description |
 |-------|-------------|
-| `dev-admin` | No authentication — all requests are anonymous |
-| `github_oauth` | GitHub OAuth app flow |
-| `github_pat` | GitHub personal access token |
+| `dev-admin` | No auth — all requests get admin access (dev only) |
+| `dev-public` | No auth — all requests get public access |
+| `github` | GitHub OAuth |
+| `google` | Google OAuth |
+| `azure` | Microsoft Entra ID (Azure AD) |
+| `auth0` | Auth0 |
+| `clerk` | Clerk |
+| `discord` | Discord OAuth |
+| `workos` | WorkOS AuthKit |
+| `aws` | AWS Cognito |
+| `oci` | Oracle Cloud Infrastructure Identity |
+| `supabase` | Supabase Auth |
+| `scalekit` | ScaleKit |
+| `propelauth` | PropelAuth |
+| `descope` | Descope |
+| `in-memory` | FastMCP in-process OAuth (testing only) |
+| `jwt` | Generic OIDC / JWKS token verification |
 
 See [Auth Backends](../auth/backends.md) for backend-specific configuration.
 
@@ -107,23 +121,47 @@ Connection settings for Elasticsearch.
 
 For API key auth, set `MCC_ELASTICSEARCH__API_KEY` instead of username/password.
 
-### `github_oauth`
+### `oauth`
 
-Required when `auth: github_oauth`.
+Required for all OAuth proxy backends (`github`, `google`, `azure`, etc.).
 
 | Key | Description |
 |-----|-------------|
-| `client_id` | GitHub OAuth app client ID |
-| `client_secret` | GitHub OAuth app client secret |
 | `base_url` | Public base URL of the MCC server (used for the OAuth callback) |
+| `client_id` | OAuth app client ID |
+| `client_secret` | OAuth app client secret |
 
-### `github_pat`
+Some backends require additional keys — see [Auth Backends](../auth/backends.md) for per-provider details. All keys are settable via env vars: `MCC_OAUTH__BASE_URL`, `MCC_OAUTH__CLIENT_ID`, `MCC_OAUTH__CLIENT_SECRET`.
 
-Required when `auth: github_pat`.
+### `jwt`
+
+Required when `auth: jwt` (generic OIDC / JWKS verification).
 
 | Key | Description |
 |-----|-------------|
-| `token` | GitHub personal access token used to verify caller identity |
+| `jwks_uri` | URL of the IdP's JWKS endpoint |
+| `issuer` | Expected token issuer |
+| `audience` | Expected token audience |
+| `authorization_server` | Authorization server URL |
+| `base_url` | Public base URL of the MCC server |
+| `required_scopes` | List of scopes that must be present in the token |
+
+### `server`
+
+HTTP server settings.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `transport` | `sse` | MCP transport (`sse` or `stdio`) |
+| `host` | `0.0.0.0` | Bind address |
+| `port` | `8000` | Listen port |
+| `response_max_size` | `5000000` | Maximum tool response size in bytes before truncation |
+
+When a tool response exceeds `response_max_size`, MCC truncates the text content and appends `[Response truncated due to size limit]` rather than returning an error. Override via environment variable:
+
+```bash
+MCC_SERVER__RESPONSE_MAX_SIZE=10000000  # 10 MB
+```
 
 ### `logging`
 

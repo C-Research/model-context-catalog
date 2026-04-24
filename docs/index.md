@@ -33,7 +33,7 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - **Tool spec templates**: can interpolate env vars `${MYVAR}` at load time and then `{{ param | quote }}` at execute time for safe shell interpolation, with conditionals and list expansion
 - **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elasticsearch and FastEmbed
 - **Group-based access control** tools specs define `groups` and users are stored in ES. users can be granted tool access via `groups`  or specific `tools`
-- **Auth backends**: GitHub OAuth, GitHub PAT, or dev mode (`dev-admin`)
+- **Auth backends**: GitHub OAuth, Google, Azure, and more — or dev mode (`dev-admin`)
 - **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
 - **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
 - **Hot reload** catalog tool defs without restarting the server

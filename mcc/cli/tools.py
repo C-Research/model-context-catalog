@@ -137,7 +137,11 @@ def tool_test(tool, pretty):
         tree = ast.parse(t.example, mode="eval")
         if not isinstance(tree.body, ast.Call):
             raise ValueError("example is not a function call expression")
-        kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in tree.body.keywords if kw.arg is not None}
+        kwargs = {
+            kw.arg: ast.literal_eval(kw.value)
+            for kw in tree.body.keywords
+            if kw.arg is not None
+        }
     except Exception as e:
         err(f"could not parse example `{t.example}` — {e}")
         return

@@ -133,7 +133,9 @@ class ToolModel(BaseModel):
                 "text": True,
                 "timeout": 30,
                 "cwd": effective_cwd,
-                "env": _build_pyrunner_env(self.env, self.env_file, False, effective_cwd),
+                "env": _build_pyrunner_env(
+                    self.env, self.env_file, False, effective_cwd
+                ),
             }
             result = subprocess.run(
                 [self.python, pyrunner_path, "introspect", self.fn],
