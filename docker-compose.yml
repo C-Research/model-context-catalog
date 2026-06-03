@@ -20,12 +20,28 @@ services:
     environment:
       - MCC_ELASTICSEARCH__HOST=elasticsearch
       - MCC_AUTH=dev-admin
+      - FASTEMBED_CACHE_PATH=/cache/fastembed
     volumes:
       - model-cache:/cache
+      - ./mcc:/app/mcc
       # Mount local tool files:
       # - ./my-tools:/tools
     ports:
       - "8000:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  download:
+    build: .
+    profiles: [ "download" ]
+    environment:
+      - MCC_ELASTICSEARCH__HOST=elasticsearch
+      - FASTEMBED_CACHE_PATH=/cache/fastembed
+    volumes:
+      - model-cache:/cache
+      - ./mcc:/app/mcc
+    command: [ ".venv/bin/mcc", "download" ]
     depends_on:
       elasticsearch:
         condition: service_healthy

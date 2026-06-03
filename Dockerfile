@@ -15,6 +15,6 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 EXPOSE 8000
 
 # Cache dir for fastembed model downloads
-ENV HF_HOME=/cache/huggingface
+ENV FASTEMBED_CACHE_PATH=/cache/fastembed
 
 CMD [".venv/bin/mcc", "mcp", "serve"]

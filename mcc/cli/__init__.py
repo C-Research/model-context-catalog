@@ -41,10 +41,12 @@ def cli(tool, env, verbose):
     loader.load(*tool)
 
 
+from mcc.cli.download import download  # noqa: E402
 from mcc.cli.mcp import mcp_cmd  # noqa: E402, F401
 from mcc.cli.tools import tool  # noqa: E402
 from mcc.cli.users import user  # noqa: E402
 
+cli.add_command(download)
 cli.add_command(user)
 cli.add_command(tool)
 cli.add_command(mcp_cmd)
