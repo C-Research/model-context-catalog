@@ -46,6 +46,10 @@ uv run zensical build
 
 The nav structure is defined in `mkdocs.yml`. When adding a new page, register it there. The built `site/` directory is not committed.
 
+## Code style
+
+- **Imports at module level.** All imports go at the top of the file. Never use method-level or function-level imports unless required to break a circular dependency (and document why with a comment).
+
 ## Project layout
 
 ```

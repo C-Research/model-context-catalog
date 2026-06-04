@@ -17,4 +17,5 @@ EXPOSE 8000
 # Cache dir for fastembed model downloads
 ENV FASTEMBED_CACHE_PATH=/cache/fastembed
 
-CMD [".venv/bin/mcc", "mcp", "serve"]
+ENTRYPOINT [".venv/bin/mcc"]
+CMD ["mcp", "serve"]

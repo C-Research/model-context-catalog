@@ -227,3 +227,5 @@ if not os.environ.get("MCC_SKIP_AUTOLOAD"):
     loader.load(Path(__file__).parent / "tools")
     if settings.tools:
         loader.load(*settings.tools)
+    if extra := os.environ.get("MCC_TOOL_FILES"):
+        loader.load(*extra.split(";"))

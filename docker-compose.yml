@@ -32,20 +32,6 @@ services:
       elasticsearch:
         condition: service_healthy
 
-  download:
-    build: .
-    profiles: [ "download" ]
-    environment:
-      - MCC_ELASTICSEARCH__HOST=elasticsearch
-      - FASTEMBED_CACHE_PATH=/cache/fastembed
-    volumes:
-      - model-cache:/cache
-      - ./mcc:/app/mcc
-    command: [ ".venv/bin/mcc", "download" ]
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-
 volumes:
   es-data:
   model-cache:

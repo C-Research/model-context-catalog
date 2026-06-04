@@ -1,3 +1,4 @@
+import importlib
 import json
 import sys
 import textwrap
@@ -6,8 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import mcc.loader
 from mcc.loader import Loader, load_file
-from mcc.models import ToolModel
+from mcc.models import ParamModel, ToolModel
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -139,8 +141,6 @@ class TestParamOverride:
 
     @pytest.mark.smoke
     def test_no_override_is_default(self):
-        from mcc.models import ParamModel
-
         p = ParamModel(name="x")
         assert p.has_override is False
 
@@ -361,6 +361,67 @@ tools:
         loader.load(pattern)
         assert "tool_a" in loader
         assert "tool_b" in loader
+
+
+class TestMccToolFiles:
+    """MCC_TOOL_FILES env var injects extra tool files at load time."""
+
+    _TOOL_YAML = """\
+tools:
+  - name: {name}
+    fn: tests.example:echo
+    description: injected tool
+    params:
+      - name: message
+        type: str
+        required: true
+"""
+
+    def _write(self, path: Path, name: str) -> None:
+        path.write_text(self._TOOL_YAML.format(name=name))
+
+    def test_single_file(self, tmp_path, monkeypatch):
+        self._write(tmp_path / "extra.yaml", "extra_tool")
+        monkeypatch.setenv("MCC_TOOL_FILES", str(tmp_path / "extra.yaml"))
+        loader = Loader()
+        loader.load(tmp_path / "extra.yaml")
+        assert "extra_tool" in loader
+
+    def test_semicolon_separated(self, tmp_path, monkeypatch):
+        self._write(tmp_path / "a.yaml", "tool_a")
+        self._write(tmp_path / "b.yaml", "tool_b")
+        paths = f"{tmp_path / 'a.yaml'};{tmp_path / 'b.yaml'}"
+        monkeypatch.setenv("MCC_TOOL_FILES", paths)
+        loader = Loader()
+        loader.load(*paths.split(";"))
+        assert "tool_a" in loader
+        assert "tool_b" in loader
+
+    def test_directories_supported(self, tmp_path, monkeypatch):
+        self._write(tmp_path / "one.yaml", "dir_tool")
+        monkeypatch.setenv("MCC_TOOL_FILES", str(tmp_path))
+        loader = Loader()
+        loader.load(tmp_path)
+        assert "dir_tool" in loader
+
+    def test_globs_supported(self, tmp_path, monkeypatch):
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        self._write(sub / "nested.yaml", "glob_tool")
+        pattern = str(tmp_path / "**" / "*.yaml")
+        monkeypatch.setenv("MCC_TOOL_FILES", pattern)
+        loader = Loader()
+        loader.load(pattern)
+        assert "glob_tool" in loader
+
+    def test_autoload_reads_env(self, tmp_path, monkeypatch):
+        """The module-level autoload block picks up MCC_TOOL_FILES."""
+        self._write(tmp_path / "injected.yaml", "injected_tool")
+        monkeypatch.setenv("MCC_TOOL_FILES", str(tmp_path / "injected.yaml"))
+        monkeypatch.delenv("MCC_SKIP_AUTOLOAD", raising=False)
+
+        importlib.reload(mcc.loader)
+        assert "injected_tool" in mcc.loader.loader
 
 
 class TestFileLevelEnv:

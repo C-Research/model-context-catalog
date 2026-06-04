@@ -46,6 +46,16 @@ MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml;toolsets/osint/settings.yaml
 
 Each file is merged with `dynaconf_merge: true`, so `tools` lists are additive.
 
+### `MCC_TOOL_FILES`
+
+A semicolon-separated list of tool YAML files, directories, or glob patterns to load in addition to those declared in `settings.tools`. Use this to inject extra tools at load time without modifying settings files:
+
+```bash
+MCC_TOOL_FILES=/etc/mcc/tools;/opt/custom/*.yaml
+```
+
+Paths are resolved exactly like entries in the `tools` setting — directories load all `*.yaml` files (flat), and glob patterns expand recursively. These tools are loaded after the settings-declared tools and participate in hot-reload.
+
 ## Environments
 
 Dynaconf supports named environments. MCC ships with `development` (debug logging) and `production` (verbose log format, INFO level) profiles. Set the active environment with:
