@@ -1642,7 +1642,6 @@ wheels = [
 
 [[package]]
 name = "model-context-catalog"
-version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

@@ -5,6 +5,7 @@ import rich_click as click
 from rich.console import Console
 from rich.errors import MarkupError
 
+from mcc import __version__
 from mcc.loader import loader
 from mcc.settings import logger, settings
 
@@ -25,6 +26,7 @@ def err(msg, exit=1):
 
 
 @click.group()
+@click.version_option(__version__, "-V", "--version", prog_name="mcc")
 @click.option(
     "-e",
     "--env",

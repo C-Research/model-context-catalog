@@ -17,3 +17,4 @@ settings.local.toml
 settings.local.yaml
 elastic-start-local/
 /site
+.DS_Store
