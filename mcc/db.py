@@ -45,6 +45,7 @@ class ESIndex:
         password = cfg.get("PASSWORD", "")
         api_key = cfg.get("API_KEY", "")
         kwargs: dict = {"hosts": [f"{scheme}://{host}:{port}"]}
+        kwargs["verify_certs"] = cfg.get("VERIFY_CERTS", True)
         if api_key:
             kwargs["api_key"] = api_key
         elif username:

@@ -3,6 +3,7 @@ from asyncio import run as arun
 
 import rich_click as click
 from rich.console import Console
+from rich.errors import MarkupError
 
 from mcc.loader import loader
 from mcc.settings import logger, settings
@@ -14,12 +15,16 @@ console = Console(markup=True)
 
 
 def err(msg, exit=1):
-    console.print(f"[red]Error: {msg}[/red]", markup=True)
+    try:
+        console.print(f"[red]Error: {msg}[/red]", markup=True)
+    except MarkupError:
+        # msg contained brackets that aren't valid markup (e.g. ES error
+        # payloads like "[/]"); fall back to literal text with a red style.
+        console.print(f"Error: {msg}", style="red", markup=False)
     sys.exit(exit)
 
 
 @click.group()
-@click.option("-t", "--tool", multiple=True, help="Tool files to load on startup")
 @click.option(
     "-e",
     "--env",
@@ -29,8 +34,22 @@ def err(msg, exit=1):
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Enable debug logging."
 )
-def cli(tool, env, verbose):
-    """**MCC** — Model Context Catalog management CLI."""
+def cli(env, verbose):
+    """
+    **MCC** — Model Context Catalog management CLI.
+
+    Manage users, browse tools, and run the MCP server. Tool files and settings
+    are configured via environment variables since they must be resolved before
+    the CLI starts.
+
+    ## Environment Variables
+
+    - **MCC_TOOL_FILES** — Semicolon-separated paths to tool YAML files/directories to load on startup.
+
+    - **MCC_SETTINGS_FILES** — Semicolon-separated paths to additional settings YAML files (merged after defaults).
+
+    - **MCC_SKIP_AUTOLOAD** — Set to skip automatic tool loading at startup.
+    """
     logger.setLevel("DEBUG" if verbose else "INFO")
     try:
         arun(loader.save())
@@ -38,7 +57,6 @@ def cli(tool, env, verbose):
         err(f"ES Connection error: {exc}")
     if env is not None:
         settings.setenv(env)
-    loader.load(*tool)
 
 
 from mcc.cli.download import download  # noqa: E402

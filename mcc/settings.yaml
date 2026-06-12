@@ -19,6 +19,7 @@ default:
     host: "localhost"
     port: 9200
     scheme: "http"
+    verify_certs: true
     user_index: "mcc-users"
     tool_index: "mcc-tools"
     username: ""

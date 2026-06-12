@@ -124,6 +124,7 @@ Connection settings for Elasticsearch.
 | `host` | `localhost` | Hostname |
 | `port` | `9200` | Port |
 | `scheme` | `http` | `http` or `https` |
+| `verify_certs` | `true` | Verify TLS certificates when `scheme` is `https`. Set to `false` to allow self-signed/untrusted certs (dev only) |
 | `username` | `""` | Basic auth username |
 | `password` | `""` | Basic auth password |
 | `user_index` | `mcc-users` | Index name for user records |

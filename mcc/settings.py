@@ -6,7 +6,7 @@ from dynaconf import Dynaconf
 
 settings_files = [
     str(Path(__file__).parent / "settings.yaml"),
-    str(Path.cwd() / "settings.local.yaml"),
+    "settings.local.yaml",
 ]
 if extra := getenv("MCC_SETTINGS_FILES"):
     settings_files.extend(extra.split(";"))

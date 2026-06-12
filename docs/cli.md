@@ -14,23 +14,8 @@ mcc [OPTIONS] COMMAND [ARGS]...
 
 | Option | Description |
 |--------|-------------|
-| `-t`, `--tool` | Load a tool YAML file on startup (repeatable) |
-| `-c`, `--config` | Load a config file into Dynaconf (repeatable) |
 | `-e`, `--env` | Dynaconf environment to activate (e.g. `development`, `production`) |
-
-The `--tool` flag loads additional tool files before executing any subcommand. Use it to test tools without adding them to `settings.local.yaml`:
-
-```bash
-mcc -t mytools.yaml tool list
-mcc -t tools/a.yaml -t tools/b.yaml tool call my.tool arg=value
-```
-
-The `--config` flag injects additional Dynaconf config files, useful for overriding settings without editing `settings.local.yaml`:
-
-```bash
-mcc -c staging.yaml mcp serve
-mcc -c prod.yaml -c secrets.yaml mcp serve -t http
-```
+| `-v`, `--verbose` | Enable debug logging |
 
 The `--env` flag sets the active Dynaconf environment, enabling environment-layered config in your settings files:
 
@@ -38,6 +23,26 @@ The `--env` flag sets the active Dynaconf environment, enabling environment-laye
 mcc -e production mcp serve
 mcc -e staging tool list
 ```
+
+## Environment variables
+
+Tool files and settings files are configured via environment variables (or `.env`), since they must be resolved before the CLI parses arguments.
+
+| Variable | Description |
+|----------|-------------|
+| `MCC_TOOL_FILES` | Semicolon-separated paths to tool YAML files or directories to load on startup. |
+| `MCC_SETTINGS_FILES` | Semicolon-separated paths to additional settings YAML files (merged after defaults). |
+| `MCC_SKIP_AUTOLOAD` | Set to skip automatic tool loading at startup. |
+
+```bash
+# Load extra tools
+MCC_TOOL_FILES="mytools.yaml;tools/extras/" mcc tool list
+
+# Load additional settings
+MCC_SETTINGS_FILES="staging.yaml;secrets.yaml" mcc mcp serve
+```
+
+Any individual setting can also be overridden with the `MCC_` prefix (e.g. `MCC_AUTH=dangerous`).
 
 ---
 
