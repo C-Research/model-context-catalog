@@ -15,15 +15,10 @@ default:
     host: 0.0.0.0
     response_max_size: 5000000
 
+  elasticsearch_url: "http://localhost:9200"
   elasticsearch:
-    host: "localhost"
-    port: 9200
-    scheme: "http"
-    verify_certs: true
     user_index: "mcc-users"
     tool_index: "mcc-tools"
-    username: ""
-    password: ""
 
   oauth:
     base_url: "http://localhost:8000"

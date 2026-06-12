@@ -19,9 +19,7 @@ auth: github
 tools:
   - mytools.yaml
 
-elasticsearch:
-  host: my-es-host.internal
-  port: 9200
+elasticsearch_url: https://my-es-host.internal:9200
 ```
 
 ## Environment variables
@@ -30,8 +28,7 @@ Any setting can be set via environment variable using the `MCC_` prefix. Nested 
 
 ```bash
 MCC_AUTH=dev-admin
-MCC_ELASTICSEARCH__HOST=my-es-host.internal
-MCC_ELASTICSEARCH__PORT=9200
+MCC_ELASTICSEARCH_URL=https://my-es-host.internal:9200
 ```
 
 Environment variables always override file-based settings.
@@ -115,22 +112,21 @@ embedding_model: BAAI/bge-small-en-v1.5
 
 The model is downloaded on first use and cached locally by fastembed. Changing this requires a server restart to re-index tools.
 
-### `elasticsearch`
+### Elasticsearch
 
-Connection settings for Elasticsearch.
+The connection is configured with a single `elasticsearch_url` (env var `MCC_ELASTICSEARCH_URL`). Scheme, host, port, and basic-auth credentials all come from the URL:
+
+```
+MCC_ELASTICSEARCH_URL=https://elastic:pass@host:9200?verify_certs=false
+```
+
+Append `?verify_certs=false` to allow self-signed/untrusted certificates over `https` (dev only).
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `host` | `localhost` | Hostname |
-| `port` | `9200` | Port |
-| `scheme` | `http` | `http` or `https` |
-| `verify_certs` | `true` | Verify TLS certificates when `scheme` is `https`. Set to `false` to allow self-signed/untrusted certs (dev only) |
-| `username` | `""` | Basic auth username |
-| `password` | `""` | Basic auth password |
-| `user_index` | `mcc-users` | Index name for user records |
-| `tool_index` | `mcc-tools` | Index name for tool embeddings |
-
-For API key auth, set `MCC_ELASTICSEARCH__API_KEY` instead of username/password.
+| `elasticsearch_url` | `http://localhost:9200` | Full connection URL, including any `user:password@` and optional `?verify_certs=false` |
+| `elasticsearch.user_index` | `mcc-users` | Index name for user records |
+| `elasticsearch.tool_index` | `mcc-tools` | Index name for tool embeddings |
 
 ### `oauth`
 

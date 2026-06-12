@@ -1,6 +1,7 @@
 import asyncio
 from time import time
 from typing import Optional
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 from elasticsearch import AsyncElasticsearch
 from fastembed import TextEmbedding
@@ -30,6 +31,38 @@ async def embed(text: str) -> list[float]:
     return result.tolist()
 
 
+def _client_kwargs() -> dict:
+    """Build AsyncElasticsearch kwargs from ELASTICSEARCH_URL.
+
+    The URL covers scheme/host/port/credentials in one value, e.g.
+    "https://user:pass@host:9200?verify_certs=false". The ES client ignores the
+    query string and is unreliable about userinfo, so verify_certs and any
+    user:password are extracted here and passed explicitly; the URL handed to
+    the client is stripped of both.
+    """
+    url = settings.ELASTICSEARCH_URL
+    parsed = urlparse(url)
+    kwargs: dict = {}
+
+    params = parse_qs(parsed.query)
+    if "verify_certs" in params:
+        kwargs["verify_certs"] = params["verify_certs"][0].lower() not in (
+            "false",
+            "0",
+            "no",
+        )
+
+    if parsed.username:
+        kwargs["basic_auth"] = (parsed.username, parsed.password or "")
+
+    # Rebuild the netloc without userinfo, and drop the query string.
+    netloc = parsed.hostname or ""
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    kwargs["hosts"] = [urlunparse(parsed._replace(netloc=netloc, query=""))]
+    return kwargs
+
+
 class ESIndex:
     """Async Elasticsearch index with scoped operations."""
 
@@ -37,20 +70,7 @@ class ESIndex:
     mapping = {}
 
     async def __aenter__(self):
-        cfg = settings.ELASTICSEARCH
-        scheme = cfg.get("SCHEME", "http")
-        host = cfg.get("HOST", "localhost")
-        port = cfg.get("PORT", 9200)
-        username = cfg.get("USERNAME", "")
-        password = cfg.get("PASSWORD", "")
-        api_key = cfg.get("API_KEY", "")
-        kwargs: dict = {"hosts": [f"{scheme}://{host}:{port}"]}
-        kwargs["verify_certs"] = cfg.get("VERIFY_CERTS", True)
-        if api_key:
-            kwargs["api_key"] = api_key
-        elif username:
-            kwargs["basic_auth"] = (username, password)
-        self._client = AsyncElasticsearch(**kwargs)
+        self._client = AsyncElasticsearch(**_client_kwargs())
         await self._client.info()
         return self
 

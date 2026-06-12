@@ -35,9 +35,7 @@ Create a `settings.local.yaml` in your working directory:
 
 ```yaml
 default:
-  elasticsearch:
-    dynaconf_merge: true
-    api_key: "key provided"
+  elasticsearch_url: "https://elastic:password@localhost:9200?verify_certs=false"
 ```
 
 See [Auth Backends](../auth/backends.md) for authentication configuration.
