@@ -125,8 +125,9 @@ Append `?verify_certs=false` to allow self-signed/untrusted certificates over `h
 | Key | Default | Description |
 |-----|---------|-------------|
 | `elasticsearch_url` | `http://localhost:9200` | Full connection URL, including any `user:password@` and optional `?verify_certs=false` |
-| `elasticsearch.user_index` | `mcc-users` | Index name for user records |
-| `elasticsearch.tool_index` | `mcc-tools` | Index name for tool embeddings |
+| `user_index` | `mcc-users` | Index name for user records |
+| `tool_index` | `mcc-tools` | Index name for tool embeddings |
+| `key_index` | `mcc-keys` | Index name for API key records |
 
 ### `oauth`
 

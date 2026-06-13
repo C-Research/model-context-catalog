@@ -110,7 +110,7 @@ class ESIndex:
 
 
 class UsersIndex(ESIndex):
-    index = settings.ELASTICSEARCH__USER_INDEX
+    index = settings.USER_INDEX
     mapping = {
         "mappings": {
             "properties": {
@@ -123,8 +123,23 @@ class UsersIndex(ESIndex):
     }
 
 
+class KeysIndex(ESIndex):
+    index = settings.KEY_INDEX
+    mapping = {
+        "mappings": {
+            "properties": {
+                "prefix": {"type": "keyword"},
+                "hash": {"type": "keyword"},
+                "username": {"type": "keyword"},
+                "expires_at": {"type": "date"},
+                "created_at": {"type": "date"},
+            }
+        }
+    }
+
+
 class ToolIndex(ESIndex):
-    index = settings.ELASTICSEARCH__TOOL_INDEX
+    index = settings.TOOL_INDEX
     mapping = {
         "mappings": {
             "properties": {

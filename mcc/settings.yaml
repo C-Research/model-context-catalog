@@ -16,9 +16,12 @@ default:
     response_max_size: 5000000
 
   elasticsearch_url: "http://localhost:9200"
-  elasticsearch:
-    user_index: "mcc-users"
-    tool_index: "mcc-tools"
+  user_index: "mcc-users"
+  tool_index: "mcc-tools"
+  key_index: "mcc-keys"
+
+  api_key:
+    default_ttl_days: 90
 
   oauth:
     base_url: "http://localhost:8000"

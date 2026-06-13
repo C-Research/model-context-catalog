@@ -1,13 +1,16 @@
 import importlib
 import inspect
+from datetime import datetime, timezone
 
-from fastmcp.server.auth import RemoteAuthProvider
+from fastmcp.server.auth import RemoteAuthProvider, TokenVerifier
+from fastmcp.server.auth.auth import AccessToken
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.dependencies import get_access_token as fast_token
 
 from mcc.auth.dev import get_admin_context as dev_admin
 from mcc.auth.dev import get_public_context as dev_public
-from mcc.settings import settings
+from mcc.auth.keys import get_key_by_prefix, parse_prefix, verify_hash
+from mcc.settings import logger, settings
 
 _DEV_BACKENDS = {
     "dev-admin": dev_admin,
@@ -54,12 +57,49 @@ def _build_jwt_provider() -> RemoteAuthProvider:
     )
 
 
+class ApiKeyVerifier(TokenVerifier):
+    """Resolves a bearer API key to a username via the keys index.
+
+    A thin credential→identity bridge: it places only the username in the
+    returned ``AccessToken`` claims (never the raw key) and reads ES on every
+    request so revocation is instant. All authorization comes from the users
+    index downstream, unchanged.
+    """
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        prefix = parse_prefix(token)
+        if prefix is None:
+            return None
+        record = await get_key_by_prefix(prefix)
+        if record is None:
+            return None
+        if not verify_hash(token, record["hash"]):
+            return None
+        raw_expiry = record.get("expires_at")
+        expires_at = datetime.fromisoformat(raw_expiry) if raw_expiry else None
+        if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+            logger.debug("rejecting expired key for %s", record["username"])
+            return None
+        # token carries the non-secret prefix, never the raw key: the
+        # get_user_context admin tool surfaces this AccessToken to the LLM, so
+        # nothing key-derived may live in token/claims/scopes.
+        return AccessToken(
+            token=f"mcc_{prefix}",
+            client_id=record["username"],
+            scopes=[],
+            expires_at=int(expires_at.timestamp()) if expires_at else None,
+            claims={"login": record["username"]},
+        )
+
+
 def get_provider():
     auth = settings.auth
     if auth in _DEV_BACKENDS:
         return None
     if auth == "jwt":
         return _build_jwt_provider()
+    if auth == "api_key":
+        return ApiKeyVerifier()
     if auth in _PROXY_PROVIDERS:
         return _build_proxy_provider(auth)
     raise ValueError(f"Unknown auth backend: {auth!r}")

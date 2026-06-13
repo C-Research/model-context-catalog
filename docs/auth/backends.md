@@ -41,6 +41,61 @@ Useful for testing the public tool surface without granting admin access. Safe t
 
 ---
 
+## API Key (`api_key`)
+
+A simple, revocable bearer-token backend for scripts and agents — a stopgap
+until a full OAuth deployment is in place. Each caller presents an
+`Authorization: Bearer mcc_<prefix>_<secret>` header; MCC resolves the key to a
+username and applies that user's existing tools/groups. Keys carry **no scope of
+their own** — all authorization comes from the users index, unchanged.
+
+```yaml
+default:
+  auth: "api_key"
+  api_key:
+    default_ttl_days: 90   # keys expire after ~90 days
+```
+
+### Agents are users
+
+There is no separate agent/key permission model. To give a key narrow access,
+model the principal as its own user with exactly the tools/groups it needs, then
+mint a key for it:
+
+```bash
+mcc user add ci-bot --tool public.request   # a narrow principal
+mcc user key add ci-bot                      # mint its key (shown once)
+```
+
+The key grants exactly `ci-bot`'s current grants. **Narrowing the user instantly
+narrows the key** — revoke a tool with `mcc user revoke` and the next request
+reflects it, no re-minting required. There is no way to make a key *narrower*
+than its bound user; that is intentional.
+
+### Security properties
+
+- **Hashed storage.** Only a SHA-256 hash, the lookup prefix, and an expiry are
+  stored in a dedicated keys index — never the raw key. The raw key is shown
+  exactly once at creation and cannot be recovered.
+- **Instant revocation.** The verifier reads Elasticsearch on every request with
+  no caching, so `mcc user key revoke` takes effect immediately.
+- **Default TTL.** Keys expire ~90 days out (`api_key.default_ttl_days`),
+  bounding the blast radius of a leaked key. Override per key with
+  `mcc user key add --expires <days|never>`.
+- **No leakage into LLM context or logs.** Only the username appears in the
+  resolved identity; the raw key and `Authorization` header are never logged.
+- **Hard 401.** A missing or invalid key is rejected at the transport layer and
+  never falls through to public-only access.
+
+!!! note "TLS is assumed"
+    A key is a reusable bearer secret. MCC assumes HTTPS is terminated by your
+    infrastructure; the app does not enforce TLS itself.
+
+See [Users & Groups](users-groups.md#api-keys) for the full `mcc user key`
+command reference.
+
+---
+
 ## OAuth Proxy Backends
 
 !!! warning "Under construction"

@@ -6,8 +6,8 @@ import pytest
 os.environ.update(
     {
         "MCC_AUTH": "dev-admin",
-        "MCC_ELASTICSEARCH__USER_INDEX": "mcc-users-test",
-        "MCC_ELASTICSEARCH__TOOL_INDEX": "mcc-tools-test",
+        "MCC_USER_INDEX": "mcc-users-test",
+        "MCC_TOOL_INDEX": "mcc-tools-test",
     }
 )
 

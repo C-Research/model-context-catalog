@@ -73,6 +73,45 @@ mcc user grant alice -t admin.shell
 mcc user revoke alice -t admin.shell
 ```
 
+## API keys
+
+When the [`api_key`](backends.md#api-key-api_key) backend is active, each user
+may hold a single API key. A key is a bearer credential that resolves to its
+user — it grants exactly that user's tools/groups and carries no scope of its
+own. Model a script or agent as its own narrow user, then mint a key for it.
+
+### Mint a key
+
+```bash
+mcc user key add ci-bot                 # default TTL (~90 days)
+mcc user key add ci-bot --expires 30    # expires in 30 days
+mcc user key add ci-bot --expires never # never expires
+```
+
+Verifies the user exists, replaces any existing key, and prints the raw key
+**exactly once** — copy it immediately, it cannot be recovered. Without
+`--expires` the key uses the configured `api_key.default_ttl_days` (~90 days);
+pass a positive number of days, or `never` for a non-expiring key.
+
+### List keys
+
+```bash
+mcc user key list
+```
+
+Shows each key's username, prefix, and created/expiry timestamps only — never
+the hash or raw key.
+
+### Revoke a key
+
+```bash
+mcc user key revoke ci-bot
+```
+
+Deletes the key record. Revocation is instant — the very next request with that
+key is rejected. Narrowing the bound user's grants likewise takes effect
+immediately, without re-minting.
+
 ## Reserved groups
 
 | Group | Behavior |
