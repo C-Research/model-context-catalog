@@ -18,7 +18,7 @@ services:
   mcc:
     build: .
     environment:
-      - MCC_ELASTICSEARCH__HOST=elasticsearch
+      - MCC_ELASTICSEARCH_URL=http://elasticsearch:9200
       - MCC_AUTH=dev-admin
       - FASTEMBED_CACHE_PATH=/cache/fastembed
     volumes:
