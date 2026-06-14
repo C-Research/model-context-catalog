@@ -2,13 +2,14 @@ import asyncio
 import json
 import os
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 from time import time
 from typing import Any, Callable
 
 from dotenv import dotenv_values
 
-from mcc.settings import logger
+from mcc.settings import logger, settings
 from mcc.template import jinja_env
 
 _LIMIT_SIGNALS = {
@@ -21,36 +22,49 @@ _LIMIT_SIGNALS = {
 def _build_env(
     env: dict[str, str] | None,
     env_file: str | None,
-    env_passthrough: bool = False,
-) -> dict[str, str] | None:
+    env_passthrough: bool | list[str] = False,
+) -> dict[str, str]:
     """Build the subprocess environment.
 
-    When env_passthrough is False (default) the base is an empty dict, so the
-    subprocess only receives variables explicitly declared via env/env_file.
-    When env_passthrough is True the base is a copy of os.environ, and
-    env_file/env are overlaid on top (original behaviour).
+    The base always starts from the configurable env floor (settings.ENV_FLOOR):
+    a fixed set of "machine works" variables (PATH, HOME, ...) that are exposed
+    regardless of env_passthrough, including when it is False. A floor name is
+    only included if present in os.environ.
 
-    Returns None when no configuration is provided and env_passthrough is False,
-    which lets the subprocess inherit the parent environment through the OS
-    default (identical to the unconfigured case).
+    env_passthrough then widens the base:
+      - False (default): floor only.
+      - list[str]: each entry is an fnmatchcase (case-sensitive) glob matched
+        against os.environ keys; matching variables are merged over the floor.
+      - True: the entire parent environment (the floor is a subset).
+
+    env_file is overlaid next, then env (highest precedence). Always returns a
+    concrete dict so callers never inherit the full parent environment via an
+    OS default or None fallback.
     """
-    if not env and not env_file and not env_passthrough:
-        return None
-
-    merged = dict(os.environ) if env_passthrough else {}
+    base = {k: os.environ[k] for k in settings.ENV_FLOOR if k in os.environ}
+    if env_passthrough is True:
+        base = dict(os.environ)
+    elif isinstance(env_passthrough, list):
+        base.update(
+            {
+                k: v
+                for k, v in os.environ.items()
+                if any(fnmatchcase(k, pat) for pat in env_passthrough)
+            }
+        )
     if env_file:
-        merged.update(
+        base.update(
             {k: v for k, v in dotenv_values(env_file).items() if v is not None}
         )
     if env:
-        merged.update(env)
-    return merged
+        base.update(env)
+    return base
 
 
 def _build_pyrunner_env(
     env: dict[str, str] | None,
     env_file: str | None,
-    env_passthrough: bool,
+    env_passthrough: bool | list[str],
     cwd: str,
 ) -> dict[str, str]:
     """Build the environment for any pyrunner subprocess (introspect or exec).
@@ -58,8 +72,7 @@ def _build_pyrunner_env(
     Prepends cwd to PYTHONPATH so tool fn modules are importable, and sets
     MCC_SKIP_AUTOLOAD to prevent recursive loader spawning on import.
     """
-    base = _build_env(env, env_file, env_passthrough)
-    result = dict(base if base is not None else os.environ)
+    result = dict(_build_env(env, env_file, env_passthrough))
     result["MCC_SKIP_AUTOLOAD"] = "1"
     existing = result.get("PYTHONPATH", "")
     result["PYTHONPATH"] = f"{cwd}{os.pathsep}{existing}" if existing else cwd
@@ -187,7 +200,7 @@ def make_exec_callable(
     cwd: str | None = None,
     env: dict[str, str] | None = None,
     env_file: str | None = None,
-    env_passthrough: bool = False,
+    env_passthrough: bool | list[str] = False,
     transform: str | None = None,
 ) -> Callable:
     """Generate an async closure that runs cmd as a subprocess."""
@@ -218,7 +231,7 @@ def make_py_callable(
     cwd: str | None = None,
     env: dict[str, str] | None = None,
     env_file: str | None = None,
-    env_passthrough: bool = False,
+    env_passthrough: bool | list[str] = False,
     transform: str | None = None,
 ) -> Callable:
     """Generate an async closure that runs fn_path in a separate Python interpreter."""

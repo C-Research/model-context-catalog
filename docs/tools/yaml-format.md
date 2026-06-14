@@ -112,7 +112,7 @@ The following fields apply to both `fn` and `exec` tools. They control the subpr
 |-------|------|---------|-------------|
 | `env` | `dict` | `{}` | Explicit environment variables |
 | `env_file` | `str` | none | Path to a `.env` file to source |
-| `env_passthrough` | `bool` | `false` | Inherit the parent process environment |
+| `env_passthrough` | `bool` or `list[str]` | `false` | Parent env to inherit on top of the always-present env floor: `false` (floor only), a list of case-sensitive globs (allowlist), or `true` (everything) |
 | `transform` | `str` or `list[str]` | none | Shell pipeline to filter output before returning to the LLM |
 | `cwd` | `str` | inherit | Working directory for the subprocess |
 | `cache_ttl` | `int` | none | Cache responses for N seconds; omit to disable caching |
@@ -122,7 +122,7 @@ The following fields apply to both `fn` and `exec` tools. They control the subpr
 
 ### `env`, `env_file`, and `env_passthrough`
 
-Control what environment variables the subprocess receives. See [Environment Variables](env-vars.md) for the full reference — including `env:` key/value pairs, `env_file:` dotenv files, combining them, and the `env_passthrough` flag that controls whether the subprocess inherits the parent environment.
+Control what environment variables the subprocess receives. See [Environment Variables](env-vars.md) for the full reference — including `env:` key/value pairs, `env_file:` dotenv files, combining them, the always-present env floor, and the `env_passthrough` field (`false`, a glob allowlist, or `true`) that controls how much of the parent environment the subprocess inherits.
 
 ---
 

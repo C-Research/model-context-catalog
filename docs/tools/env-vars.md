@@ -99,14 +99,17 @@ tools:
 
 ### `env_passthrough:`
 
-Controls whether the subprocess inherits the parent process environment as a base.
+Controls how much of the parent process environment the subprocess inherits as a base, on top of the always-present [env floor](#env-floor). Accepts a boolean or a list of glob patterns.
 
-| Value | Subprocess environment |
-|-------|------------------------|
-| `false` *(default)* | Only variables from `env:` and `env_file:` — nothing else |
-| `true` | Full copy of the current environment, with `env:` / `env_file:` overlaid on top |
+| Value | Subprocess base environment |
+|-------|------------------------------|
+| `false` *(default)* | The env floor only |
+| `[ "GLOB", ... ]` | The env floor, plus parent variables whose names match any glob |
+| `true` | A full copy of the current environment |
 
-**`false` (default) — isolated.** The subprocess only receives what you explicitly declare. Nothing from the server process leaks in:
+In all cases, `env_file:` is overlaid next and `env:` last (highest precedence).
+
+**`false` (default) — floor only.** The subprocess receives the env floor (`PATH`, `HOME`, etc.) plus whatever you explicitly declare. No secrets leak in:
 
 ```yaml
 tools:
@@ -114,10 +117,22 @@ tools:
     env:
       INPUT_PATH: /data/input
       OUTPUT_PATH: /data/output
-    # subprocess sees ONLY INPUT_PATH and OUTPUT_PATH
+    # subprocess sees the floor + INPUT_PATH + OUTPUT_PATH
 ```
 
-**`true` — additive.** The subprocess starts from a full copy of the current environment, with your `env:` / `env_file:` entries overlaid on top. Use this when you want to extend the environment rather than replace it:
+**list — allowlist.** Each entry is a case-sensitive [`fnmatch`](https://docs.python.org/3/library/fnmatch.html) glob (`*`, `?`, `[seq]`) matched against parent variable **names**. Matching variables are merged over the floor. This is the precise, sudo-style way to expose exactly what a tool needs:
+
+```yaml
+tools:
+  - fn: mypackage.deploy:push
+    env_passthrough: ["AWS_*", "GIT_*"]
+    # subprocess inherits the floor + every AWS_* and GIT_* var,
+    # but NOT GITHUB_TOKEN, DATABASE_URL, or other secrets
+```
+
+Names are matched case-sensitively, so `"PATH"` matches `PATH` but `"path"` does not. An exact name (no wildcards) passes exactly that one variable. An empty list (`[]`) is equivalent to `false`.
+
+**`true` — full environment (discouraged).** The subprocess starts from a full copy of the current environment, with `env:` / `env_file:` overlaid on top:
 
 ```yaml
 tools:
@@ -125,12 +140,21 @@ tools:
     env:
       DEPLOY_ENV: production
     env_passthrough: true
-    # subprocess inherits PATH, HOME, PYTHONPATH, credentials, etc.
-    # DEPLOY_ENV is added on top
+    # subprocess inherits PATH, HOME, PYTHONPATH, credentials — everything
 ```
 
 !!! warning "env_passthrough: true and secret leakage"
-    With `env_passthrough: true` the subprocess receives every environment variable the MCC server process has — including API tokens, cloud credentials, and anything else that may be present. Use `false` (the default) unless you have a specific reason to pass the full environment through.
+    With `env_passthrough: true` the subprocess receives every environment variable the MCC server process has — including API tokens, cloud credentials, and anything else that may be present. Prefer a glob allowlist (`env_passthrough: ["AWS_*"]`) to expose only what the tool needs.
+
+#### Env floor
+
+A fixed set of "machine works" variables is **always** exposed to every subprocess, regardless of `env_passthrough` — including `false`. A variable is only passed through if it is actually present in the server process environment. The default floor is:
+
+```
+PATH  HOME  USER  LOGNAME  TMPDIR  LANG  LC_ALL  TZ  TERM  SHELL
+```
+
+The floor contains no secrets. It is what lets `exec:`/`curl:` tools find binaries (`PATH`) and `fn:` tools import normally under default-deny. Configure it deployment-wide via `env_floor:` in settings (or `MCC_ENV_FLOOR`); there is no per-tool override and no way to drop below it.
 
 ---
 
@@ -159,45 +183,46 @@ tools:
 
 ### `PATH` and shell commands
 
-With `env_passthrough: false` (the default), exec subprocess environments do not have `PATH`. Shell builtins (`echo`, `cd`, `test`, etc.) work fine — they are part of `/bin/sh` itself. External binaries require either their full path or an explicit `PATH` entry:
+`PATH` is part of the default [env floor](#env-floor), so external binaries (`kubectl`, `git`, `curl`, …) are found out of the box even with `env_passthrough: false`. You only need to set `PATH` explicitly if your deployment has removed it from the floor, or to pin a specific search path:
 
 ```yaml
 tools:
-  # Option A: explicit PATH, nothing else leaks
+  # PATH comes from the floor; only the extra var is declared
   - name: deploy
+    exec: kubectl apply -f {{ manifest | quote }}
+    env:
+      KUBECONFIG: /etc/deploy/kubeconfig
+
+  # Pin an explicit PATH when you don't want the floor's value
+  - name: deploy_pinned
     exec: kubectl apply -f {{ manifest | quote }}
     env:
       PATH: /usr/local/bin:/usr/bin:/bin
       KUBECONFIG: /etc/deploy/kubeconfig
-
-  # Option B: full passthrough when you need everything
-  - name: deploy
-    exec: kubectl apply -f {{ manifest | quote }}
-    env_passthrough: true
 ```
 
 ---
 
 ## Python tools: environment and imports
 
-Because `fn:` tools always execute in a subprocess, the subprocess must be able to import the callable's module. With `env_passthrough: false` (the default), the subprocess does not inherit `PYTHONPATH` or other env vars from the server process.
+Because `fn:` tools always execute in a subprocess, the subprocess must be able to import the callable's module. MCC always injects the tool's `cwd` into `PYTHONPATH`, and the [env floor](#env-floor) covers the OS basics, so the common case works without any env configuration — the same environment is used at load-time introspection and at call time.
 
-In practice this is rarely a problem: the target interpreter's installed packages and editable installs are discoverable without env vars. The cases where `env_passthrough: true` (or explicit env entries) are needed:
+In practice imports rarely need more: the target interpreter's installed packages and editable installs are discoverable without env vars. The cases where you need explicit `env:`/`env_file:` or an allowlist entry:
 
 - Code that reads env vars **at import time** (e.g. a Django `settings` module that requires `DJANGO_SETTINGS_MODULE`)
-- Modules that rely on `PYTHONPATH` being set externally rather than installed as a package
+- Modules that rely on an externally-set `PYTHONPATH` or `VIRTUAL_ENV` rather than installed as a package
 
-Prefer declaring the specific vars you need over passing the entire environment:
+Declare the specific vars you need, or allowlist them by glob:
 
 ```yaml
 tools:
-  # Explicit — only what's needed
+  # Explicit values — only what's needed
   - fn: mydjango.app:run_task
     env:
       DJANGO_SETTINGS_MODULE: mydjango.settings.production
       DATABASE_URL: postgres://localhost/prod
 
-  # Full passthrough — convenient but broad
-  - fn: mydjango.app:run_task
-    env_passthrough: true
+  # Allowlist a parent var the import relies on
+  - fn: mypackage.app:run_task
+    env_passthrough: ["VIRTUAL_ENV"]
 ```

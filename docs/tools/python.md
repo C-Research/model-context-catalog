@@ -241,7 +241,7 @@ All common runtime fields (`cwd`, `env`, `env_file`, `env_passthrough`, `timeout
 
 ### Subprocess environment and imports
 
-Because `fn` tools run in a subprocess, the subprocess must be able to import the callable's module. See [Environment Variables → Python tools](env-vars.md#python-tools-environment-and-imports) for details on when `env_passthrough` matters for imports and how to declare only the variables you need.
+Because `fn` tools run in a subprocess, the subprocess must be able to import the callable's module. MCC always injects the tool's `cwd` into `PYTHONPATH` and exposes the env floor, so most imports work with no env configuration. When a module needs more — e.g. it reads config at import time or relies on `VIRTUAL_ENV` — declare those vars via `env:` or allowlist them with `env_passthrough: ["VIRTUAL_ENV"]` rather than passing the full environment. See [Environment Variables → Python tools](env-vars.md#python-tools-environment-and-imports) for details.
 
 ### Working directory
 

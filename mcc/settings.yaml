@@ -2,6 +2,22 @@ default:
   auth: "dev-admin"
   tools: []
 
+  # Environment variables always exposed to tool subprocesses, regardless of a
+  # tool's env_passthrough setting (including env_passthrough: false). These are
+  # "machine works" basics, never secrets. A name is only passed through if it
+  # is present in the server process environment.
+  env_floor:
+    - PATH
+    - HOME
+    - USER
+    - LOGNAME
+    - TMPDIR
+    - LANG
+    - LC_ALL
+    - TZ
+    - TERM
+    - SHELL
+
   cache:
     backend: "mem://"
     search_ttl: 60

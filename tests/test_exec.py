@@ -288,11 +288,12 @@ class TestCwdEnvEnvFile:
         assert str(tmp_path) in json.loads(result)
 
     async def test_py_callable_env(self):
+        # No env_passthrough needed: the env floor + injected PYTHONPATH keep the
+        # fn importable under default-deny.
         tool = ToolModel(
             fn="tests.example:get_env_var",
             python=sys.executable,
             env={"TEST_PY_VAR": "py_env_val"},
-            env_passthrough=True,  # add to parent env so Python imports still work
             params=[{"name": "name", "type": "str", "required": True}],
         )
         import json
@@ -310,6 +311,107 @@ class TestCwdEnvEnvFile:
         )
         stdout = await tool.call()
         assert "not_inherited" in stdout
+
+    async def test_env_passthrough_list_allowlist(self, monkeypatch):
+        monkeypatch.setenv("MCC_AWS_REGION", "us-east-1")
+        monkeypatch.setenv("MCC_AWS_SECRET", "shh")
+        monkeypatch.setenv("MCC_GITHUB_TOKEN", "leaked")
+        tool = ToolModel(
+            name="allowlist_tool",
+            **{
+                "exec": "echo region=${MCC_AWS_REGION:-x} "
+                "secret=${MCC_AWS_SECRET:-x} token=${MCC_GITHUB_TOKEN:-absent}"
+            },
+            env_passthrough=["MCC_AWS_*"],
+        )
+        stdout = await tool.call()
+        assert "region=us-east-1" in stdout
+        assert "secret=shh" in stdout
+        assert "token=absent" in stdout
+
+    async def test_env_passthrough_glob_case_sensitive(self, monkeypatch):
+        monkeypatch.setenv("MCC_TEST_UPPER", "yes")
+        # A lowercase pattern must not match the uppercase var name.
+        tool = ToolModel(
+            name="case_tool",
+            **{"exec": "echo ${MCC_TEST_UPPER:-absent}"},
+            env_passthrough=["mcc_test_upper"],
+        )
+        stdout = await tool.call()
+        assert "absent" in stdout
+
+    async def test_env_passthrough_empty_list_is_floor_only(self, monkeypatch):
+        monkeypatch.setenv("MCC_TEST_PARENT_ONLY", "parent_value")
+        tool = ToolModel(
+            name="empty_list_tool",
+            **{"exec": "echo ${MCC_TEST_PARENT_ONLY:-not_inherited}"},
+            env_passthrough=[],
+        )
+        stdout = await tool.call()
+        assert "not_inherited" in stdout
+
+    async def test_env_floor_present_under_false(self, monkeypatch):
+        monkeypatch.setenv("PATH", "/usr/bin:/bin")
+        tool = ToolModel(
+            name="floor_tool",
+            **{"exec": "echo path=${PATH:-absent}"},
+            env_passthrough=False,
+        )
+        stdout = await tool.call()
+        assert "path=/usr/bin:/bin" in stdout
+
+    async def test_env_floor_absent_var_not_set_empty(self, monkeypatch):
+        # TZ is in the floor; remove it from the parent and confirm the
+        # subprocess does not define it (vs. defining it as empty string).
+        monkeypatch.delenv("TZ", raising=False)
+        tool = ToolModel(
+            name="floor_absent_tool",
+            **{"exec": 'if [ -z "${TZ+set}" ]; then echo unset; else echo set; fi'},
+            env_passthrough=False,
+        )
+        stdout = await tool.call()
+        assert "unset" in stdout
+
+    async def test_env_floor_configurable(self, monkeypatch):
+        from mcc import exec as exec_mod
+
+        monkeypatch.setenv("HOME", "/home/test")
+        monkeypatch.setenv("PATH", "/usr/bin")
+        monkeypatch.setattr(exec_mod.settings, "ENV_FLOOR", ["PATH"])
+        tool = ToolModel(
+            name="floor_config_tool",
+            **{"exec": "echo path=${PATH:-absent} home=${HOME:-absent}"},
+            env_passthrough=False,
+        )
+        stdout = await tool.call()
+        assert "path=/usr/bin" in stdout
+        assert "home=absent" in stdout
+
+    def test_fn_introspect_does_not_leak_parent_env(self, monkeypatch):
+        # Loading an fn tool with env_passthrough: false must not expose a parent
+        # secret to the load-time introspect subprocess.
+        import subprocess as subprocess_mod
+
+        from mcc import models as models_mod
+
+        monkeypatch.setenv("MCC_TEST_SECRET", "leaked")
+
+        captured: dict = {}
+        real_run = subprocess_mod.run
+
+        def spy_run(*args, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return real_run(*args, **kwargs)
+
+        monkeypatch.setattr(models_mod.subprocess, "run", spy_run)
+
+        ToolModel(
+            fn="tests.example:get_env_var",
+            python=sys.executable,
+            env_passthrough=False,
+        )
+        assert captured["env"] is not None
+        assert "MCC_TEST_SECRET" not in captured["env"]
 
 
 class TestFnToolDirect:

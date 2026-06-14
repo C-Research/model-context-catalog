@@ -71,7 +71,7 @@ class ToolModel(BaseModel):
     cwd: str | None = None
     env: dict[str, str] | None = None
     env_file: str | None = None
-    env_passthrough: bool = False
+    env_passthrough: bool | list[str] = False
     transform: str | list[str] | None = None
     cache_ttl: int | None = None
     description: str = ""
@@ -134,7 +134,7 @@ class ToolModel(BaseModel):
                 "timeout": 30,
                 "cwd": effective_cwd,
                 "env": _build_pyrunner_env(
-                    self.env, self.env_file, False, effective_cwd
+                    self.env, self.env_file, self.env_passthrough, effective_cwd
                 ),
             }
             result = subprocess.run(
