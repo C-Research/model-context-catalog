@@ -286,7 +286,7 @@ class TestKeyIntegration:
         from mcc.app import execute
         from mcc.auth import create_user
         from mcc.loader import loader
-        from mcc.middleware import current_user_var
+        from mcc.context import current_user_var
 
         # public.request-style narrow grant: bind to a grouped tool explicitly.
         load_fixture("tools_grouped.yaml")
@@ -310,7 +310,7 @@ class TestKeyIntegration:
         from mcc.app import execute
         from mcc.auth import create_user, remove_tool
         from mcc.loader import loader
-        from mcc.middleware import current_user_var
+        from mcc.context import current_user_var
 
         load_fixture("tools_grouped.yaml")
         await loader.save()

@@ -8,8 +8,8 @@ from rich import print as pretty_print
 from mcc.auth import get_user_by_username
 from mcc.auth.models import UserModel
 from mcc.cli import console, err
+from mcc.context import current_user_var
 from mcc.loader import loader
-from mcc.middleware import current_user_var
 
 _CLI_USER = UserModel(username="cli", groups=["admin"])
 

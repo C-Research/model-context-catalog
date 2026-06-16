@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from dotenv import dotenv_values
 
+from mcc.context import current_user_var, user_env
 from mcc.settings import logger, settings
 from mcc.template import jinja_env
 
@@ -160,15 +161,23 @@ async def _apply_transform(
 def _proc_extra(
     preexec_fn: Callable | None,
     cwd: str | None,
-    merged_env: dict[str, str] | None,
+    base_env: dict[str, str] | None,
 ) -> dict[str, Any]:
+    """Assemble create_subprocess_* kwargs, merging the current caller's identity
+    into env last (highest precedence, so a tool's own env cannot spoof it).
+
+    Call this per spawn, not at build time: it reads current_user_var so the env
+    reflects the caller of *this* invocation. The expensive pieces (preexec_fn,
+    base_env) are built once and passed in. Anonymous requests add no identity.
+    """
     extra: dict[str, Any] = {}
     if preexec_fn is not None:
         extra["preexec_fn"] = preexec_fn
     if cwd is not None:
         extra["cwd"] = cwd
-    if merged_env is not None:
-        extra["env"] = merged_env
+    ctx_env = user_env(current_user_var.get(None))
+    if base_env is not None or ctx_env:
+        extra["env"] = {**(base_env or {}), **ctx_env}
     return extra
 
 
@@ -204,9 +213,8 @@ def make_exec_callable(
     transform: str | None = None,
 ) -> Callable:
     """Generate an async closure that runs cmd as a subprocess."""
-    extra = _proc_extra(
-        _build_preexec_fn(limits or {}), cwd, _build_env(env, env_file, env_passthrough)
-    )
+    preexec_fn = _build_preexec_fn(limits or {})
+    base_env = _build_env(env, env_file, env_passthrough)
     template = jinja_env.from_string(cmd)
 
     async def _spawn(**kwargs: Any):
@@ -217,7 +225,7 @@ def make_exec_callable(
             stdin=asyncio.subprocess.PIPE if use_stdin else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            **extra,
+            **_proc_extra(preexec_fn, cwd, base_env),
         )
         return proc, (json.dumps(kwargs).encode() if use_stdin else None)
 
@@ -237,11 +245,8 @@ def make_py_callable(
     """Generate an async closure that runs fn_path in a separate Python interpreter."""
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
     effective_cwd = cwd if cwd else os.getcwd()
-    extra = _proc_extra(
-        _build_preexec_fn(limits or {}),
-        effective_cwd,
-        _build_pyrunner_env(env, env_file, env_passthrough, effective_cwd),
-    )
+    preexec_fn = _build_preexec_fn(limits or {})
+    base_env = _build_pyrunner_env(env, env_file, env_passthrough, effective_cwd)
 
     async def _spawn(**kwargs: Any):
         logger.info("py_exec: %s | %s %s", json.dumps(kwargs), python, fn_path)
@@ -253,7 +258,7 @@ def make_py_callable(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            **extra,
+            **_proc_extra(preexec_fn, effective_cwd, base_env),
         )
         return proc, json.dumps(kwargs).encode()
 

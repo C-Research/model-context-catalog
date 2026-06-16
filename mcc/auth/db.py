@@ -3,7 +3,13 @@ from typing import Optional
 from elasticsearch import NotFoundError
 
 from mcc.auth.models import UserModel
+from mcc.cache import cache
 from mcc.db import UsersIndex
+
+
+async def _invalidate_whoami(username: str) -> None:
+    """Drop the cached whoami response for a user after their perms change."""
+    await cache.delete(f"whoami:{username}")
 
 
 async def create_user(
@@ -22,6 +28,7 @@ async def create_user(
             username=username, email=email, groups=groups or [], tools=tools or []
         )
         await idx.put(username, user.model_dump())
+    await _invalidate_whoami(username)
 
 
 async def delete_user(username: str) -> None:
@@ -31,6 +38,7 @@ async def delete_user(username: str) -> None:
             await idx.delete(username)
         except NotFoundError:
             raise ValueError(f"User '{username}' not found")
+    await _invalidate_whoami(username)
 
 
 async def list_users() -> list[UserModel]:
@@ -54,6 +62,7 @@ async def get_user_by_email(email: str) -> Optional[UserModel]:
 async def _update_user(username: str, user: UserModel) -> None:
     async with UsersIndex() as idx:
         await idx.put(username, user.model_dump())
+    await _invalidate_whoami(username)
 
 
 async def add_group(username: str, group: str) -> None:

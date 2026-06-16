@@ -3,11 +3,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import BaseModel
 
-from mcc.app import describe_tools, execute, search
+from mcc.app import describe_tools, execute, search, whoami
 from mcc.auth.models import UserModel
 from mcc.cache import cache, params_hash
 from mcc.loader import loader
-from mcc.middleware import current_user_var
+from mcc.context import current_user_var
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
     CancelledElicitation,
@@ -167,6 +167,129 @@ class TestDescribeTools:
         load_fixture("tools_no_description.yaml")
         result = await describe_tools()
         assert "## doc_tool" in result
+
+
+class TestWhoami:
+    @pytest.mark.smoke
+    async def test_anonymous(self):
+        current_user_var.set(None)
+        result = await whoami()
+        assert result.startswith("Not authenticated")
+
+    async def test_tools_resolved_from_groups(self, load_fixture):
+        # multigroup catalog: a.b.multi_ab (groups a,b), a.single_a (a), b.single_b (b)
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="alice", groups=["a"]))
+        try:
+            result = await whoami()
+            assert "username: alice" in result
+            assert "groups: a" in result
+            # exhaustive: every tool reachable via group a, none from b-only
+            assert "a.b.multi_ab" in result
+            assert "a.single_a" in result
+            assert "b.single_b" not in result
+        finally:
+            current_user_var.set(None)
+
+    async def test_tools_union_of_groups_and_direct_grants(self, load_fixture):
+        # In group b (→ a.b.multi_ab, b.single_b) plus a direct grant to a.single_a.
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(
+            UserModel(username="bob", groups=["b"], tools=["a.single_a"])
+        )
+        try:
+            result = await whoami()
+            assert "a.b.multi_ab" in result  # via group b
+            assert "b.single_b" in result  # via group b
+            assert "a.single_a" in result  # via direct grant
+        finally:
+            current_user_var.set(None)
+
+    async def test_admin_sees_all_tools(self, load_fixture):
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="root", groups=["admin"]))
+        try:
+            result = await whoami()
+            assert "a.b.multi_ab" in result
+            assert "a.single_a" in result
+            assert "b.single_b" in result
+        finally:
+            current_user_var.set(None)
+
+    async def test_no_accessible_tools_shows_none(self, load_fixture):
+        # User in an unrelated group with no public tools loaded → tools: (none).
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="nobody", groups=["unrelated"]))
+        try:
+            result = await whoami()
+            assert "username: nobody" in result
+            assert "tools: (none)" in result
+        finally:
+            current_user_var.set(None)
+
+    async def test_no_email_or_groups_shows_none(self, load_fixture):
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="loner"))
+        try:
+            result = await whoami()
+            assert "email: (none)" in result
+            assert "groups: (none)" in result
+            assert "tools: (none)" in result
+        finally:
+            current_user_var.set(None)
+
+
+class TestWhoamiCache:
+    async def test_second_call_uses_cache(self, load_fixture):
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="alice", groups=["a"]))
+        try:
+            result1 = await whoami()
+            assert "a.single_a" in result1
+            # Overwrite the cache entry — a cache hit returns the sentinel verbatim.
+            await cache.set("whoami:alice", "SENTINEL", expire=60)
+            result2 = await whoami()
+            assert result2 == "SENTINEL"
+        finally:
+            current_user_var.set(None)
+
+    async def test_reload_invalidates_cache(self, load_fixture):
+        from pathlib import Path
+
+        fixture_path = str(Path(__file__).parent / "fixtures" / "tools_multigroup.yaml")
+        load_fixture("tools_multigroup.yaml")
+        loader.paths = {fixture_path}
+        await loader.save()
+        current_user_var.set(UserModel(username="alice", groups=["a"]))
+        try:
+            # Prime the cache with a sentinel; served from cache while valid.
+            await cache.set("whoami:alice", "SENTINEL", expire=60)
+            assert await whoami() == "SENTINEL"
+            # reload busts whoami:* → real result is recomputed from the catalog.
+            await loader.reload()
+            result = await whoami()
+            assert result != "SENTINEL"
+            assert "a.single_a" in result
+        finally:
+            current_user_var.set(None)
+
+    async def test_user_modification_invalidates_cache(self, users_idx, load_fixture):
+        from mcc.auth.db import add_tool, create_user
+
+        load_fixture("tools_multigroup.yaml")
+        await create_user("carol", groups=["a"])
+        current_user_var.set(UserModel(username="carol", groups=["a"]))
+        try:
+            # Prime cache with a sentinel; a hit would return it verbatim.
+            await cache.set("whoami:carol", "SENTINEL", expire=60)
+            assert await whoami() == "SENTINEL"
+            # Granting a tool must drop the cached entry → no longer the sentinel.
+            await add_tool("carol", "b.single_b")
+            result = await whoami()
+            assert result != "SENTINEL"
+            assert "username: carol" in result
+        finally:
+            current_user_var.set(None)
 
 
 class TestExecuteCache:

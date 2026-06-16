@@ -14,9 +14,10 @@ from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
 from mcc.auth.backend import get_provider
-from mcc.cache import _MISS, cache, params_hash
+from mcc.cache import cache, get_or_miss, params_hash
 from mcc.loader import loader
-from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
+from mcc.context import current_user_var
+from mcc.middleware import AuthMiddleware, LoggingMiddleware
 from mcc.settings import logger, settings
 
 
@@ -125,8 +126,8 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         return "Unauthorized"
     cache_key = f"exec:{tool.key}:{params_hash(params)}" if tool.cache_ttl else None
     if cache_key:
-        cached = await cache.get(cache_key, default=_MISS)
-        if cached is not _MISS:
+        cached, missed = await get_or_miss(cache_key)
+        if not missed:
             return cached
     _ELICITABLE = {"str", "int", "float", "bool"}
     missing = [
@@ -165,6 +166,51 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         return result
     except ValidationError as e:
         return f"Validation error for tool '{key}': {e}"
+
+
+@mcp.tool()
+async def whoami() -> str:
+    """Return the identity of the currently authenticated user.
+
+    Resolves the caller's auth session (validated in this process — no token or
+    secret is ever returned) to their catalog identity: username, email, the
+    groups they belong to, and the tools they can execute.
+
+    Use this to confirm who you are authenticated as and which groups/tools
+    gate your access before searching or executing tools.
+    Groups are the groups the user is in; membership grants access to every tool
+    in those groups.
+    Tools is the exhaustive list of tool keys the user can execute — the union of
+    tools granted directly and all tools reachable through their group memberships.
+
+    Returns a human-readable summary, or a notice if the request is unauthenticated.
+    """
+    user = current_user_var.get(None)
+    if user is None:
+        return "Not authenticated: no user is associated with this session."
+
+    # Cache keyed on username. Invalidated on loader.reload() (the accessible-tool
+    # set depends on the catalog) and on any modification to the user (mcc.auth.db).
+    # Reuses search_ttl since both cache catalog-derived results.
+    search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
+    cache_key = f"whoami:{user.username}" if search_ttl else None
+    if cache_key:
+        cached, missed = await get_or_miss(cache_key)
+        if not missed:
+            return cached
+
+    accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
+    lines = [
+        f"username: {user.username}",
+        f"email: {user.email or '(none)'}",
+        f"groups: {', '.join(user.groups) if user.groups else '(none)'}",
+        f"tools: {', '.join(accessible) if accessible else '(none)'}",
+    ]
+    result = "\n".join(lines)
+
+    if cache_key:
+        await cache.set(cache_key, result, expire=search_ttl)
+    return result
 
 
 @mcp.tool()

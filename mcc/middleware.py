@@ -1,12 +1,10 @@
 import time
-from contextvars import ContextVar
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from mcc.auth import get_current_user
+from mcc.context import current_user_var
 from mcc.settings import logger
-
-current_user_var: ContextVar = ContextVar("current_user", default=None)
 
 
 class AuthMiddleware(Middleware):

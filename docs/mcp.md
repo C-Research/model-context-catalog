@@ -4,7 +4,7 @@ icon: lucide/plug
 
 # MCP Interface
 
-MCC exposes two tools to LLM clients — `search` and `execute` — plus a set of resources and prompts for catalog browsing and guided workflows.
+MCC exposes a small, fixed set of tools to LLM clients. The two core tools are `search` and `execute` — the catalog interface the model uses to discover and run tools. Two auxiliary tools round it out: `describe_tools` for lightweight catalog browsing and `whoami` for confirming the caller's identity and access. A set of resources and prompts supports guided workflows.
 
 ## search
 
@@ -94,3 +94,29 @@ Run a shell command and return its output.
 ## public.request
 Make an HTTP request and return the response.
 ```
+
+## whoami
+
+```
+whoami()
+```
+
+Returns the identity of the currently authenticated user, resolved from the request's auth session in the server process — **no token or secret is ever returned**. Use it to confirm who you are authenticated as and which groups and tools gate your access before searching or executing tools.
+
+Takes no parameters. Returns a human-readable summary, or `Not authenticated: no user is associated with this session.` for an unauthenticated request:
+
+```
+username: alice
+email: alice@example.com
+groups: admin, osint
+tools: admin.shell, osint.whois, public.request
+```
+
+| Field | Description |
+|-------|-------------|
+| `username` | The resolved username. |
+| `email` | The user's email, or `(none)`. |
+| `groups` | Groups the user belongs to; membership grants access to every tool in those groups. `(none)` if the user is in no groups. |
+| `tools` | The **exhaustive** list of tool keys the user can execute — the union of tools granted directly and all tools reachable through their group memberships. `(none)` if no tools are accessible. |
+
+Responses are cached per user and invalidated automatically on catalog reload (`mcc tool` changes) and on any change to the user's permissions (`mcc user` group/tool edits).

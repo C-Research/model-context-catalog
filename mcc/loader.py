@@ -11,7 +11,7 @@ from typing import Optional, cast
 
 from envyaml import EnvYAML
 
-from mcc.cache import _MISS, cache, params_hash
+from mcc.cache import cache, get_or_miss, params_hash
 from mcc.db import ToolIndex
 from mcc.exec import _build_pyrunner_env
 from mcc.models import ToolModel
@@ -194,6 +194,7 @@ class Loader(dict):
         await self.save()
 
         await cache.delete_match("search:*")
+        await cache.delete_match("whoami:*")
         logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
@@ -206,8 +207,8 @@ class Loader(dict):
             else None
         )
         if cache_key:
-            cached = await cache.get(cache_key, default=_MISS)
-            if cached is not _MISS:
+            cached, missed = await get_or_miss(cache_key)
+            if not missed:
                 hits = cast(list[tuple[str, float]], cached)
                 return [(self[k], score) for k, score in hits if k in self]
 

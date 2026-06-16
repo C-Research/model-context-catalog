@@ -5,8 +5,9 @@ import pytest
 
 from mcc.app import debug_error, explain_tool, find_and_run
 from mcc.auth.models import UserModel
+from mcc.context import current_user_var
 from mcc.loader import loader
-from mcc.middleware import AuthMiddleware, LoggingMiddleware, current_user_var
+from mcc.middleware import AuthMiddleware, LoggingMiddleware
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

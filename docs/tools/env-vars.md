@@ -10,6 +10,7 @@ There are two separate ways environment variables interact with MCC tools, and t
 |-----------|-------|------|---------|
 | YAML substitution | `${VAR}` / `$VAR` | Load time | Embed server config into YAML values |
 | Subprocess environment | `env:`, `env_file:`, `env_passthrough:` | Call time | Control what the subprocess sees at runtime |
+| Caller identity | `MCC_CTX_*` *(injected)* | Call time | Propagate the authenticated user into the subprocess |
 
 They are independent and can be combined. The sections below cover each in detail.
 
@@ -107,7 +108,7 @@ Controls how much of the parent process environment the subprocess inherits as a
 | `[ "GLOB", ... ]` | The env floor, plus parent variables whose names match any glob |
 | `true` | A full copy of the current environment |
 
-In all cases, `env_file:` is overlaid next and `env:` last (highest precedence).
+In all cases, `env_file:` is overlaid next and `env:` after that. The injected [`MCC_CTX_*` identity vars](#caller-identity-mcc_ctx) are applied **last** of all, so a tool's own `env:` can never spoof the caller.
 
 **`false` (default) — floor only.** The subprocess receives the env floor (`PATH`, `HOME`, etc.) plus whatever you explicitly declare. No secrets leak in:
 
@@ -155,6 +156,64 @@ PATH  HOME  USER  LOGNAME  TMPDIR  LANG  LC_ALL  TZ  TERM  SHELL
 ```
 
 The floor contains no secrets. It is what lets `exec:`/`curl:` tools find binaries (`PATH`) and `fn:` tools import normally under default-deny. Configure it deployment-wide via `env_floor:` in settings (or `MCC_ENV_FLOOR`); there is no per-tool override and no way to drop below it.
+
+---
+
+## Caller identity (`MCC_CTX_*`)
+
+When an authenticated user invokes a tool, MCC injects the caller's identity into the subprocess environment as a set of `MCC_CTX_*` variables. This lets a tool know *who* is calling it — for per-user behavior, audit logging, or scoping downstream requests — without the tool ever seeing the auth token.
+
+These variables are set automatically on every `fn:` and `exec:` tool. There is nothing to declare in YAML.
+
+| Variable | Value | Set when |
+|----------|-------|----------|
+| `MCC_CTX_USER` | The caller's username | Always (authenticated requests) |
+| `MCC_CTX_EMAIL` | The caller's email | The user has an email |
+| `MCC_CTX_GROUPS` | Comma-separated group names | The user is in at least one group |
+| `MCC_CTX_TOOLS` | Comma-separated tool keys granted **directly** to the user | The user has direct tool grants |
+
+For a user `alice` in groups `admin` and `osint`, the subprocess sees:
+
+```
+MCC_CTX_USER=alice
+MCC_CTX_EMAIL=alice@example.com
+MCC_CTX_GROUPS=admin,osint
+MCC_CTX_TOOLS=infosec.nmap_scan
+```
+
+### Reading the context
+
+In a `fn:` (Python) tool:
+
+```python
+import os
+
+def report():
+    user = os.environ.get("MCC_CTX_USER")
+    groups = os.environ.get("MCC_CTX_GROUPS", "").split(",") if os.environ.get("MCC_CTX_GROUPS") else []
+    ...
+```
+
+In an `exec:` (shell) tool:
+
+```yaml
+tools:
+  - name: whoami_echo
+    exec: |
+      echo "called by $MCC_CTX_USER"
+      IFS=, read -ra GROUPS <<< "$MCC_CTX_GROUPS"
+```
+
+### Semantics
+
+- **Anonymous requests inject nothing.** If no user is authenticated, none of the `MCC_CTX_*` variables are set — so an absent `MCC_CTX_USER` means the call is unauthenticated. This also lets a tool distinguish "no groups" (variable absent) from any particular value.
+- **Empty fields are omitted, never blank.** A user with no email or no groups simply has no `MCC_CTX_EMAIL` / `MCC_CTX_GROUPS` variable, rather than one set to the empty string.
+- **`MCC_CTX_TOOLS` is direct grants only.** It lists tools granted directly to the user, not the exhaustive set the user can reach. Indirect access is derivable from `MCC_CTX_GROUPS` (group membership grants every tool in those groups).
+- **Identity wins over `env:`.** The `MCC_CTX_*` variables are merged **last** — after `env_passthrough`, `env_file:`, and `env:` — so a tool definition cannot override or spoof the caller's identity by declaring its own `MCC_CTX_USER`.
+- **No secrets.** Only the identity above is propagated. The auth token is never exposed to the subprocess.
+
+!!! note "Naming"
+    The prefix is `MCC_CTX_` (not bare `MCC_`) to keep caller identity out of the `MCC_`-prefixed [settings namespace](../getting-started/configuration.md), which is read by dynaconf.
 
 ---
 
