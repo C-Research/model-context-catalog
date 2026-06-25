@@ -1,3 +1,4 @@
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -42,7 +43,7 @@ def move(source: str, destination: str) -> str:
     source_path = Path(source)
     if not source_path.exists():
         raise FileNotFoundError(f"Path {source_path} not found")
-    return str(source_path.move(destination))
+    return str(shutil.move(str(source_path), destination))
 
 
 def stat(path: str) -> dict:

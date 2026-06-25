@@ -43,32 +43,28 @@ async def get_current_user() -> Optional[UserModel]:
         token = await get_user_context()
     except Exception as exc:
         logger.warning("Error getting user context: %s", exc)
-        return
+        return None
     if token is None:
         logger.warning("No token returned from auth backend")
-        return
+        return None
     if isinstance(token, UserModel):
         logger.debug("resolved user directly from token: %s", token.username)
         return token
     claims: dict = getattr(token, "claims", {}) or {}
     try:
-        email = claims.get("email") or None
-        if email:
-            user = await get_user_by_email(email)
-            if user:
+        if email := claims.get("email"):
+            if user := await get_user_by_email(email):
                 logger.debug("resolved user by email: %s", user.username)
                 return user
-        login = claims.get("login") or None
-        if login:
-            user = await get_user_by_username(login)
-            if user:
+        if login := claims.get("login"):
+            if user := await get_user_by_username(login):
                 logger.debug("resolved user by login: %s", user.username)
-            return user
+                return user
     except Exception as e:
         logger.warning(
             "User store unavailable, treating request as unauthenticated: %s", e
         )
-    return
+    return None
 
 
 async def list_tools(text: bool = False) -> dict | str:

@@ -65,43 +65,48 @@ async def _update_user(username: str, user: UserModel) -> None:
     await _invalidate_whoami(username)
 
 
-async def add_group(username: str, group: str) -> None:
-    """adds a user to a group"""
+async def _modify_user_list(
+    username: str, field: str, value: str, *, add: bool
+) -> None:
+    """Add or remove a value from a user's list field ('groups' or 'tools').
+
+    Adds are idempotent (a no-op if already present); removes raise ValueError
+    if the value is absent. Persists and invalidates the whoami cache on change.
+    """
     user = await get_user_by_username(username)
     if user is None:
         raise ValueError(f"User '{username}' not found")
-    if group not in user.groups:
-        user.groups = user.groups + [group]
-        await _update_user(username, user)
+    current: list[str] = getattr(user, field)
+    if add:
+        if value in current:
+            return
+        setattr(user, field, current + [value])
+    else:
+        if value not in current:
+            if field == "groups":
+                raise ValueError(
+                    f"User '{username}' is not a member of group '{value}'"
+                )
+            raise ValueError(f"User '{username}' does not have tool '{value}'")
+        setattr(user, field, [v for v in current if v != value])
+    await _update_user(username, user)
+
+
+async def add_group(username: str, group: str) -> None:
+    """adds a user to a group"""
+    await _modify_user_list(username, "groups", group, add=True)
 
 
 async def remove_group(username: str, group: str) -> None:
     """removes a user from a group"""
-    user = await get_user_by_username(username)
-    if user is None:
-        raise ValueError(f"User '{username}' not found")
-    if group not in user.groups:
-        raise ValueError(f"User '{username}' is not a member of group '{group}'")
-    user.groups = [g for g in user.groups if g != group]
-    await _update_user(username, user)
+    await _modify_user_list(username, "groups", group, add=False)
 
 
 async def add_tool(username: str, tool: str) -> None:
     """adds a tool permission to the user"""
-    user = await get_user_by_username(username)
-    if user is None:
-        raise ValueError(f"User '{username}' not found")
-    if tool not in user.tools:
-        user.tools = user.tools + [tool]
-        await _update_user(username, user)
+    await _modify_user_list(username, "tools", tool, add=True)
 
 
 async def remove_tool(username: str, tool: str) -> None:
     """removes a tool permission from the user"""
-    user = await get_user_by_username(username)
-    if user is None:
-        raise ValueError(f"User '{username}' not found")
-    if tool not in user.tools:
-        raise ValueError(f"User '{username}' does not have tool '{tool}'")
-    user.tools = [t for t in user.tools if t != tool]
-    await _update_user(username, user)
+    await _modify_user_list(username, "tools", tool, add=False)

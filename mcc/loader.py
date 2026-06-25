@@ -11,7 +11,7 @@ from typing import Optional, cast
 
 from envyaml import EnvYAML
 
-from mcc.cache import cache, get_or_miss, params_hash
+from mcc.cache import cache, cached, params_hash
 from mcc.db import ToolIndex
 from mcc.exec import _build_pyrunner_env
 from mcc.models import ToolModel
@@ -206,17 +206,14 @@ class Loader(dict):
             if search_ttl
             else None
         )
-        if cache_key:
-            cached, missed = await get_or_miss(cache_key)
-            if not missed:
-                hits = cast(list[tuple[str, float]], cached)
-                return [(self[k], score) for k, score in hits if k in self]
 
-        async with ToolIndex() as idx:
-            hits = await idx.query(query, min_score)
+        async def _query() -> list[tuple[str, float]]:
+            async with ToolIndex() as idx:
+                return await idx.query(query, min_score)
 
-        if cache_key:
-            await cache.set(cache_key, hits, expire=search_ttl)
+        hits = cast(
+            list[tuple[str, float]], await cached(cache_key, _query, search_ttl)
+        )
         return [(self[k], score) for k, score in hits if k in self]
 
     def list_all(self):

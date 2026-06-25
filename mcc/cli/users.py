@@ -22,6 +22,24 @@ def user():
     """Manage users and their permissions."""
 
 
+def _apply_perms(username, groups, tools, group_fn, tool_fn):
+    """Apply a group/tool change to a user via the given add/remove functions.
+
+    Requires at least one group or tool; err() exits on validation failure or
+    any ValueError raised by the underlying operations.
+    """
+    if not groups and not tools:
+        err("at least one `--group` or `--tool` is required.")
+    try:
+        for g in groups:
+            arun(group_fn(username, g))
+        for t in tools:
+            arun(tool_fn(username, t))
+    except ValueError as e:
+        err(e)
+    console.print("Permissions updated.")
+
+
 @user.command("add")
 @click.option("-u", "--username", required=True, help="GitHub username (login handle)")
 @click.option("-e", "--email", default=None, help="User's email address")
@@ -87,16 +105,7 @@ def user_remove(username):
 @click.option("-t", "--tool", "tools", multiple=True, help="Tool to grant")
 def user_grant(username, groups, tools):
     """Grant groups and/or tools to a user."""
-    if not groups and not tools:
-        err("at least one `--group` or `--tool` is required.")
-    try:
-        for g in groups:
-            arun(add_group(username, g))
-        for t in tools:
-            arun(add_tool(username, t))
-    except ValueError as e:
-        err(e)
-    console.print("Permissions updated.")
+    _apply_perms(username, groups, tools, add_group, add_tool)
 
 
 @user.command("revoke")
@@ -105,16 +114,7 @@ def user_grant(username, groups, tools):
 @click.option("-t", "--tool", "tools", multiple=True, help="Tool to revoke")
 def user_revoke(username, groups, tools):
     """Revoke groups and/or tools from a user."""
-    if not groups and not tools:
-        err("at least one `--group` or `--tool` is required.")
-    try:
-        for g in groups:
-            arun(remove_group(username, g))
-        for t in tools:
-            arun(remove_tool(username, t))
-    except ValueError as e:
-        err(e)
-    console.print("Permissions updated.")
+    _apply_perms(username, groups, tools, remove_group, remove_tool)
 
 
 @user.group("key")

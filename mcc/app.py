@@ -14,7 +14,7 @@ from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
 from mcc.auth.backend import get_provider
-from mcc.cache import cache, get_or_miss, params_hash
+from mcc.cache import cached, params_hash
 from mcc.loader import loader
 from mcc.context import current_user_var
 from mcc.middleware import AuthMiddleware, LoggingMiddleware
@@ -96,6 +96,55 @@ async def search(query: str, min_score: Optional[float] = None) -> str:
     return "\n\n".join(accessible)
 
 
+_ELICITABLE = {"str", "int", "float", "bool"}
+
+
+class _ElicitationCancelled(Exception):
+    """Raised when the caller declines or cancels elicitation of required params."""
+
+
+async def _elicit_missing(ctx: Context, key: str, tool, params: Optional[dict]) -> dict:
+    """Prompt the caller for any required, elicitable params not already supplied.
+
+    Returns the params dict to call the tool with (the originals merged with any
+    elicited values). Raises _ElicitationCancelled if the caller declines. If the
+    elicitation itself fails, logs and returns the originals unchanged so the
+    tool's own validation can surface the missing-param error.
+    """
+    missing = [
+        p
+        for p in tool.visible_params
+        if p.required and p.name not in (params or {}) and p.type in _ELICITABLE
+    ]
+    if not missing:
+        return params or {}
+    fields: dict = {
+        p.name: (p.py_type, Field(..., description=p.description)) for p in missing
+    }
+    MissingModel = create_model("MissingParams", **fields)
+    summary = ", ".join(f"{p.name} ({p.type})" for p in missing)
+    try:
+        result = await ctx.elicit(f"Tool '{key}' requires: {summary}", MissingModel)
+    except Exception as exc:
+        logger.warning("elicitation failed for %s: %s", key, exc)
+        return params or {}
+    if isinstance(result, AcceptedElicitation):
+        return {**(params or {}), **result.data.model_dump()}
+    if isinstance(result, (DeclinedElicitation, CancelledElicitation)):
+        raise _ElicitationCancelled
+    return params or {}
+
+
+def _coerce_result(result):
+    """fn tools return JSON-encoded strings via subprocess; parse for natural values."""
+    if isinstance(result, str):
+        try:
+            return json.loads(result)
+        except (json.JSONDecodeError, ValueError):
+            return result
+    return result
+
+
 @mcp.tool()
 async def execute(ctx: Context, key: str, params: Optional[dict] = None):
     """Execute a tool from the catalog by its exact key.
@@ -125,45 +174,17 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
     cache_key = f"exec:{tool.key}:{params_hash(params)}" if tool.cache_ttl else None
-    if cache_key:
-        cached, missed = await get_or_miss(cache_key)
-        if not missed:
-            return cached
-    _ELICITABLE = {"str", "int", "float", "bool"}
-    missing = [
-        p
-        for p in tool.visible_params
-        if p.required and p.name not in (params or {}) and p.type in _ELICITABLE
-    ]
-    if missing:
-        fields: dict = {
-            p.name: (p.py_type, Field(..., description=p.description)) for p in missing
-        }
-        MissingModel = create_model("MissingParams", **fields)
-        summary = ", ".join(f"{p.name} ({p.type})" for p in missing)
-        try:
-            result = await ctx.elicit(
-                f"Tool '{key}' requires: {summary}",
-                MissingModel,
-            )
-            if isinstance(result, AcceptedElicitation):
-                params = {**(params or {}), **result.data.model_dump()}
-            elif isinstance(result, (DeclinedElicitation, CancelledElicitation)):
-                return "Execution cancelled: required parameters not provided"
-        except Exception:
-            pass
+
+    async def _compute():
+        # Elicitation is gated behind the cache lookup (it runs only on a miss),
+        # so a cached result never re-prompts the caller.
+        merged = await _elicit_missing(ctx, key, tool, params)
+        return _coerce_result(await tool.call(**merged))
 
     try:
-        result = await tool.call(**params or {})
-        # fn tools return JSON-encoded strings via subprocess; parse for natural values
-        if isinstance(result, str):
-            try:
-                result = json.loads(result)
-            except (json.JSONDecodeError, ValueError):
-                pass
-        if cache_key:
-            await cache.set(cache_key, result, expire=tool.cache_ttl)
-        return result
+        return await cached(cache_key, _compute, tool.cache_ttl)
+    except _ElicitationCancelled:
+        return "Execution cancelled: required parameters not provided"
     except ValidationError as e:
         return f"Validation error for tool '{key}': {e}"
 
@@ -194,23 +215,18 @@ async def whoami() -> str:
     # Reuses search_ttl since both cache catalog-derived results.
     search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
     cache_key = f"whoami:{user.username}" if search_ttl else None
-    if cache_key:
-        cached, missed = await get_or_miss(cache_key)
-        if not missed:
-            return cached
 
-    accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
-    lines = [
-        f"username: {user.username}",
-        f"email: {user.email or '(none)'}",
-        f"groups: {', '.join(user.groups) if user.groups else '(none)'}",
-        f"tools: {', '.join(accessible) if accessible else '(none)'}",
-    ]
-    result = "\n".join(lines)
+    async def _summary() -> str:
+        accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
+        lines = [
+            f"username: {user.username}",
+            f"email: {user.email or '(none)'}",
+            f"groups: {', '.join(user.groups) if user.groups else '(none)'}",
+            f"tools: {', '.join(accessible) if accessible else '(none)'}",
+        ]
+        return "\n".join(lines)
 
-    if cache_key:
-        await cache.set(cache_key, result, expire=search_ttl)
-    return result
+    return await cached(cache_key, _summary, search_ttl)
 
 
 @mcp.tool()

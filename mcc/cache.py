@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from cashews import cache
 
@@ -19,14 +19,25 @@ def params_hash(params: dict | None) -> str:
     return hashlib.sha256(serialized.encode()).hexdigest()[:16]
 
 
-async def get_or_miss(key: str) -> tuple[Any, bool]:
-    """Fetch a cached value, distinguishing a stored value from a cache miss.
+async def cached(
+    key: str | None, compute: Callable[[], Awaitable[Any]], expire: int | None
+) -> Any:
+    """Return the cached value for key, else compute it and store it under key.
 
-    Returns (value, missed): on a hit, (cached_value, False); on a miss,
-    (None, True). This avoids ambiguity when the cached value is itself falsy
-    (e.g. None, "", 0), which a plain default-based get() cannot disambiguate.
+    On a hit, returns the stored value without calling compute. On a miss,
+    awaits compute(), stores the result with the given expiry, and returns it.
+    When key is None (caching disabled) compute() is awaited directly with no
+    cache I/O.
+
+    Hits are distinguished from misses with a sentinel default rather than a
+    falsy check, so a cached value that is itself falsy (None, "", 0) is still
+    returned from the cache instead of triggering recomputation.
     """
-    cached = await cache.get(key, default=_MISS)
-    if cached is _MISS:
-        return None, True
-    return cached, False
+    if key is None:
+        return await compute()
+    value = await cache.get(key, default=_MISS)
+    if value is not _MISS:
+        return value
+    value = await compute()
+    await cache.set(key, value, expire=expire)
+    return value
