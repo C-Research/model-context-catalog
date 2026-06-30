@@ -24,7 +24,7 @@ def tool():
 def tool_list(long):
     """List all registered tools."""
     if long:
-        console.print(loader.list_all())
+        console.print(asyncio.run(loader.list_all()))
         return
     for key in sorted(loader):
         console.print(key)

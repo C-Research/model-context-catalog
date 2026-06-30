@@ -36,7 +36,9 @@ tools:
     groups: *tools
     example: 'remove_tool(username="alice", tool="infosec.nmap_scan")'
 
-  - fn: mcc.loader:loader.reload
-    groups: *loader
+  # loader.reload is intentionally NOT exposed as a tool: tools run in isolated
+  # subprocesses (MCC_SKIP_AUTOLOAD=1) where the loader is empty and self.paths
+  # is unset, so reload() would drop the ES index and re-index nothing — wiping
+  # the catalog. Reload from the server/CLI instead.
   - fn: mcc.loader:loader.list_all
     groups: *loader

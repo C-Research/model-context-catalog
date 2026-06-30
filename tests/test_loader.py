@@ -28,9 +28,10 @@ class TestLoadFile:
         assert tools[0].name == "echo"
         assert tools[0].groups == ["example"]
 
-    def test_rejects_missing_tools_key(self):
-        with pytest.raises(ValueError, match="expected a dict with a 'tools' key"):
-            load_file(FIXTURES / "tools_missing_key.yaml")
+    def test_skips_missing_tools_key(self):
+        # A YAML file without a 'tools' key is not a tool file; load_file warns
+        # and returns [] so directory loads don't crash on stray YAML.
+        assert load_file(FIXTURES / "tools_missing_key.yaml") == []
 
     def test_rejects_missing_file(self):
         with pytest.raises(ValueError, match="not found"):

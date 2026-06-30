@@ -215,8 +215,14 @@ class Loader(dict):
         )
         return [(self[k], score) for k, score in hits if k in self]
 
-    def list_all(self):
-        return "\n\n".join([self[key].signature for key in sorted(self)])
+    async def list_all(self):
+        """Return every tool's signature, read from Elasticsearch.
+
+        Reads from ES rather than the in-memory dict so this works when invoked
+        as an fn-tool: exec subprocesses run with MCC_SKIP_AUTOLOAD=1, leaving
+        the in-process loader empty."""
+        async with ToolIndex() as idx:
+            return "\n\n".join(await idx.signatures())
 
 
 loader = Loader()

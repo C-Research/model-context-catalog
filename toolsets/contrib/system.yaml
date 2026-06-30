@@ -1,6 +1,9 @@
 groups: [ admin, system ]
 tools:
   - fn: toolsets.contrib.system:get_env
+    # get_env reads arbitrary env vars by key; without full passthrough the
+    # subprocess only sees the env floor, defeating the tool's purpose.
+    env_passthrough: true
     example: "get_env(keys=[\"PATH\", \"HOME\", \"USER\"])"
   - fn: toolsets.contrib.system:list_env
   - fn: toolsets.contrib.system:info

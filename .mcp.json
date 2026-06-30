@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "mcc": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcc",
+        "mcp",
+        "serve",
+        "--transport",
+        "stdio"
+      ],
+      "type": "stdio"
+    }
+  }
+}

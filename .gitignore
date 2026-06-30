@@ -18,3 +18,5 @@ settings.local.yaml
 elastic-start-local/
 /site
 .DS_Store
+# Added by code-review-graph
+.code-review-graph/
