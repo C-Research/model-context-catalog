@@ -88,9 +88,8 @@ def load_file(path: str | Path) -> list[ToolModel]:
         raise ValueError(f"Tool file {path} not found")
     tool = EnvYAML(path, strict=False)
     if "tools" not in tool:
-        raise ValueError(
-            f"{path}: expected a dict with a 'tools' key, got {type(tool).__name__}"
-        )
+        logger.warning("%s: skipping, not a tool file (no 'tools' key)", path)
+        return []
     parent_groups: list[str] = tool.get("groups", [])  # type: ignore[assignment]  # EnvYAML stubs return Unknown|None regardless of default
     entries: list[dict] = list(tool.get("tools", []))  # type: ignore[arg-type]  # EnvYAML stubs return Unknown|None regardless of default
 
