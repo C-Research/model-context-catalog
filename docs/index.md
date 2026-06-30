@@ -12,7 +12,7 @@ MCC is written in Python FastMCP and uses Elastic Search for a data store and fa
 
 ![mcc_architecture_diagram](mcc_architecture_diagram.svg)
 
-The MCP client uses just two tools:
+The MCP client uses just two primary tools:
 
 - **`search(query)`** — finds tools by natural language (hybrid keyword + semantic search), returns signatures with relevance scores
 - **`execute(key, params)`** — runs a tool by key, validates params, checks permissions
