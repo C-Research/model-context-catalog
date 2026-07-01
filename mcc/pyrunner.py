@@ -153,8 +153,14 @@ def introspect(*fn_paths: str) -> list[dict]:
 
 
 @json_handler
-def execute(fn_path: str) -> str:
-    """Read JSON kwargs from stdin, call the function, print JSON result to stdout.
+def execute(fn_path: str) -> list:
+    """Read JSON kwargs from stdin, call the function, print the [result, context]
+    envelope as JSON to stdout.
+
+    The envelope's first element is the function's return value (returned to the LLM
+    unchanged). The second element is the (possibly mutated) context dict when the
+    callable declared a `context` param — the server writes it back into session
+    state — or null when the callable took no context, meaning "do not modify state".
 
     Side-effect stdout from resolve or the function body is suppressed.
     """
@@ -162,11 +168,16 @@ def execute(fn_path: str) -> str:
     kwargs = json.loads(sys.stdin.read())
     # Inject the context dict only when the callable declares a `context` param.
     # mcc shadows that param from the tool schema, so it is never in kwargs.
-    if _CTX_PARAM in inspect.signature(fn).parameters:
+    took_ctx = _CTX_PARAM in inspect.signature(fn).parameters
+    if took_ctx:
         kwargs[_CTX_PARAM] = _load_context()
     if inspect.iscoroutinefunction(fn):
-        return asyncio.run(fn(**kwargs))
-    return fn(**kwargs)
+        result = asyncio.run(fn(**kwargs))
+    else:
+        result = fn(**kwargs)
+    # Full-replace write-back: re-emit the dict we injected (whatever the fn left in
+    # it). null when no context param → server leaves session state untouched.
+    return [result, kwargs[_CTX_PARAM] if took_ctx else None]
 
 
 if __name__ == "__main__":

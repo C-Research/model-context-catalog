@@ -15,6 +15,7 @@ from mcc.context import (
     ctx_expanded_env,
     current_context_var,
     current_user_var,
+    writeback_context_var,
 )
 from mcc.settings import logger, settings
 from mcc.template import jinja_env
@@ -203,18 +204,49 @@ def _proc_extra(
     return extra
 
 
+def _unwrap_fn_envelope(raw: str) -> str:
+    """Unwrap pyrunner's [result, context] stdout envelope for an fn tool.
+
+    Returns the JSON-encoded result (element 0) and stashes the returned context
+    (element 1) on writeback_context_var for app.execute to write back. Tolerant of
+    a malformed payload (like _load_context): if `raw` is not a 2-element JSON array,
+    it is passed through unchanged and no write-back is recorded.
+    """
+    try:
+        envelope = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return raw
+    if not (isinstance(envelope, list) and len(envelope) == 2):
+        return raw
+    result, context = envelope
+    if context is not None:
+        writeback_context_var.set(context)
+    return json.dumps(result)
+
+
 def _make_callable(
     limits: dict | None,
     transform: str | None,
     create_proc: Callable,
+    is_fn: bool = False,
 ) -> Callable:
-    """Wrap a proc-spawning coroutine into an MCC tool callable."""
+    """Wrap a proc-spawning coroutine into an MCC tool callable.
+
+    fn tools (is_fn=True) emit pyrunner's [result, context] envelope on stdout: it is
+    unwrapped to the bare result before transform/return, and the returned context is
+    stashed for write-back. exec tools emit their result directly (read-only, no
+    write-back).
+    """
     timeout = limits.get("timeout") if limits else None
     transform_template = jinja_env.from_string(transform) if transform else None
 
     async def _exec(**kwargs: Any) -> str | tuple[int, str, str]:
         proc, blob = await create_proc(**kwargs)
         result = await _communicate_and_return(proc, blob, timeout, limits)
+        # Only a success (str) carries the envelope; failure tuples pass through
+        # untouched, so no write-back is recorded on error.
+        if isinstance(result, str) and is_fn:
+            result = _unwrap_fn_envelope(result)
         if isinstance(result, str) and transform_template:
             result = await _apply_transform(
                 result, transform_template.render(**kwargs), timeout
@@ -284,4 +316,4 @@ def make_py_callable(
         )
         return proc, json.dumps(kwargs).encode()
 
-    return _make_callable(limits, transform, _spawn)
+    return _make_callable(limits, transform, _spawn, is_fn=True)

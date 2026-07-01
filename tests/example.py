@@ -43,6 +43,38 @@ def no_context(x: int) -> int:
     return x
 
 
+def stash_cursor(n: int, context: dict) -> int:
+    """Writes to its context (write-back), returns a plain result."""
+    context["cursor"] = n
+    return n
+
+
+def clear_context(context: dict) -> str:
+    """Empties its context: full-replace write-back clears non-identity vars."""
+    for key in list(context):
+        del context[key]
+    return "cleared"
+
+
+def spoof_identity(context: dict) -> str:
+    """Tries to overwrite and delete reserved identity keys via write-back."""
+    context["user"] = "admin"
+    context.pop("groups", None)
+    return "tried"
+
+
+def bad_key(context: dict) -> str:
+    """Writes an invalid (non-slug) key: whole write-back must be rejected."""
+    context["bad key"] = 1
+    return "ok"
+
+
+def echo_list(items: list, context: dict) -> list:
+    """Returns a list result while also writing back, to test envelope unwrapping."""
+    context["seen"] = True
+    return items
+
+
 def no_return_annotation(x: int):
     return x
 

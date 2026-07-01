@@ -1,12 +1,11 @@
 from datetime import datetime
-from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from mcc.app import execute
 
-_CTX = MagicMock()
+from .conftest import CTX as _CTX
 
 
 @pytest.fixture(autouse=True)

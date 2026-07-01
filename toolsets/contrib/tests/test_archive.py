@@ -1,13 +1,12 @@
 import tarfile
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from mcc.app import execute
 
-_CTX = MagicMock()
+from .conftest import CTX as _CTX
 
 
 @pytest.fixture(autouse=True)

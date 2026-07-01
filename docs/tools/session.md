@@ -18,10 +18,11 @@ It is "one var to rule them all": identity is just a set of reserved keys inside
         │   user, email, groups, tools   ← identity (RO) │
         │   <your vars> …                ← mutable       │
         └──────────────────────────────────────────────┘
-                 ▲ get_session / set_session
-                 │                       │ injected on every tool call
-              the LLM                    ▼
-                              fn: MCC_CTX  ·  exec: MCC_CTX_<NAME>
+             ▲                    │            ▲
+             │ get_session /      │ injected   │ fn: tools that declare
+             │ set_session        │ every call │ `context` write it back
+          the LLM                 ▼            │
+                     fn: MCC_CTX · exec: MCC_CTX_<NAME>
 ```
 
 ## Reserved identity keys
@@ -79,9 +80,56 @@ State is **ephemeral**: it is bounded by the session store's TTL (24 hours by de
 
 ## How the session reaches your tools
 
-When a tool runs, MCC injects the assembled session store (identity + your variables) into the tool's subprocess. The shape differs by tool kind:
+When a tool runs, MCC injects the assembled session store (identity + your variables) into the tool's subprocess. The transport differs by tool kind — both are delivered as [environment variables](env-vars.md#session-store-mcc_ctx).
 
-- **`fn:` (Python) tools** receive the whole dictionary as one JSON env var, `MCC_CTX`, and — if the callable declares a `context` parameter — as a typed `context` argument.
-- **`exec:` (shell) tools** receive each entry expanded into its own `MCC_CTX_<NAME>` environment variable.
+### `fn:` (Python) tools — the `context` argument
 
-The propagation rules, the injected `context` argument, and the anti-spoofing guarantees are documented in detail under [Environment Variables → Session store](env-vars.md#session-store-mcc_ctx).
+A `fn:` subprocess receives the whole store as the `MCC_CTX` env var (a JSON blob). More conveniently, **if your callable declares a parameter named `context`, MCC parses that blob and injects it as the argument** — with real types preserved (lists stay lists, numbers stay numbers). The `context` parameter is hidden from the tool's public signature: the LLM never sees it and is never prompted for it.
+
+```python
+def report(target: str, context: dict) -> dict:
+    # `target` is supplied by the caller; `context` is injected by MCC.
+    return {"target": target, "called_by": context["user"]}
+```
+
+A callable with no `context` parameter has nothing injected — the `MCC_CTX` blob is still in the environment for tools that prefer to read it directly.
+
+### `exec:` (shell) tools — `MCC_CTX_<NAME>`
+
+A shell tool can't take a Python argument, so each entry becomes its own env var, `MCC_CTX_<NAME>` (key uppercased). For `alice` in groups `admin`/`osint` who set `budget=1000`:
+
+```yaml
+tools:
+  - name: whoami_echo
+    exec: |
+      echo "called by $MCC_CTX_USER"     # alice
+      echo "groups json: $MCC_CTX_GROUPS"  # ["admin", "osint"]
+      echo "budget: $MCC_CTX_BUDGET"      # 1000
+```
+
+### Identity is unspoofable
+
+The injected store is applied **last**, after a tool's own `env:` — so a tool cannot shadow the caller by declaring its own `MCC_CTX_USER`. The identity keys are re-derived from the authenticated request on every call, so a stale or tampered stored value can never impersonate the caller or outlive a permission change. An unauthenticated call still carries `user="anonymous"`. The auth token is never exposed to the subprocess.
+
+## Writing session state from a tool
+
+A `fn:` (Python) tool that declares a `context` parameter can **persist** state, not just read it: whatever it leaves in the `context` dict when it returns replaces the caller's stored session variables. This lets a tool stash a value (a pagination cursor, an auth token obtained from a backend) directly, so a later tool reads it — without the value ever passing through the LLM.
+
+```python
+def paginate(cursor: int = 0, context: dict = None) -> list:
+    page, next_cursor = fetch(cursor)
+    context["cursor"] = next_cursor   # persisted for the next tool call
+    return page
+```
+
+Rules and guarantees:
+
+- **Mutate, don't rebind.** Change the dict in place (`context["x"] = 1`, `del context["x"]`). Reassigning the name (`context = {...}`) rebinds a local and is **not** observed.
+- **Full replace.** The returned dict fully replaces the caller's non-identity variables — deleting a key removes it from the store.
+- **Reserved keys are enforced.** A tool cannot set, alter, or delete `user`, `email`, `groups`, or `tools`; they are stripped from the write-back and re-derived from the authenticated caller. Spoofing is impossible.
+- **Invalid keys reject the whole write-back.** If the tool leaves a key that is not a valid slug (lowercase letters, digits, underscores; would break `MCC_CTX_<NAME>` for downstream tools), the entire write-back is rejected and logged. The tool's result is still returned to the LLM.
+- **`exec:` (shell) tools are read-only.** A subprocess cannot mutate its parent's environment, so shell tools receive session state but cannot write it back. Use a `fn:` tool if you need to persist state.
+
+!!! note "Two limitations to be aware of"
+    - **Concurrency:** concurrent tool calls in the same session both read-modify-write the store with no lock. Because write-back is a full replace, the last writer wins and can drop another call's keys.
+    - **Cached tools:** a tool with a `cache_ttl` only writes state on a cache **miss** (when its body actually runs); a cache hit returns the prior result without re-writing state.

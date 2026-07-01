@@ -18,12 +18,15 @@ from mcc import __version__
 from mcc.auth.backend import get_provider
 from mcc.cache import cached, params_hash
 from mcc.context import (
+    NO_WRITEBACK,
     RESERVED_KEYS,
     SLUG_RE,
     assemble_context,
     current_context_var,
     current_user_var,
+    sanitize_writeback,
     state_key,
+    writeback_context_var,
 )
 from mcc.db import _client_kwargs
 from mcc.loader import loader
@@ -166,6 +169,34 @@ def _coerce_result(result):
     return result
 
 
+async def _apply_writeback(ctx: Context, user) -> None:
+    """Persist an fn tool's returned context into session state (full replace).
+
+    Reads the context stashed on writeback_context_var by mcc.exec while unwrapping
+    the pyrunner envelope. NO_WRITEBACK (no fn write-back this call) is a no-op. The
+    returned dict is validated like set_session (reserved keys stripped and
+    re-derived, remaining keys slug-checked); an invalid key rejects the whole
+    write-back — the offending key is logged and the write skipped, never failing the
+    already-completed tool call.
+    """
+    returned = writeback_context_var.get()
+    if returned is NO_WRITEBACK:
+        return
+    try:
+        sanitized = sanitize_writeback(returned)
+    except ValueError as e:
+        bad_key = e.args[0]
+        logger.warning(
+            "execute: rejected context write-back for %s — invalid key %r "
+            "(must match %s); no session vars written",
+            user.username if user else "anonymous",
+            bad_key,
+            SLUG_RE.pattern,
+        )
+        return
+    await ctx.set_state(state_key(user), sanitized)
+
+
 @mcp.tool()
 async def execute(ctx: Context, key: str, params: Optional[dict] = None):
     """Execute a tool from the catalog by its exact key.
@@ -208,9 +239,16 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         # XXX: make sure this doesnt clobber the context from oauth providers
         merged = await _elicit_missing(ctx, key, tool, params)
         token = current_context_var.set(context)
+        wb_token = writeback_context_var.set(NO_WRITEBACK)
         try:
-            return _coerce_result(await tool.call(**merged))
+            result = _coerce_result(await tool.call(**merged))
+            # fn-tool context write-back: exec.py stashes the tool's returned context
+            # here. Runs only on a cache miss (inside _compute), so a cache hit never
+            # re-writes state. Guarded exactly like set_session before persisting.
+            await _apply_writeback(ctx, user)
+            return result
         finally:
+            writeback_context_var.reset(wb_token)
             current_context_var.reset(token)
 
     try:

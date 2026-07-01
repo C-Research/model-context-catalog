@@ -2,3 +2,21 @@ tools:
   - name: needs_context
     fn: tests.example.needs_context
     description: Returns its x arg plus the injected context dict
+  - name: stash_cursor
+    fn: tests.example.stash_cursor
+    description: Writes cursor to context, returns n
+  - name: clear_context
+    fn: tests.example.clear_context
+    description: Empties its context (full-replace clear)
+  - name: spoof_identity
+    fn: tests.example.spoof_identity
+    description: Attempts to overwrite/delete reserved identity keys
+  - name: bad_key
+    fn: tests.example.bad_key
+    description: Writes an invalid non-slug key
+  - name: echo_list
+    fn: tests.example.echo_list
+    description: Returns a list result while writing back
+  - name: no_context
+    fn: tests.example.no_context
+    description: Declares no context param

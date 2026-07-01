@@ -524,3 +524,107 @@ class TestExecuteContextSnapshot:
             assert result["context"]["user"] == "alice"
         finally:
             current_user_var.set(None)
+
+
+class TestContextWriteback:
+    """fn tools persist session state by mutating their injected `context`."""
+
+    async def test_writeback_visible_to_later_tool(self, load_fixture):
+        # A tool sets context["cursor"]; a later execute in the same session reads it.
+        load_fixture("tools_context.yaml")
+        from mcc.app import get_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            result = await execute(ctx, "stash_cursor", {"n": 6})
+            assert result == 6
+            # visible via get_session and injected into the next tool's context
+            assert json.loads(await get_session(ctx, "cursor")) == 6
+            follow = await execute(ctx, "needs_context", {"x": 1})
+            assert follow["context"]["cursor"] == 6
+        finally:
+            current_user_var.set(None)
+
+    async def test_no_context_param_does_not_touch_state(self, load_fixture):
+        # no_context declares no `context` param → [result, null] → state untouched.
+        load_fixture("tools_context.yaml")
+        from mcc.app import set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            await set_session(ctx, "keep", "me")
+            ctx.set_state.reset_mock()
+            result = await execute(ctx, "no_context", {"x": 3})
+            assert result == 3
+            # no write-back occurred
+            assert ctx.set_state.await_count == 0
+        finally:
+            current_user_var.set(None)
+
+    async def test_empty_context_clears_non_identity_vars(self, load_fixture):
+        # A tool that empties its context clears stored vars; identity survives.
+        load_fixture("tools_context.yaml")
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice", groups=["admin"]))
+        try:
+            ctx = _ctx_state()
+            await set_session(ctx, "budget", 42)
+            result = await execute(ctx, "clear_context", {})
+            assert result == "cleared"
+            assert json.loads(await get_session(ctx, "budget")) is None
+            # identity re-derived on read, still present
+            assert json.loads(await get_session(ctx, "user")) == "alice"
+            assert json.loads(await get_session(ctx, "groups")) == ["admin"]
+        finally:
+            current_user_var.set(None)
+
+    async def test_cannot_spoof_or_delete_identity(self, load_fixture):
+        # A tool sets user="admin" and deletes groups; both are ignored.
+        load_fixture("tools_context.yaml")
+        from mcc.app import get_session
+
+        current_user_var.set(UserModel(username="alice", groups=["admin"]))
+        try:
+            ctx = _ctx_state()
+            await execute(ctx, "spoof_identity", {})
+            assert json.loads(await get_session(ctx, "user")) == "alice"
+            assert json.loads(await get_session(ctx, "groups")) == ["admin"]
+        finally:
+            current_user_var.set(None)
+
+    async def test_invalid_key_rejects_whole_writeback(self, load_fixture, caplog):
+        # An invalid slug key rejects the write-back; result still returns; state kept.
+        load_fixture("tools_context.yaml")
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            await set_session(ctx, "kept", "yes")
+            with caplog.at_level("WARNING"):
+                result = await execute(ctx, "bad_key", {})
+            assert result == "ok"  # tool result still returned
+            # prior state unchanged; the bad key was not written
+            assert json.loads(await get_session(ctx, "kept")) == "yes"
+            assert json.loads(await get_session(ctx, "bad key")) is None
+            # the rejection log names the offending key
+            assert "bad key" in caplog.text
+        finally:
+            current_user_var.set(None)
+
+    async def test_list_result_unwrapped_correctly(self, load_fixture):
+        # A list-valued result must not be confused with the [result, context] envelope.
+        load_fixture("tools_context.yaml")
+        from mcc.app import get_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            result = await execute(ctx, "echo_list", {"items": [1, 2, 3]})
+            assert result == [1, 2, 3]
+            assert json.loads(await get_session(ctx, "seen")) is True
+        finally:
+            current_user_var.set(None)

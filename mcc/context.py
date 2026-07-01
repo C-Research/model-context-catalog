@@ -34,6 +34,18 @@ current_user_var: ContextVar = ContextVar("current_user", default=None)
 # threading it through the tool-param kwargs. Defaults to None (no context).
 current_context_var: ContextVar = ContextVar("current_context", default=None)
 
+# Sentinel distinguishing "an fn tool produced no write-back this call" (default)
+# from "the tool returned an explicit context to write" (which may be {} = clear).
+NO_WRITEBACK = object()
+
+# Back-channel from mcc.exec (which unwraps the pyrunner [result, context] envelope
+# but has no FastMCP Context) to app.execute (which owns ctx.set_state). Set per
+# call to the returned context dict; app.execute reads it after the tool returns and
+# applies the guarded write. Mirrors current_context_var in the opposite direction.
+writeback_context_var: ContextVar = ContextVar(
+    "writeback_context", default=NO_WRITEBACK
+)
+
 # Env var prefix for context entries expanded into exec subprocesses. Namespaced
 # as MCC_CTX_* (not bare MCC_*) to stay out of the dynaconf settings namespace.
 ENV_PREFIX = "MCC_CTX_"
@@ -97,6 +109,33 @@ def assemble_context(
     merged: dict[str, Any] = dict(stored_vars or {})
     merged.update(identity_fields(user))
     return merged
+
+
+def sanitize_writeback(returned: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate an fn tool's returned context before it replaces session state.
+
+    Applies the same guard as set_session, over all keys at once, and returns the
+    bare non-identity vars to persist (identity is never stored — it is re-derived
+    from the authenticated user on every read via assemble_context):
+    - Reserved identity keys are stripped silently — they are injected into every
+      context a tool receives, so their presence is expected, not an error. A tool
+      cannot set, alter, or delete them: they are dropped here and re-derived on read.
+    - Every remaining key must match SLUG_RE (it becomes MCC_CTX_<NAME> env for
+      downstream tools). A single invalid key rejects the WHOLE write-back by raising
+      ValueError(name), so the caller can log the offending key and skip the write,
+      leaving stored state unchanged.
+
+    Returns the stripped dict to store on success. Raises ValueError naming the first
+    invalid key on reject.
+    """
+    stripped: dict[str, Any] = {}
+    for name, value in returned.items():
+        if name in RESERVED_KEYS:
+            continue
+        if not SLUG_RE.match(name):
+            raise ValueError(name)
+        stripped[name] = value
+    return stripped
 
 
 def ctx_blob_env(context: dict[str, Any]) -> dict[str, str]:

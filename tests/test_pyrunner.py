@@ -180,14 +180,15 @@ class TestPyrunnerBatchIntrospect:
 
 class TestPyrunnerExec:
     def test_returns_json_result(self):
+        # stdout is the [result, context] envelope; context is null (no context param)
         result = run_exec("tests.example:add", {"x": 3, "y": 4})
         assert result.returncode == 0
-        assert json.loads(result.stdout) == 7
+        assert json.loads(result.stdout) == [7, None]
 
     def test_async_fn_handled(self):
         result = run_exec("tests.example:async_add", {"x": 10, "y": 5})
         assert result.returncode == 0
-        assert json.loads(result.stdout) == 15
+        assert json.loads(result.stdout) == [15, None]
 
     def test_unhandled_exception_nonzero_exit(self):
         result = run_exec("tests.example:always_fails", {"msg": "boom"})
@@ -198,7 +199,22 @@ class TestPyrunnerExec:
         # Function that calls print() must not corrupt the JSON result
         result = run_exec("tests.example:noisy_add", {"x": 3, "y": 4})
         assert result.returncode == 0
-        assert json.loads(result.stdout) == 7
+        assert json.loads(result.stdout) == [7, None]
+
+    def test_no_context_param_emits_null_context(self):
+        # A fn without a `context` param → element 1 is null ("don't touch state").
+        result = run_exec("tests.example:no_context", {"x": 5})
+        assert result.returncode == 0
+        assert json.loads(result.stdout) == [5, None]
+
+    def test_context_param_echoed_in_envelope(self):
+        # A fn with a `context` param → element 1 is the (mutated) context dict.
+        # No MCC_CTX in env → _load_context() returns {}; writeback adds a key.
+        result = run_exec("tests.example:stash_cursor", {"n": 6})
+        assert result.returncode == 0
+        payload = json.loads(result.stdout)
+        assert payload[0] == 6
+        assert payload[1] == {"cursor": 6}
 
 
 class TestNoisyModuleIntrospect:
