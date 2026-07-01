@@ -10,7 +10,7 @@ There are two separate ways environment variables interact with MCC tools, and t
 |-----------|-------|------|---------|
 | YAML substitution | `${VAR}` / `$VAR` | Load time | Embed server config into YAML values |
 | Subprocess environment | `env:`, `env_file:`, `env_passthrough:` | Call time | Control what the subprocess sees at runtime |
-| Caller identity | `MCC_CTX_*` *(injected)* | Call time | Propagate the authenticated user into the subprocess |
+| Session store | `MCC_CTX` / `MCC_CTX_*` *(injected)* | Call time | Propagate the caller's identity and session vars into the subprocess |
 
 They are independent and can be combined. The sections below cover each in detail.
 
@@ -108,7 +108,7 @@ Controls how much of the parent process environment the subprocess inherits as a
 | `[ "GLOB", ... ]` | The env floor, plus parent variables whose names match any glob |
 | `true` | A full copy of the current environment |
 
-In all cases, `env_file:` is overlaid next and `env:` after that. The injected [`MCC_CTX_*` identity vars](#caller-identity-mcc_ctx) are applied **last** of all, so a tool's own `env:` can never spoof the caller.
+In all cases, `env_file:` is overlaid next and `env:` after that. The injected [session store](#session-store-mcc_ctx) (`MCC_CTX` for `fn:` tools, `MCC_CTX_*` for `exec:` tools) is applied **last** of all, so a tool's own `env:` can never spoof the caller's identity.
 
 **`false` (default) — floor only.** The subprocess receives the env floor (`PATH`, `HOME`, etc.) plus whatever you explicitly declare. No secrets leak in:
 
@@ -159,61 +159,70 @@ The floor contains no secrets. It is what lets `exec:`/`curl:` tools find binari
 
 ---
 
-## Caller identity (`MCC_CTX_*`)
+## Session store (`MCC_CTX`)
 
-When an authenticated user invokes a tool, MCC injects the caller's identity into the subprocess environment as a set of `MCC_CTX_*` variables. This lets a tool know *who* is calling it — for per-user behavior, audit logging, or scoping downstream requests — without the tool ever seeing the auth token.
+Every tool call carries the **session store**: a single dictionary bundling the caller's identity with any mutable variables the session has stashed. This section covers how that dictionary is *propagated* into tool subprocesses. For the concept, the `get_session` / `set_session` tools, scope, and lifetime, see [Session Store](session.md).
 
-These variables are set automatically on every `fn:` and `exec:` tool. There is nothing to declare in YAML.
+The session store is propagated automatically on every `fn:` and `exec:` tool — there is nothing to declare in YAML — but the **shape differs by tool kind**:
 
-| Variable | Value | Set when |
-|----------|-------|----------|
-| `MCC_CTX_USER` | The caller's username | Always (authenticated requests) |
-| `MCC_CTX_EMAIL` | The caller's email | The user has an email |
-| `MCC_CTX_GROUPS` | Comma-separated group names | The user is in at least one group |
-| `MCC_CTX_TOOLS` | Comma-separated tool keys granted **directly** to the user | The user has direct tool grants |
+- **`fn:` (Python) tools** receive the whole dictionary as one JSON env var, `MCC_CTX`, and may receive it as a typed `context` argument (see below).
+- **`exec:` (shell) tools** receive each entry expanded into its own `MCC_CTX_<NAME>` env var (uppercased), stringified.
 
-For a user `alice` in groups `admin` and `osint`, the subprocess sees:
+The dictionary always carries the [reserved identity keys](session.md#reserved-identity-keys) `user`, `email`, `groups`, and `tools`, alongside whatever the session set via `set_session`.
+
+### `fn:` tools — the `MCC_CTX` blob and the `context` argument
+
+A `fn:` subprocess always sees `MCC_CTX`, the JSON-encoded dictionary:
+
+```python
+import json, os
+
+def report():
+    ctx = json.loads(os.environ.get("MCC_CTX", "{}"))
+    user = ctx.get("user")
+    groups = ctx.get("groups", [])
+    ...
+```
+
+More conveniently, **if your callable declares a parameter named `context`, MCC injects the parsed dictionary as that argument** — with real types preserved (lists stay lists, numbers stay numbers). The `context` parameter is hidden from the tool's public signature: the LLM never sees it and is never prompted for it.
+
+```python
+def report(target: str, context: dict) -> dict:
+    # `target` is supplied by the caller; `context` is injected by MCC.
+    return {"target": target, "called_by": context["user"]}
+```
+
+If the callable has no `context` parameter, nothing is injected — the blob is still present in the environment for tools that prefer to read it directly.
+
+### `exec:` tools — `MCC_CTX_<NAME>` expansion
+
+A shell tool can't take a Python argument, so each dictionary entry becomes its own env var named `MCC_CTX_<NAME>` (the key uppercased). Scalars are written raw; complex values (lists/objects) are JSON-encoded into the string. `exec:` tools do **not** receive the `MCC_CTX` blob.
+
+For a user `alice` in groups `admin` and `osint` who has set `budget=1000`, the subprocess sees:
 
 ```
 MCC_CTX_USER=alice
 MCC_CTX_EMAIL=alice@example.com
-MCC_CTX_GROUPS=admin,osint
-MCC_CTX_TOOLS=infosec.nmap_scan
+MCC_CTX_GROUPS=["admin", "osint"]
+MCC_CTX_BUDGET=1000
 ```
-
-### Reading the context
-
-In a `fn:` (Python) tool:
-
-```python
-import os
-
-def report():
-    user = os.environ.get("MCC_CTX_USER")
-    groups = os.environ.get("MCC_CTX_GROUPS", "").split(",") if os.environ.get("MCC_CTX_GROUPS") else []
-    ...
-```
-
-In an `exec:` (shell) tool:
 
 ```yaml
 tools:
   - name: whoami_echo
     exec: |
       echo "called by $MCC_CTX_USER"
-      IFS=, read -ra GROUPS <<< "$MCC_CTX_GROUPS"
+      echo "groups json: $MCC_CTX_GROUPS"
 ```
 
 ### Semantics
 
-- **Anonymous requests inject nothing.** If no user is authenticated, none of the `MCC_CTX_*` variables are set — so an absent `MCC_CTX_USER` means the call is unauthenticated. This also lets a tool distinguish "no groups" (variable absent) from any particular value.
-- **Empty fields are omitted, never blank.** A user with no email or no groups simply has no `MCC_CTX_EMAIL` / `MCC_CTX_GROUPS` variable, rather than one set to the empty string.
-- **`MCC_CTX_TOOLS` is direct grants only.** It lists tools granted directly to the user, not the exhaustive set the user can reach. Indirect access is derivable from `MCC_CTX_GROUPS` (group membership grants every tool in those groups).
-- **Identity wins over `env:`.** The `MCC_CTX_*` variables are merged **last** — after `env_passthrough`, `env_file:`, and `env:` — so a tool definition cannot override or spoof the caller's identity by declaring its own `MCC_CTX_USER`.
-- **No secrets.** Only the identity above is propagated. The auth token is never exposed to the subprocess.
+- **Identity wins over `env:` and over stored values.** The context is merged **last** — after `env_passthrough`, `env_file:`, and `env:` — so a tool can't spoof the caller by declaring its own `MCC_CTX_USER`; and the identity keys are re-derived from the request on every call, so a stale or tampered stored blob can never impersonate or outlive a permission change.
+- **`anonymous` identity.** An unauthenticated call still carries `user="anonymous"`; there is no separate "absent" signal.
+- **No secrets.** Only identity and the variables the session itself set are propagated. The auth token is never exposed to the subprocess.
 
 !!! note "Naming"
-    The prefix is `MCC_CTX_` (not bare `MCC_`) to keep caller identity out of the `MCC_`-prefixed [settings namespace](../getting-started/configuration.md), which is read by dynaconf.
+    The prefix is `MCC_CTX` / `MCC_CTX_` (not bare `MCC_`) to keep the context out of the `MCC_`-prefixed [settings namespace](../getting-started/configuration.md), which is read by dynaconf.
 
 ---
 

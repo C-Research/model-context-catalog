@@ -4,7 +4,7 @@ icon: lucide/plug
 
 # MCP Interface
 
-MCC exposes a small, fixed set of tools to LLM clients. The two core tools are `search` and `execute` — the catalog interface the model uses to discover and run tools. Two auxiliary tools round it out: `describe_tools` for lightweight catalog browsing and `whoami` for confirming the caller's identity and access. A set of resources and prompts supports guided workflows.
+MCC exposes a small, fixed set of tools to LLM clients. The two core tools are `search` and `execute` — the catalog interface the model uses to discover and run tools. Auxiliary tools round it out: `describe_tools` for lightweight catalog browsing, `whoami` for confirming the caller's identity and access, and `get_session` / `set_session` for a per-session scratchpad shared with tool executions. A set of resources and prompts supports guided workflows.
 
 ## search
 
@@ -120,3 +120,19 @@ tools: admin.shell, osint.whois, public.request
 | `tools` | The **exhaustive** list of tool keys the user can execute — the union of tools granted directly and all tools reachable through their group memberships. `(none)` if no tools are accessible. |
 
 Responses are cached per user and invalidated automatically on catalog reload (`mcc tool` changes) and on any change to the user's permissions (`mcc user` group/tool edits).
+
+## set_session / get_session
+
+```
+set_session(name, value)
+get_session(name)
+```
+
+A per-session, per-user key/value scratchpad — the **session store**. `set_session` stashes a value (any JSON type, type preserved) under a slug name; `get_session` reads it back, JSON-encoded, or the literal `null` if unset. Anything stashed is automatically passed to subsequent tool executions in the same session — Python tools can receive it as a `context` argument, shell tools as `MCC_CTX_<NAME>` env vars — so a value need only be set once. The reserved identity keys (`user`, `email`, `groups`, `tools`) live in the same bag and are read-only.
+
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `set_session` | `name`, `value` | Store a value. `name` must be a slug (lowercase letters, digits, underscores; not starting with a digit); reserved identity keys cannot be set |
+| `get_session` | `name` | Read a value as a JSON string (`null` if unset); reserved keys resolve to the caller's identity |
+
+See [Session Store](tools/session.md) for scope, lifetime, and how the session reaches your tools.

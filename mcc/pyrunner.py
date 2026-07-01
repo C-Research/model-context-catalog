@@ -23,9 +23,28 @@ import importlib
 import inspect
 import io
 import json
+import os
 import sys
 import traceback
 from typing import Any
+
+# Env var carrying the JSON-encoded context dict (identity + session vars). Must
+# stay in sync with mcc.context.ENV_BLOB / CONTEXT_PARAM — duplicated here because
+# pyrunner is stdlib-only and MUST NOT import mcc.
+_CTX_ENV = "MCC_CTX"
+_CTX_PARAM = "context"
+
+
+def _load_context() -> Any:
+    """Parse the MCC_CTX env blob; return {} when absent, blank, or malformed."""
+    raw = os.environ.get(_CTX_ENV, "")
+    if not raw.strip():
+        return {}
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
 
 _TYPE_NAMES: dict[type, str] = {
     str: "str",
@@ -141,6 +160,10 @@ def execute(fn_path: str) -> str:
     """
     fn = resolve(fn_path)
     kwargs = json.loads(sys.stdin.read())
+    # Inject the context dict only when the callable declares a `context` param.
+    # mcc shadows that param from the tool schema, so it is never in kwargs.
+    if _CTX_PARAM in inspect.signature(fn).parameters:
+        kwargs[_CTX_PARAM] = _load_context()
     if inspect.iscoroutinefunction(fn):
         return asyncio.run(fn(**kwargs))
     return fn(**kwargs)

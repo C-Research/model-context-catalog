@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,11 +16,28 @@ from fastmcp.server.elicitation import (
 )
 
 
+def _with_state(ctx, session="s1"):
+    """Back a mock ctx with an in-memory, session-scoped state store mirroring
+    FastMCP's key prefixing (`{session_id}:{key}`), so execute() and the session
+    tools behave as they would against a real store."""
+    store: dict = {}
+
+    async def _get(key):
+        return store.get(f"{session}:{key}")
+
+    async def _set(key, value):
+        store[f"{session}:{key}"] = value
+
+    ctx.get_state = AsyncMock(side_effect=_get)
+    ctx.set_state = AsyncMock(side_effect=_set)
+    return ctx
+
+
 def _ctx_raises():
     """Mock ctx whose elicit() raises — simulates a client that doesn't support elicitation."""
     ctx = MagicMock()
     ctx.elicit = AsyncMock(side_effect=Exception("elicitation not supported"))
-    return ctx
+    return _with_state(ctx)
 
 
 def _ctx_accepts(**data):
@@ -31,19 +49,24 @@ def _ctx_accepts(**data):
     instance = _Data(**data)
     ctx = MagicMock()
     ctx.elicit = AsyncMock(return_value=AcceptedElicitation(data=instance))
-    return ctx
+    return _with_state(ctx)
 
 
 def _ctx_declines():
     ctx = MagicMock()
     ctx.elicit = AsyncMock(return_value=DeclinedElicitation())
-    return ctx
+    return _with_state(ctx)
 
 
 def _ctx_cancels():
     ctx = MagicMock()
     ctx.elicit = AsyncMock(return_value=CancelledElicitation())
-    return ctx
+    return _with_state(ctx)
+
+
+def _ctx_state(session="s1"):
+    """A plain state-backed ctx for testing get_session / set_session."""
+    return _with_state(MagicMock(), session)
 
 
 class TestSearch:
@@ -355,3 +378,149 @@ class TestSearchCache:
         await loader.reload()
         result2 = await search("echo")
         assert "echo" in result2
+
+
+class TestSessionTools:
+    """set_session / get_session round-trip, scoping, reserved keys, and slug rules."""
+
+    async def test_set_then_get_authed(self):
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            assert "Set" in await set_session(ctx, "target", "example.com")
+            assert json.loads(await get_session(ctx, "target")) == "example.com"
+        finally:
+            current_user_var.set(None)
+
+    async def test_set_then_get_anonymous(self):
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(None)
+        ctx = _ctx_state()
+        await set_session(ctx, "note", "hi")
+        assert json.loads(await get_session(ctx, "note")) == "hi"
+
+    async def test_value_types_preserved(self):
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            await set_session(ctx, "budget", 1000)
+            await set_session(ctx, "filters", {"q": "x"})
+            assert json.loads(await get_session(ctx, "budget")) == 1000
+            assert json.loads(await get_session(ctx, "filters")) == {"q": "x"}
+        finally:
+            current_user_var.set(None)
+
+    async def test_missing_key_returns_none(self):
+        from mcc.app import get_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            assert json.loads(await get_session(_ctx_state(), "nope")) is None
+        finally:
+            current_user_var.set(None)
+
+    async def test_reserved_key_resolves_to_identity(self):
+        from mcc.app import get_session
+
+        current_user_var.set(UserModel(username="alice", groups=["admin"]))
+        try:
+            ctx = _ctx_state()
+            assert json.loads(await get_session(ctx, "user")) == "alice"
+            assert json.loads(await get_session(ctx, "groups")) == ["admin"]
+        finally:
+            current_user_var.set(None)
+
+    async def test_set_rejects_reserved_key(self):
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            result = await set_session(ctx, "user", "admin")
+            assert "reserved" in result.lower()
+            # identity is unchanged
+            assert json.loads(await get_session(ctx, "user")) == "alice"
+        finally:
+            current_user_var.set(None)
+
+    async def test_set_rejects_bad_slug(self):
+        from mcc.app import set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            for bad in ("My Key", "1abc", "has-dash", "UPPER"):
+                result = await set_session(ctx, bad, 1)
+                assert "Invalid name" in result
+            assert await _with_state_store_empty(ctx)
+        finally:
+            current_user_var.set(None)
+
+    async def test_session_isolation_same_user(self):
+        from mcc.app import get_session, set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx_a = _ctx_state(session="A")
+            ctx_b = _ctx_state(session="B")
+            await set_session(ctx_a, "secret", "in_a")
+            assert json.loads(await get_session(ctx_b, "secret")) is None
+        finally:
+            current_user_var.set(None)
+
+    async def test_user_isolation_same_session(self):
+        # Same backing store + session id, different usernames → different keys.
+        from mcc.app import get_session, set_session
+
+        store: dict = {}
+
+        def _ctx_for(session):
+            ctx = MagicMock()
+
+            async def _get(key):
+                return store.get(f"{session}:{key}")
+
+            async def _set(key, value):
+                store[f"{session}:{key}"] = value
+
+            ctx.get_state = AsyncMock(side_effect=_get)
+            ctx.set_state = AsyncMock(side_effect=_set)
+            return ctx
+
+        ctx = _ctx_for("shared")
+        current_user_var.set(UserModel(username="alice"))
+        await set_session(ctx, "k", "alice_val")
+        current_user_var.set(UserModel(username="bob"))
+        try:
+            assert json.loads(await get_session(ctx, "k")) is None
+        finally:
+            current_user_var.set(None)
+
+
+async def _with_state_store_empty(ctx) -> bool:
+    """True if no mutable var was written (only verifies set() was never persisted)."""
+    return not ctx.set_state.await_count
+
+
+class TestExecuteContextSnapshot:
+    """execute() assembles the context snapshot and exposes it to the tool."""
+
+    async def test_fn_tool_receives_stored_var_via_context(self, load_fixture):
+        load_fixture("tools_context.yaml")
+        from mcc.app import set_session
+
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            ctx = _ctx_state()
+            await set_session(ctx, "budget", 42)
+            result = await execute(ctx, "needs_context", {"x": 5})
+            assert result["x"] == 5
+            assert result["context"]["budget"] == 42
+            assert result["context"]["user"] == "alice"
+        finally:
+            current_user_var.set(None)

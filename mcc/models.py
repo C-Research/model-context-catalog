@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
+from mcc.context import CONTEXT_PARAM
 from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
@@ -178,11 +179,19 @@ class ToolModel(BaseModel):
 
     @property
     def visible_params(self):
-        return [param for param in (self.params or []) if not param.has_override]
+        return [
+            param
+            for param in (self.params or [])
+            if not param.has_override and not (self.fn and param.name == CONTEXT_PARAM)
+        ]
 
     @property
     def hidden_params(self):
-        return [param for param in (self.params or []) if param.has_override]
+        return [
+            param
+            for param in (self.params or [])
+            if param.has_override and not (self.fn and param.name == CONTEXT_PARAM)
+        ]
 
     @property
     def sorted_groups(self):

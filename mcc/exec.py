@@ -9,7 +9,13 @@ from typing import Any, Callable
 
 from dotenv import dotenv_values
 
-from mcc.context import current_user_var, user_env
+from mcc.context import (
+    assemble_context,
+    ctx_blob_env,
+    ctx_expanded_env,
+    current_context_var,
+    current_user_var,
+)
 from mcc.settings import logger, settings
 from mcc.template import jinja_env
 
@@ -54,9 +60,7 @@ def _build_env(
             }
         )
     if env_file:
-        base.update(
-            {k: v for k, v in dotenv_values(env_file).items() if v is not None}
-        )
+        base.update({k: v for k, v in dotenv_values(env_file).items() if v is not None})
     if env:
         base.update(env)
     return base
@@ -158,24 +162,42 @@ async def _apply_transform(
     return await _communicate_and_return(proc, data.encode(), timeout, limits=None)
 
 
+def _context_env(kind: str) -> dict[str, str]:
+    """Build the context env vars for this spawn from the request-scoped context.
+
+    fn tools get the whole dict as one JSON blob (MCC_CTX); exec tools get each
+    entry expanded into MCC_CTX_<NAME>. The context is assembled fresh from
+    current_user_var so identity always reflects the caller of *this* invocation
+    (identity wins over any stored value). Anonymous requests still carry
+    user="anonymous".
+    """
+    context = current_context_var.get(None)
+    if context is None:
+        # No execute() snapshot (e.g. direct callable use); derive identity only.
+        context = assemble_context(None, current_user_var.get(None))
+    return ctx_blob_env(context) if kind == "fn" else ctx_expanded_env(context)
+
+
 def _proc_extra(
     preexec_fn: Callable | None,
     cwd: str | None,
     base_env: dict[str, str] | None,
+    kind: str,
 ) -> dict[str, Any]:
-    """Assemble create_subprocess_* kwargs, merging the current caller's identity
-    into env last (highest precedence, so a tool's own env cannot spoof it).
+    """Assemble create_subprocess_* kwargs, merging the caller's context into env
+    last (highest precedence, so a tool's own env cannot spoof identity).
 
-    Call this per spawn, not at build time: it reads current_user_var so the env
-    reflects the caller of *this* invocation. The expensive pieces (preexec_fn,
-    base_env) are built once and passed in. Anonymous requests add no identity.
+    Call this per spawn, not at build time: it reads the request-scoped context
+    so the env reflects the caller of *this* invocation. The expensive pieces
+    (preexec_fn, base_env) are built once and passed in. ``kind`` selects the
+    propagation shape: "fn" → MCC_CTX blob, "exec" → MCC_CTX_<NAME> expansion.
     """
     extra: dict[str, Any] = {}
     if preexec_fn is not None:
         extra["preexec_fn"] = preexec_fn
     if cwd is not None:
         extra["cwd"] = cwd
-    ctx_env = user_env(current_user_var.get(None))
+    ctx_env = _context_env(kind)
     if base_env is not None or ctx_env:
         extra["env"] = {**(base_env or {}), **ctx_env}
     return extra
@@ -225,7 +247,7 @@ def make_exec_callable(
             stdin=asyncio.subprocess.PIPE if use_stdin else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            **_proc_extra(preexec_fn, cwd, base_env),
+            **_proc_extra(preexec_fn, cwd, base_env, "exec"),
         )
         return proc, (json.dumps(kwargs).encode() if use_stdin else None)
 
@@ -258,7 +280,7 @@ def make_py_callable(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            **_proc_extra(preexec_fn, effective_cwd, base_env),
+            **_proc_extra(preexec_fn, effective_cwd, base_env, "fn"),
         )
         return proc, json.dumps(kwargs).encode()
 

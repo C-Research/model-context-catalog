@@ -1,0 +1,4 @@
+tools:
+  - name: needs_context
+    fn: tests.example.needs_context
+    description: Returns its x arg plus the injected context dict

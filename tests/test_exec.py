@@ -523,28 +523,61 @@ class TestFnToolNoPython:
         assert json.loads(r1) == json.loads(r2) == 10
 
 
-class TestUserContextInjection:
-    """The caller's identity propagates into tool subprocesses as MCC_CTX_* vars."""
+class TestContextPropagation:
+    """The caller's context (identity + session vars) propagates into subprocesses:
+    fn tools get the MCC_CTX JSON blob; exec tools get MCC_CTX_<NAME> expansion.
 
-    async def test_fn_tool_receives_user(self):
-        tool = ToolModel(fn="tests.example:get_env_var")
-        current_user_var.set(UserModel(username="alice", groups=["a"]))
-        try:
-            result = await tool.call(name="MCC_CTX_USER")
-            assert json.loads(result) == "alice"
-        finally:
-            current_user_var.set(None)
+    These tests exercise the default path (no execute() snapshot), so the context
+    is the assembled identity derived from current_user_var.
+    """
 
-    async def test_fn_tool_receives_groups_comma_joined(self):
+    async def test_fn_tool_receives_blob_with_identity(self):
         tool = ToolModel(fn="tests.example:get_env_var")
         current_user_var.set(UserModel(username="alice", groups=["admin", "osint"]))
         try:
-            result = await tool.call(name="MCC_CTX_GROUPS")
-            assert json.loads(result) == "admin,osint"
+            result = await tool.call(name="MCC_CTX")
+            blob = json.loads(json.loads(result))
+            assert blob["user"] == "alice"
+            assert blob["groups"] == ["admin", "osint"]
         finally:
             current_user_var.set(None)
 
-    async def test_exec_tool_receives_user(self):
+    async def test_fn_tool_has_no_expanded_vars(self):
+        # fn tools get only the blob, not MCC_CTX_<NAME> expansion.
+        tool = ToolModel(fn="tests.example:get_env_var")
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            result = await tool.call(name="MCC_CTX_USER")
+            assert json.loads(result) is None
+        finally:
+            current_user_var.set(None)
+
+    async def test_context_kwarg_injected_when_declared(self):
+        tool = ToolModel(fn="tests.example:needs_context")
+        current_user_var.set(UserModel(username="alice", groups=["g1"]))
+        try:
+            result = json.loads(await tool.call(x=7))
+            assert result["x"] == 7
+            assert result["context"]["user"] == "alice"
+            assert result["context"]["groups"] == ["g1"]
+        finally:
+            current_user_var.set(None)
+
+    async def test_context_param_hidden_from_signature(self):
+        tool = ToolModel(fn="tests.example:needs_context")
+        visible = {p.name for p in tool.visible_params}
+        assert "context" not in visible
+        assert "x" in visible
+
+    async def test_no_context_param_unaffected(self):
+        tool = ToolModel(fn="tests.example:no_context")
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            assert json.loads(await tool.call(x=3)) == 3
+        finally:
+            current_user_var.set(None)
+
+    async def test_exec_tool_receives_expanded_user(self):
         tool = ToolModel(name="whoami_sh", **{"exec": "printf %s $MCC_CTX_USER"})
         current_user_var.set(UserModel(username="bob"))
         try:
@@ -553,31 +586,46 @@ class TestUserContextInjection:
         finally:
             current_user_var.set(None)
 
-    async def test_anonymous_injects_nothing(self):
-        tool = ToolModel(fn="tests.example:get_env_var")
-        current_user_var.set(None)
-        result = await tool.call(name="MCC_CTX_USER")
-        assert json.loads(result) is None
-
-    async def test_empty_fields_omitted(self):
-        # bob has no groups → MCC_CTX_GROUPS must be absent, not empty.
-        tool = ToolModel(fn="tests.example:get_env_var")
+    async def test_exec_tool_has_no_blob(self):
+        tool = ToolModel(
+            name="blob_sh",
+            **{
+                "exec": 'if [ -z "${MCC_CTX+set}" ]; then echo unset; else echo set; fi'
+            },
+        )
         current_user_var.set(UserModel(username="bob"))
         try:
-            result = await tool.call(name="MCC_CTX_GROUPS")
-            assert json.loads(result) is None
+            result = await tool.call()
+            assert "unset" in result
         finally:
             current_user_var.set(None)
+
+    async def test_exec_groups_expanded_as_json(self):
+        tool = ToolModel(name="groups_sh", **{"exec": "printf %s $MCC_CTX_GROUPS"})
+        current_user_var.set(UserModel(username="alice", groups=["admin", "osint"]))
+        try:
+            result = await tool.call()
+            assert json.loads(result.strip()) == ["admin", "osint"]
+        finally:
+            current_user_var.set(None)
+
+    async def test_anonymous_blob_has_anonymous_user(self):
+        tool = ToolModel(fn="tests.example:get_env_var")
+        current_user_var.set(None)
+        result = await tool.call(name="MCC_CTX")
+        blob = json.loads(json.loads(result))
+        assert blob["user"] == "anonymous"
 
     async def test_tool_env_cannot_spoof_identity(self):
         # A tool declaring its own MCC_CTX_USER must not override the real caller.
         tool = ToolModel(
-            fn="tests.example:get_env_var",
+            name="spoof_sh",
+            **{"exec": "printf %s $MCC_CTX_USER"},
             env={"MCC_CTX_USER": "attacker"},
         )
         current_user_var.set(UserModel(username="alice"))
         try:
-            result = await tool.call(name="MCC_CTX_USER")
-            assert json.loads(result) == "alice"
+            result = await tool.call()
+            assert result.strip() == "alice"
         finally:
             current_user_var.set(None)

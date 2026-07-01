@@ -33,6 +33,16 @@ def get_env_var(name: str) -> str | None:
     return os.environ.get(name)
 
 
+def needs_context(x: int, context: dict) -> dict:
+    """fn tool declaring a `context` param: pyrunner injects the context dict."""
+    return {"x": x, "context": context}
+
+
+def no_context(x: int) -> int:
+    """fn tool with no `context` param: nothing is injected."""
+    return x
+
+
 def no_return_annotation(x: int):
     return x
 

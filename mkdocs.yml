@@ -55,6 +55,7 @@ nav:
       - Python Tools: tools/python.md
       - Exec Tools: tools/exec.md
       - Parameters: tools/parameters.md
+      - Session Store: tools/session.md
       - Environment Variables: tools/env-vars.md
       - Resource Limits: tools/limits.md
   - Auth & Permissions:

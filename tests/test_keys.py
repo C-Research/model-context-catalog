@@ -28,9 +28,14 @@ async def _fresh_keys(keys_idx):
 
 
 def _ctx_raises():
-    """Mock ctx whose elicit() raises — simulates a client without elicitation."""
+    """Mock ctx whose elicit() raises — simulates a client without elicitation.
+    Backed by an in-memory, session-prefixed state store so execute() can read
+    the caller's context snapshot."""
     ctx = MagicMock()
     ctx.elicit = AsyncMock(side_effect=Exception("elicitation not supported"))
+    store: dict = {}
+    ctx.get_state = AsyncMock(side_effect=lambda k: store.get(f"s1:{k}"))
+    ctx.set_state = AsyncMock(side_effect=lambda k, v: store.__setitem__(f"s1:{k}", v))
     return ctx
 
 

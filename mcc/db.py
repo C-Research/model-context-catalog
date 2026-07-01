@@ -132,8 +132,7 @@ class ToolIndex(ESIndex):
             index=self.index, query={"match_all": {}}, size=10000
         )
         hits = sorted(
-            (hit["_id"], hit["_source"]["signature"])
-            for hit in resp["hits"]["hits"]
+            (hit["_id"], hit["_source"]["signature"]) for hit in resp["hits"]["hits"]
         )
         return [sig for _, sig in hits]
 

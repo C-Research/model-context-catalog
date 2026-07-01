@@ -2,6 +2,7 @@ import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
+from elasticsearch import AsyncElasticsearch
 from fastmcp import Context, FastMCP
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
@@ -10,13 +11,22 @@ from fastmcp.server.elicitation import (
 )
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
+from key_value.aio.stores.elasticsearch import ElasticsearchStore
 from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
 from mcc.auth.backend import get_provider
 from mcc.cache import cached, params_hash
+from mcc.context import (
+    RESERVED_KEYS,
+    SLUG_RE,
+    assemble_context,
+    current_context_var,
+    current_user_var,
+    state_key,
+)
+from mcc.db import _client_kwargs
 from mcc.loader import loader
-from mcc.context import current_user_var
 from mcc.middleware import AuthMiddleware, LoggingMiddleware
 from mcc.settings import logger, settings
 
@@ -27,11 +37,22 @@ async def lifespan(server):
     yield
 
 
+# Session-scoped context store. ElasticsearchStore derives index names as
+# "{index_prefix}-{collection}", and FastMCP's state store uses the collection
+# "fastmcp_state", so this touches only "mcc-ctx-fastmcp_state" and cannot clobber
+# the users/tools/keys indices. Reuses the existing ES client wiring; default 24h
+# TTL is FastMCP's and needs no setting.
+_session_store = ElasticsearchStore(
+    elasticsearch_client=AsyncElasticsearch(**_client_kwargs()),
+    index_prefix="mcc-ctx",
+)
+
 mcp = FastMCP(
     "model-context-catalog (mcc)",
     version=__version__,
     auth=get_provider(),
     lifespan=lifespan,
+    session_state_store=_session_store,
 )
 mcp.loader = loader  # type: ignore[attr-defined]
 mcp.add_middleware(AuthMiddleware())
@@ -175,11 +196,22 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         return "Unauthorized"
     cache_key = f"exec:{tool.key}:{params_hash(params)}" if tool.cache_ttl else None
 
+    # Assemble the caller's context snapshot once (stored session vars + identity
+    # re-derived from current_user_var, identity wins) and expose it to the
+    # subprocess-spawning layer for the duration of the call.
+    stored = await ctx.get_state(state_key(user))
+    context = assemble_context(stored, user)
+
     async def _compute():
         # Elicitation is gated behind the cache lookup (it runs only on a miss),
         # so a cached result never re-prompts the caller.
+        # XXX: make sure this doesnt clobber the context from oauth providers
         merged = await _elicit_missing(ctx, key, tool, params)
-        return _coerce_result(await tool.call(**merged))
+        token = current_context_var.set(context)
+        try:
+            return _coerce_result(await tool.call(**merged))
+        finally:
+            current_context_var.reset(token)
 
     try:
         return await cached(cache_key, _compute, tool.cache_ttl)
@@ -253,6 +285,61 @@ async def describe_tools(groups: Optional[list[str]] = None) -> str:
     return "\n\n".join(
         f"## {t.key}\n{t.description or ''}" for t in sorted(tools, key=lambda t: t.key)
     )
+
+
+@mcp.tool()
+async def set_session(ctx: Context, name: str, value: object) -> str:
+    """Store a value in your session store for later tool calls to read.
+
+    The session store is a per-session, per-user key/value bag. Anything you set
+    here is visible to subsequent tool executions in this same session (Python tools
+    can receive it as a `context` argument; shell tools see it as MCC_CTX_<NAME> env
+    vars) without you having to re-pass it on every call. Use it to stash a value
+    once — a target host, a budget, a selected record — and reuse it.
+
+    `value` may be any JSON type (string, number, bool, list, object) and is stored
+    with its type preserved.
+
+    `name` must match ^[a-z_][a-z0-9_]*$ (lowercase letters, digits, underscores;
+    not starting with a digit). The reserved identity keys (user, email, groups,
+    tools) cannot be set — they always reflect the authenticated caller.
+
+    Args:
+      name: The variable name (slug). Lowercase letters/digits/underscores.
+      value: Any JSON-serializable value to store.
+    """
+    if not SLUG_RE.match(name):
+        return (
+            f"Invalid name {name!r}: must match ^[a-z_][a-z0-9_]*$ "
+            "(lowercase letters, digits, underscores; not starting with a digit)."
+        )
+    if name in RESERVED_KEYS:
+        return f"Cannot set reserved identity key {name!r}."
+    user = current_user_var.get(None)
+    skey = state_key(user)
+    stored = await ctx.get_state(skey) or {}
+    stored[name] = value
+    await ctx.set_state(skey, stored)
+    return f"Set {name!r}."
+
+
+@mcp.tool()
+async def get_session(ctx: Context, name: str) -> str:
+    """Read a value previously stored in your session store.
+
+    Returns the value set by a prior `set_session(name, ...)` in this session as
+    a JSON string, preserving its type: a string is quoted ("10.0.0.5"), a number
+    is bare (1000), and lists/objects are JSON. The reserved identity keys (user,
+    email, groups, tools) resolve to the authenticated caller's identity. Returns
+    the JSON literal null when the name was never set.
+
+    Args:
+      name: The variable name to read.
+    """
+    user = current_user_var.get(None)
+    stored = await ctx.get_state(state_key(user))
+    context = assemble_context(stored, user)
+    return json.dumps(context.get(name))
 
 
 # --- Prompts ---
