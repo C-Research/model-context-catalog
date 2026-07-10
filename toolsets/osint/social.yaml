@@ -1,0 +1,103 @@
+env_file: osint.env
+groups: [osint, social]
+tools:
+  - name: xquik_tweet_search
+    curl: >-
+      -H 'x-api-key: ${XQUIK_API_KEY}'
+      'https://xquik.com/api/v1/x/tweets/search?q={{ q | urlencode }}&queryType={{ query_type }}&limit={{ limit }}{% if cursor %}&cursor={{ cursor | urlencode }}{% endif %}'
+    example: 'xquik_tweet_search(q="model context protocol", query_type="Latest", limit=20)'
+    description: |
+      Search X posts through Xquik's public REST API.
+      Returns tweet text, author metadata, engagement metrics, and pagination cursors for OSINT review.
+      Requires XQUIK_API_KEY in osint.env.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: Search query, Tweet ID, X status URL, or account date-window query.
+      - name: query_type
+        type: str
+        required: false
+        default: Latest
+        description: Sort order. Use Latest for chronological results or Top for engagement-ranked results.
+      - name: limit
+        type: int
+        required: false
+        default: 20
+        description: Maximum number of tweets to return. The API accepts values up to 200.
+      - name: cursor
+        type: str
+        required: false
+        default: ""
+        description: Pagination cursor returned by a previous search response.
+
+  - name: xquik_user_search
+    curl: >-
+      -H 'x-api-key: ${XQUIK_API_KEY}'
+      'https://xquik.com/api/v1/x/users/search?q={{ q | urlencode }}{% if cursor %}&cursor={{ cursor | urlencode }}{% endif %}'
+    example: 'xquik_user_search(q="open source intelligence")'
+    description: |
+      Search X users through Xquik's public REST API.
+      Returns user profiles and pagination cursors for identity resolution and account discovery workflows.
+      Requires XQUIK_API_KEY in osint.env.
+    params:
+      - name: q
+        type: str
+        required: true
+        description: User search query by name or username.
+      - name: cursor
+        type: str
+        required: false
+        default: ""
+        description: Pagination cursor returned by a previous user search response.
+
+  - name: xquik_user_tweets
+    curl: >-
+      -H 'x-api-key: ${XQUIK_API_KEY}'
+      'https://xquik.com/api/v1/x/users/{{ user_id | urlencode }}/tweets?includeReplies={{ include_replies | lower }}&includeParentTweet={{ include_parent_tweet | lower }}{% if cursor %}&cursor={{ cursor | urlencode }}{% endif %}'
+    example: 'xquik_user_tweets(user_id="xquik", include_replies=false)'
+    description: |
+      List recent X posts from a user through Xquik's public REST API.
+      Accepts a user ID or username and returns tweet content, authors, metrics, and pagination cursors.
+      Requires XQUIK_API_KEY in osint.env.
+    params:
+      - name: user_id
+        type: str
+        required: true
+        description: X user ID or username.
+      - name: include_replies
+        type: bool
+        required: false
+        default: false
+        description: Include reply tweets in the returned timeline.
+      - name: include_parent_tweet
+        type: bool
+        required: false
+        default: false
+        description: Include parent tweet data for replies when available.
+      - name: cursor
+        type: str
+        required: false
+        default: ""
+        description: Pagination cursor returned by a previous timeline response.
+
+  - name: xquik_trends
+    curl: >-
+      -H 'x-api-key: ${XQUIK_API_KEY}'
+      'https://xquik.com/api/v1/x/trends?woeid={{ woeid }}&count={{ count }}'
+    example: 'xquik_trends(woeid=1, count=30)'
+    description: |
+      Fetch X trending topics by region through Xquik's public REST API.
+      Returns trend names, descriptions, encoded queries, and ranks for monitoring workflows.
+      Requires XQUIK_API_KEY in osint.env.
+    params:
+      - name: woeid
+        type: int
+        required: false
+        default: 1
+        description: Region WOEID. Examples include 1 for Worldwide, 23424977 for US, 23424975 for UK, and 23424969 for Turkey.
+      - name: count
+        type: int
+        required: false
+        default: 30
+        description: Number of trending topics to return. The API accepts 1 through 50.

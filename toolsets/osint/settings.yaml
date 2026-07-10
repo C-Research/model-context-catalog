@@ -11,5 +11,6 @@ default:
     - toolsets/osint/conflict.yaml
     - toolsets/osint/gov.yaml
     - toolsets/osint/search.yaml
+    - toolsets/osint/social.yaml
     - toolsets/osint/crypto.yaml
     - toolsets/osint/infosec.yaml

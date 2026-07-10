@@ -25,7 +25,7 @@ MCC_SETTINGS_FILES=toolsets/contrib/settings.yaml
 
 ## OSINT
 
-Open-source intelligence tools for research, investigations, and threat analysis. Thin wrappers around public APIs — no scraping, no headless browsers.
+Open-source intelligence tools for research, investigations, and threat analysis. Thin wrappers around public APIs - no scraping, no headless browsers.
 
 ```bash
 MCC_SETTINGS_FILES=toolsets/osint/settings.yaml
@@ -42,6 +42,7 @@ MCC_SETTINGS_FILES=toolsets/osint/settings.yaml
 | [Conflict & Humanitarian](conflict.md) | 3 | UCDP, ReliefWeb, GDELT |
 | [Cryptocurrency](crypto.md) | 4 | Blockchain.info, Blockchair |
 | [People & Social](people.md) | 2 | Sherlock Project, PIPL |
+| [Social Data](social.md) | 4 | Xquik |
 | [News & Media](news.md) | 2 | Hacker News, Algolia |
 | [Academic Research](academic.md) | 4 | arXiv, CrossRef, Semantic Scholar, OpenAlex |
 | [Web Archives](search.md) | 1 | Internet Archive |
