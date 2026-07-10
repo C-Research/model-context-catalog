@@ -1,44 +1,52 @@
+# Anchors merged into each tool via `<<`. Each section carries its RBAC groups
+# plus the shared env_passthrough. All admin tools hit Elasticsearch, but run in
+# isolated subprocesses that default env_passthrough to false, so without this
+# allowlist they never see MCC_ELASTICSEARCH_URL and fall back to localhost:9200.
 x-groups:
-  users:  &users  [admin, auth, users]
-  groups: &groups [admin, auth, groups]
-  tools:  &tools  [admin, auth, tools]
-  loader:     &loader      [admin, loader]
+  defaults: &defaults
+    env_passthrough: ["MCC_ELASTICSEARCH_URL"]
+  users: &users
+    <<: *defaults
+    groups: [admin, auth, users]
+  groups: &groups
+    <<: *defaults
+    groups: [admin, auth, groups]
+  tools: &tools
+    <<: *defaults
+    groups: [admin, auth, tools]
+  loader: &loader
+    <<: *defaults
+    groups: [admin, loader]
 
 tools:
-  - fn: mcc.auth.backend:get_user_context
-    groups: *users
   - fn: mcc.auth.create_user
-    groups: *users
+    <<: *users
     example: 'create_user(username="alice", email="alice@example.com", groups=["osint"])'
   - fn: mcc.auth.list_users
-    groups: *users
+    <<: *users
   - fn: mcc.auth.delete_user
-    groups: *users
+    <<: *users
     example: 'delete_user(username="alice")'
   - fn: mcc.auth.get_user_by_username
-    groups: *users
+    <<: *users
     example: 'get_user_by_username(username="alice")'
   - fn: mcc.auth.get_user_by_email
-    groups: *users
+    <<: *users
     example: 'get_user_by_email(email="alice@example.com")'
 
   - fn: mcc.auth.remove_group
-    groups: *groups
+    <<: *groups
     example: 'remove_group(username="alice", group="osint")'
   - fn: mcc.auth.add_group
-    groups: *groups
+    <<: *groups
     example: 'add_group(username="alice", group="osint")'
 
   - fn: mcc.auth.add_tool
-    groups: *tools
+    <<: *tools
     example: 'add_tool(username="alice", tool="infosec.nmap_scan")'
   - fn: mcc.auth.remove_tool
-    groups: *tools
+    <<: *tools
     example: 'remove_tool(username="alice", tool="infosec.nmap_scan")'
 
-  # loader.reload is intentionally NOT exposed as a tool: tools run in isolated
-  # subprocesses (MCC_SKIP_AUTOLOAD=1) where the loader is empty and self.paths
-  # is unset, so reload() would drop the ES index and re-index nothing — wiping
-  # the catalog. Reload from the server/CLI instead.
   - fn: mcc.loader:loader.list_all
-    groups: *loader
+    <<: *loader

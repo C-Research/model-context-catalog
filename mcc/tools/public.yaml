@@ -2,4 +2,5 @@ tools:
   - fn: mcc.auth.list_tools
     groups: [public, auth, tools]
     example: 'list_tools(text=True)'
+    env_passthrough: ["MCC_ELASTICSEARCH_URL"]
 
