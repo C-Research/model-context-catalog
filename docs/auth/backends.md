@@ -163,7 +163,9 @@ default:
 
 ### auth0
 
-Authenticates via Auth0. Requires `config_url` instead of `client_secret`.
+Authenticates via Auth0. Requires `config_url` and `audience` (the identifier
+of an [Auth0 API](https://auth0.com/docs/get-started/apis) registered in your
+tenant).
 
 ```yaml
 default:
@@ -173,6 +175,20 @@ default:
     client_id: "your-auth0-client-id"
     client_secret: "your-auth0-client-secret"
     config_url: "https://your-tenant.auth0.com/.well-known/openid-configuration"
+    audience: "https://your-api-identifier"
+```
+
+Identity is resolved from the `email` claim (see [Generic OIDC
+Backend](#generic-oidc-backend-jwt)). By default MCC verifies Auth0's
+**access token**, which does not carry `email` unless you add a tenant-side
+Action to inject it. Set `verify_id_token: true` to verify the **id_token**
+instead, whose standard OIDC claims include `email` natively with no
+tenant-side Action required:
+
+```yaml
+    oauth:
+      ...
+      verify_id_token: true
 ```
 
 ### clerk

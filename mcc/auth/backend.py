@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from fastmcp.server.auth import RemoteAuthProvider, TokenVerifier
 from fastmcp.server.auth.auth import AccessToken
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.dependencies import get_access_token as fast_token
 
@@ -39,6 +40,13 @@ def _build_proxy_provider(name: str):
     module_path, class_name = _PROXY_PROVIDERS[name]
     cls = getattr(importlib.import_module(module_path), class_name)
     kwargs = {k: v for k, v in settings.oauth.to_dict().items() if v}
+    if kwargs.pop("verify_id_token", False):
+        # Provider subclasses (Auth0Provider, AWSCognitoProvider, OCIProvider, ...)
+        # don't expose verify_id_token, so build the underlying OIDCProxy directly
+        # to verify the id_token instead of the access_token. Requires config_url
+        # in settings.oauth, since providers that derive it internally (e.g. from
+        # user_pool_id) can't be used here.
+        return OIDCProxy(verify_id_token=True, **kwargs)
     return cls(**kwargs)
 
 

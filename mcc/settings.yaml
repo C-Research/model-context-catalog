@@ -43,6 +43,8 @@ default:
     base_url: "http://localhost:8000"
     client_id: ""
     client_secret: ""
+    audience: ""
+    verify_id_token: false
 
   jwt:
     jwks_uri: ""
