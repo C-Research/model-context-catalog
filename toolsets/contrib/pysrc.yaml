@@ -1,0 +1,14 @@
+groups: [ admin, dev ]
+tools:
+  - fn: toolsets.contrib.pysrc:get_docstring
+    example: "get_docstring(fn_path=\"mcc.db:ToolIndex\")"
+  - fn: toolsets.contrib.pysrc:get_source
+    example: "get_source(fn_path=\"mcc.db:ToolIndex.query\")"
+  - fn: toolsets.contrib.pysrc:get_signature
+    example: "get_signature(fn_path=\"mcc.loader:load_file\")"
+  - fn: toolsets.contrib.pysrc:list_members
+    example: "list_members(module_path=\"mcc.db\")"
+  - fn: toolsets.contrib.pysrc:get_class_hierarchy
+    example: "get_class_hierarchy(fn_path=\"mcc.db:ToolIndex\")"
+  - fn: toolsets.contrib.pysrc:get_file_location
+    example: "get_file_location(fn_path=\"mcc.loader:load_file\")"

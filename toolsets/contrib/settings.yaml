@@ -8,3 +8,4 @@ default:
     - toolsets/contrib/cache.yaml
     - toolsets/contrib/http.yaml
     - toolsets/contrib/text.yaml
+    - toolsets/contrib/pysrc.yaml
