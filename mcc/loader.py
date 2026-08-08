@@ -104,9 +104,13 @@ def load_file(path: str | Path) -> list[ToolModel]:
             if file_env:
                 entry["env"] = {**file_env, **(entry.get("env") or {})}
 
-    # Pre-pass: batch introspect fn entries that need it, grouped by interpreter
+    # Pre-pass: batch introspect fn entries missing params and/or a return_type,
+    # grouped by interpreter. An entry with explicit params still needs this when
+    # return_type is unset — only return_type is filled in for it in that case.
     needs_introspect = [
-        (i, e) for i, e in enumerate(entries) if e.get("fn") and not e.get("params")
+        (i, e)
+        for i, e in enumerate(entries)
+        if e.get("fn") and (not e.get("params") or not e.get("return_type"))
     ]
     if needs_introspect:
         groups: dict[tuple, list[tuple[int, dict]]] = defaultdict(list)
@@ -126,8 +130,10 @@ def load_file(path: str | Path) -> list[ToolModel]:
                     e["name"] = info["name"]
                 if not e.get("description"):
                     e["description"] = info["doc"]
-                e["params"] = info["params"]
-                e["return_type"] = info.get("return_type")
+                if not e.get("params"):
+                    e["params"] = info["params"]
+                if not e.get("return_type"):
+                    e["return_type"] = info.get("return_type")
 
     tools = [
         # fromkeys deduplicates while preserving order

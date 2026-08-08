@@ -125,7 +125,11 @@ class ToolModel(BaseModel):
             return self
         assert self.fn is not None
         assert self.python is not None
-        if self.params is None:
+        # Introspect whenever params or return_type is unset — an entry with
+        # explicit params still needs a subprocess round-trip to learn the
+        # function's return_type, but must not have its declared params
+        # overwritten.
+        if self.params is None or not self.return_type:
             pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
 
             effective_cwd = self.cwd if self.cwd is not None else os.getcwd()
@@ -162,8 +166,9 @@ class ToolModel(BaseModel):
                 self.description = info["doc"]
             if not self.return_type:
                 self.return_type = info.get("return_type")
-            self.params = [ParamModel(**p) for p in info["params"]]
-        elif not self.name:
+            if self.params is None:
+                self.params = [ParamModel(**p) for p in info["params"]]
+        if not self.name:
             # params explicitly declared; derive name from path string
             attrs = self.fn.split(":", 1)[-1] if ":" in self.fn else self.fn
             self.name = attrs.rsplit(".", 1)[-1]
