@@ -278,7 +278,7 @@ class TestBatchIntrospectOptimization:
         assert "tests.example:echo" in cmd
         assert len(tools) == 2
 
-    def test_explicit_params_skip_batch_prepass(self, tmp_path):
+    def test_explicit_params_and_return_type_skip_batch_prepass(self, tmp_path):
         yaml_file = tmp_path / "tools.yaml"
         yaml_file.write_text(
             textwrap.dedent("""\
@@ -293,6 +293,7 @@ class TestBatchIntrospectOptimization:
                       - name: y
                         type: int
                         required: true
+                    return_type: int
             """)
         )
 
