@@ -51,8 +51,11 @@ def _build_proxy_provider(name: str):
         # user_pool_id) can't be used here.
         # "openid" must be requested or the upstream IdP has no reason to issue an
         # id_token at all (Auth0Provider defaults to this; bypassing it here loses
-        # that default, so it must be set explicitly).
-        kwargs.setdefault("required_scopes", ["openid"])
+        # that default, so it must be set explicitly). "email" must also be
+        # requested or the id_token carries only sub/iss/aud — no email claim,
+        # which mcc.auth.util.get_current_user requires to resolve the MCC user.
+        kwargs.setdefault("required_scopes", ["openid", "email"])
+        logger.info("%s: verifying id_token via OIDCProxy", name)
         return OIDCProxy(verify_id_token=True, **kwargs)
     return cls(**kwargs)
 
