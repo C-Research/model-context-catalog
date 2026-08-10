@@ -43,8 +43,21 @@ default:
     base_url: "http://localhost:8000"
     client_id: ""
     client_secret: ""
-    audience: ""
-    verify_id_token: false
+    audience: ""                     # auth0, jwt
+    verify_id_token: false           # auth0, aws, oci (any OIDCProxy-based provider)
+    config_url: ""                   # auth0, oci, descope
+    tenant_id: ""                    # azure
+    domain: ""                       # clerk
+    authkit_domain: ""               # workos
+    user_pool_id: ""                 # aws
+    aws_region: ""                   # aws
+    project_url: ""                  # supabase
+    environment_url: ""              # scalekit
+    resource_id: ""                  # scalekit
+    auth_url: ""                     # propelauth
+    introspection_client_id: ""      # propelauth
+    introspection_client_secret: ""  # propelauth
+    project_id: ""                   # descope
 
   jwt:
     jwks_uri: ""

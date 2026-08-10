@@ -39,7 +39,10 @@ _PROXY_PROVIDERS = {
 def _build_proxy_provider(name: str):
     module_path, class_name = _PROXY_PROVIDERS[name]
     cls = getattr(importlib.import_module(module_path), class_name)
-    kwargs = {k: v for k, v in settings.oauth.to_dict().items() if v}
+    # dynaconf uppercases env-var-derived keys (MCC_OAUTH__FOO) unless a matching
+    # lowercase key already exists in settings.yaml's defaults; lowercase here so
+    # a provider kwarg missing from the defaults doesn't crash with e.g. AUDIENCE.
+    kwargs = {k.lower(): v for k, v in settings.oauth.to_dict().items() if v}
     if kwargs.pop("verify_id_token", False):
         # Provider subclasses (Auth0Provider, AWSCognitoProvider, OCIProvider, ...)
         # don't expose verify_id_token, so build the underlying OIDCProxy directly
