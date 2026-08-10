@@ -49,6 +49,10 @@ def _build_proxy_provider(name: str):
         # to verify the id_token instead of the access_token. Requires config_url
         # in settings.oauth, since providers that derive it internally (e.g. from
         # user_pool_id) can't be used here.
+        # "openid" must be requested or the upstream IdP has no reason to issue an
+        # id_token at all (Auth0Provider defaults to this; bypassing it here loses
+        # that default, so it must be set explicitly).
+        kwargs.setdefault("required_scopes", ["openid"])
         return OIDCProxy(verify_id_token=True, **kwargs)
     return cls(**kwargs)
 
