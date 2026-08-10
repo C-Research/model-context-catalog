@@ -51,6 +51,7 @@ async def get_current_user() -> Optional[UserModel]:
         logger.debug("resolved user directly from token: %s", token.username)
         return token
     claims: dict = getattr(token, "claims", {}) or {}
+    logger.info("auth token claims: %s", claims)
     try:
         if email := claims.get("email"):
             if user := await get_user_by_email(email):
