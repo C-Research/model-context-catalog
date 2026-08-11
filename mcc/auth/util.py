@@ -54,7 +54,9 @@ async def get_current_user() -> Optional[UserModel]:
     logger.info("auth token claims: %s", claims)
     try:
         if email := claims.get("email"):
-            if user := await get_user_by_email(email):
+            user = await get_user_by_email(email)
+            logger.info("email lookup for %s -> %s", email, user)
+            if user:
                 logger.debug("resolved user by email: %s", user.username)
                 return user
         if login := claims.get("login"):
