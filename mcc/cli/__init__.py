@@ -36,7 +36,8 @@ def err(msg, exit=1):
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Enable debug logging."
 )
-def cli(env, verbose):
+@click.pass_context
+def cli(ctx, env, verbose):
     """
     **MCC** — Model Context Catalog management CLI.
 
@@ -53,10 +54,11 @@ def cli(env, verbose):
     - **MCC_SKIP_AUTOLOAD** — Set to skip automatic tool loading at startup.
     """
     logger.setLevel("DEBUG" if verbose else "INFO")
-    try:
-        arun(loader.save())
-    except Exception as exc:
-        err(f"ES Connection error: {exc}")
+    if ctx.invoked_subcommand != "download":
+        try:
+            arun(loader.save())
+        except Exception as exc:
+            err(f"ES Connection error: {exc}")
     if env is not None:
         settings.setenv(env)
 
