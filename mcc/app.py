@@ -4,6 +4,7 @@ from typing import Optional
 
 from elasticsearch import AsyncElasticsearch
 from fastmcp import Context, FastMCP
+from mcp.types import Icon
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
     CancelledElicitation,
@@ -50,12 +51,19 @@ _session_store = ElasticsearchStore(
     index_prefix="mcc-ctx",
 )
 
+# Overrides the name/link/icon shown on the OAuth consent screen; see
+# settings.yaml's `branding` block. Falls through to FastMCP's own defaults
+# (server name, no link, no icon) when unset.
+_branding = settings.get("branding") or {}
+
 mcp = FastMCP(
-    "model-context-catalog (mcc)",
+    _branding.get("name") or "model-context-catalog (mcc)",
     version=__version__,
     auth=get_provider(),
     lifespan=lifespan,
     session_state_store=_session_store,
+    website_url=_branding.get("website_url") or None,
+    icons=[Icon(src=_branding["icon_url"])] if _branding.get("icon_url") else None,
 )
 mcp.loader = loader  # type: ignore[attr-defined]
 mcp.add_middleware(AuthMiddleware())

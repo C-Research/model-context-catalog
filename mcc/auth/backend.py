@@ -42,7 +42,12 @@ def _build_proxy_provider(name: str):
     # dynaconf uppercases env-var-derived keys (MCC_OAUTH__FOO) unless a matching
     # lowercase key already exists in settings.yaml's defaults; lowercase here so
     # a provider kwarg missing from the defaults doesn't crash with e.g. AUDIENCE.
-    kwargs = {k.lower(): v for k, v in settings.oauth.to_dict().items() if v}
+    # Drop only empty placeholders (unset string defaults), not False — several
+    # real kwargs (verify_id_token, require_authorization_consent) are booleans
+    # where False is a meaningful, intentional value, not "unset".
+    kwargs = {
+        k.lower(): v for k, v in settings.oauth.to_dict().items() if v not in (None, "")
+    }
     if kwargs.pop("verify_id_token", False):
         # Provider subclasses (Auth0Provider, AWSCognitoProvider, OCIProvider, ...)
         # don't expose verify_id_token, so build the underlying OIDCProxy directly

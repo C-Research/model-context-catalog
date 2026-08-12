@@ -31,6 +31,13 @@ default:
     host: 0.0.0.0
     response_max_size: 5000000
 
+  # Overrides the server name/icon/link shown on the FastMCP OAuth consent
+  # screen and error pages. Falls through to FastMCP's own defaults if unset.
+  branding:
+    name: ""
+    website_url: ""
+    icon_url: ""
+
   elasticsearch_url: "http://localhost:9200"
   user_index: "mcc-users"
   tool_index: "mcc-tools"
@@ -58,6 +65,12 @@ default:
     introspection_client_id: ""      # propelauth
     introspection_client_secret: ""  # propelauth
     project_id: ""                   # descope
+    consent_csp_policy: ""            # any OAuthProxy/OIDCProxy-based provider; "" keeps FastMCP's built-in policy
+    # "external" skips FastMCP's own consent screen — Auth0's login is treated
+    # as sufficient authorization. Set to true to re-enable FastMCP's consent
+    # screen, or false to skip it without the "handled elsewhere" warning
+    # suppression (dev only — see FastMCP's own docstring warning on this).
+    require_authorization_consent: "external"
 
   jwt:
     jwks_uri: ""
