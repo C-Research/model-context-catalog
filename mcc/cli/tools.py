@@ -3,7 +3,6 @@ import json
 from typing import Any
 
 import rich_click as click
-from rich import print as pretty_print
 
 from mcc.auth import get_user_by_username
 from mcc.auth.models import UserModel
@@ -124,5 +123,7 @@ def tool_call(tool, params, json_str, as_user, pretty):
         result = json.loads(result)
     except (json.JSONDecodeError, ValueError):
         pass
-    printer = pretty_print if pretty else print
-    printer(result)
+    if pretty:
+        console.print_json(data=result)
+    else:
+        print(json.dumps(result))
