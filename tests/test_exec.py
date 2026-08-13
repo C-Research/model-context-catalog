@@ -203,6 +203,44 @@ class TestPyCallable:
         assert code != 0
         assert "RuntimeError" in err
 
+    async def test_traceback_sanitized_by_default(self):
+        callable_ = make_py_callable(
+            "tests.example:always_fails", sys.executable, None, None
+        )
+        code, out, err = await callable_(msg="boom")
+        assert code != 0
+        assert "RuntimeError: boom" in err
+        assert "Traceback (most recent call last):" not in err
+        assert "example.py" not in err
+
+    async def test_traceback_passed_through_when_debug(self, monkeypatch):
+        from mcc import exec as exec_mod
+
+        monkeypatch.setattr(exec_mod.settings, "DEBUG", True)
+        callable_ = make_py_callable(
+            "tests.example:always_fails", sys.executable, None, None
+        )
+        code, out, err = await callable_(msg="boom")
+        assert code != 0
+        assert "RuntimeError: boom" in err
+        assert "Traceback (most recent call last):" in err
+        assert "example.py" in err
+
+    async def test_failing_tool_call_hides_traceback_by_default(self):
+        # End-to-end via ToolModel.call(), the same path a real tool invocation
+        # takes, rather than the make_py_callable factory directly.
+        tool = ToolModel(
+            name="always_fails",
+            fn="tests.example:always_fails",
+            python=sys.executable,
+            params=[{"name": "msg", "type": "str", "required": True}],
+        )
+        code, out, err = await tool.call(msg="boom")
+        assert code != 0
+        assert "RuntimeError: boom" in err
+        assert "Traceback (most recent call last):" not in err
+        assert "example.py" not in err
+
     async def test_timeout_kills_and_returns(self):
         # use a small exec tool equivalent: python -c "import time; time.sleep(10)"
         # but via make_py_callable with a function that sleeps

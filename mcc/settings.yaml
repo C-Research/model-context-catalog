@@ -2,6 +2,14 @@ default:
   auth: "dev-admin"
   tools: []
 
+  # Dev-mode switch. When true: forces the mcc logger to DEBUG level (overriding
+  # whatever the active environment's logging.loggers.mcc.level says), and lets
+  # full Python tracebacks from failed fn tools (pyrunner subprocesses) pass
+  # through to the LLM. When false (default), those tracebacks are reduced to
+  # just the exception's type and message before being returned, so source
+  # file paths, line numbers, and code context are never leaked to the LLM.
+  debug: false
+
   # Environment variables always exposed to tool subprocesses, regardless of a
   # tool's env_passthrough setting (including env_passthrough: false). These are
   # "machine works" basics, never secrets. A name is only passed through if it

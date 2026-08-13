@@ -20,3 +20,5 @@ settings = Dynaconf(
 
 logging.config.dictConfig(settings.LOGGING.to_dict())
 logger = logging.getLogger("mcc")
+if settings.get("DEBUG", False):
+    logger.setLevel(logging.DEBUG)

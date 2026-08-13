@@ -181,3 +181,20 @@ logging:
     mcc:
       level: DEBUG
 ```
+
+### `debug`
+
+Dev-mode switch. Default: `false`.
+
+```yaml
+debug: true
+```
+
+When `true`:
+
+- Forces the `mcc` logger to `DEBUG` level, overriding whatever the active environment's `logging.loggers.mcc.level` says.
+- Lets full Python tracebacks from failed fn tools (pyrunner subprocesses) pass through to the LLM.
+
+When `false` (default), a failed fn tool's traceback is reduced to just the exception's type and message before being returned, so source file paths, line numbers, and code context are never leaked to the LLM. This does not affect `exec` tools (shell commands), whose stderr is never Python source.
+
+Settable via `MCC_DEBUG=true`. Leave this off in production.

@@ -204,6 +204,21 @@ def _proc_extra(
     return extra
 
 
+def _sanitize_fn_traceback(err: str) -> str:
+    """Reduce a pyrunner-emitted Python traceback to its final line.
+
+    pyrunner prints the full traceback (source file paths, line numbers, code
+    context) to stderr on an uncaught exception. Unless settings.DEBUG is on,
+    that would leak the tool's source code to the LLM, so only the exception's
+    type and message survive. Non-traceback stderr (timeouts, resource-limit
+    notices) is left untouched.
+    """
+    if settings.get("DEBUG", False) or "Traceback (most recent call last):" not in err:
+        return err
+    lines = [line for line in err.strip().splitlines() if line.strip()]
+    return lines[-1] if lines else err
+
+
 def _unwrap_fn_envelope(raw: str) -> str:
     """Unwrap pyrunner's [result, context] stdout envelope for an fn tool.
 
@@ -247,6 +262,9 @@ def _make_callable(
         # untouched, so no write-back is recorded on error.
         if isinstance(result, str) and is_fn:
             result = _unwrap_fn_envelope(result)
+        elif isinstance(result, tuple) and is_fn:
+            code, out, err = result
+            result = (code, out, _sanitize_fn_traceback(err))
         if isinstance(result, str) and transform_template:
             result = await _apply_transform(
                 result, transform_template.render(**kwargs), timeout
