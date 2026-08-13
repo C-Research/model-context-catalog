@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 import rich_click as click
+import uvicorn
 
 from mcc.cli import cli
 from mcc.settings import settings
@@ -43,15 +44,20 @@ def mcp_cmd():
 )
 def run(transport: str, host: Optional[str], port: Optional[int]):
     """Start the MCP server."""
-    from mcc.app import banner, mcp
+    from mcc.app import banner, event_store, mcp
 
     banner()
-    kwargs = (
-        {"host": host, "port": port}
-        if transport in ("http", "sse", "streamable-http")
-        else {}
-    )
-    mcp.run(transport=transport, **kwargs)  # type: ignore[arg-type]  # click.Choice doesn't narrow to Literal
+
+    # mcp.run()/run_http_async() don't accept event_store - FastMCP's own
+    # documented pattern for an EventStore (or none, event_store=None is a
+    # valid default) is to build the ASGI app via http_app() and serve it
+    # yourself. event_store is ignored by http_app() for the sse transport.
+    if transport in ("http", "streamable-http", "sse"):
+        app = mcp.http_app(transport=transport, event_store=event_store)
+        uvicorn.run(app, host=host, port=port)  # type: ignore[arg-type]  # click always supplies host/port via settings defaults
+        return
+
+    mcp.run(transport=transport)  # type: ignore[arg-type]  # click.Choice doesn't narrow to Literal
 
 
 @mcp_cmd.group("install")

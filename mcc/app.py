@@ -10,6 +10,7 @@ from fastmcp.server.elicitation import (
     CancelledElicitation,
     DeclinedElicitation,
 )
+from fastmcp.server.event_store import EventStore
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 from key_value.aio.stores.elasticsearch import ElasticsearchStore
@@ -50,6 +51,20 @@ _session_store = ElasticsearchStore(
     elasticsearch_client=AsyncElasticsearch(**_client_kwargs()),
     index_prefix="mcc-ctx",
 )
+
+# Event store for streamable-http stream resumability (Mcp-Session-Id +
+# Last-Event-ID replay after a dropped connection). Backend is a URI, same
+# convention as cache.backend. "mem://" (default) keeps replay state
+# in-process, so a reconnect that lands on a different pod can never resume;
+# "redis://..." survives pod restarts. redis is only imported when that
+# backend is chosen, so mcc has no hard redis dependency.
+_event_store_backend = settings.get("event_store", {}).get("backend", "mem://")
+if _event_store_backend.startswith(("redis://", "rediss://")):
+    from key_value.aio.stores.redis import RedisStore
+
+    event_store = EventStore(storage=RedisStore(url=_event_store_backend))
+else:
+    event_store = None
 
 # Overrides the name/link/icon shown on the OAuth consent screen; see
 # settings.yaml's `branding` block. Falls through to FastMCP's own defaults

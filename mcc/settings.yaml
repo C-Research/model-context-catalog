@@ -26,10 +26,18 @@ default:
   embedding_dims: 384
 
   server:
-    transport: sse
+    transport: streamable-http
     port: 8000
     host: 0.0.0.0
     response_max_size: 5000000
+
+  # Backend for the streamable-http EventStore (stream resumability across
+  # reconnects/restarts via Mcp-Session-Id + Last-Event-ID replay). Same URI
+  # convention as cache.backend: "mem://" (default, in-process only - fine
+  # for one instance, but a reconnect to a different pod can't resume) or
+  # "redis://host:port/db" to survive pod restarts.
+  event_store:
+    backend: "mem://"
 
   # Overrides the server name/icon/link shown on the FastMCP OAuth consent
   # screen and error pages. Falls through to FastMCP's own defaults if unset.
