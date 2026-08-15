@@ -248,13 +248,18 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
         username = user.username if user else "anonymous"
         logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
-    cache_key = f"exec:{tool.key}:{params_hash(params)}" if tool.cache_ttl else None
-
     # Assemble the caller's context snapshot once (stored session vars + identity
     # re-derived from current_user_var, identity wins) and expose it to the
     # subprocess-spawning layer for the duration of the call.
     stored = await ctx.get_state(state_key(user))
     context = assemble_context(stored, user)
+
+    # Incorporate both the runtime params and the session context values into the cache key
+    cache_key = (
+        f"exec:{tool.key}:{params_hash(params)}:{params_hash(context)}"
+        if tool.cache_ttl
+        else None
+    )
 
     async def _compute():
         # Elicitation is gated behind the cache lookup (it runs only on a miss),

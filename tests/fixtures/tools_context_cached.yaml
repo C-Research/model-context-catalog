@@ -1,0 +1,16 @@
+tools:
+  - name: needs_context
+    fn: tests.example.needs_context
+    description: Returns its x arg plus the injected context dict
+    cache_ttl: 60
+    params:
+      - name: x
+        type: int
+        required: true
+  - name: stash_cursor
+    fn: tests.example.stash_cursor
+    description: Writes cursor to context, returns n
+    params:
+      - name: n
+        type: int
+        required: true

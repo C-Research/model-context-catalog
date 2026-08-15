@@ -315,6 +315,12 @@ class TestWhoamiCache:
             current_user_var.set(None)
 
 
+# Anonymous context assembled by execute() for every TestExecuteCache test below
+# (no current_user_var set, no stored session vars) — must match the same
+# {"user": ..., ...} shape assemble_context(None, None) produces.
+_ANON_CONTEXT = {"user": "anonymous"}
+
+
 class TestExecuteCache:
     async def test_cache_hit_skips_tool_call(self, load_fixture):
         # First call populates the cache with the real result.
@@ -324,7 +330,10 @@ class TestExecuteCache:
         ctx = _ctx_raises()
         result1 = await execute(ctx, "echo", {"message": "hi"})
         assert result1 == ["hi"]
-        cache_key = f"exec:echo:{params_hash({'message': 'hi'})}"
+        cache_key = (
+            f"exec:echo:{params_hash({'message': 'hi'})}:"
+            f"{params_hash(_ANON_CONTEXT)}"
+        )
         await cache.set(cache_key, "sentinel", expire=60)
         result2 = await execute(ctx, "echo", {"message": "hi"})
         assert result2 == "sentinel"
@@ -335,7 +344,10 @@ class TestExecuteCache:
         ctx = _ctx_raises()
         result1 = await execute(ctx, "echo", {"message": "hi"})
         assert result1 == ["hi"]
-        cache_key = f"exec:echo:{params_hash({'message': 'hi'})}"
+        cache_key = (
+            f"exec:echo:{params_hash({'message': 'hi'})}:"
+            f"{params_hash(_ANON_CONTEXT)}"
+        )
         await cache.set(cache_key, "sentinel", expire=60)
         result2 = await execute(ctx, "echo", {"message": "hi"})
         assert result2 == ["hi"]  # real result, not sentinel
@@ -347,6 +359,42 @@ class TestExecuteCache:
         result_b = await execute(ctx, "echo", {"message": "b"})
         assert result_a == ["a"]
         assert result_b == ["b"]
+
+    async def test_different_context_different_cache_keys(self, load_fixture):
+        """A tool result that depends on context must not leak across sessions.
+
+        Same tool, same params, two different sessions with different stored
+        `database` context vars: each must see its own result, not the other's
+        cached one — regression test for the params-only cache key bug.
+        """
+        load_fixture("tools_context_cached.yaml")
+        ctx_a = _ctx_state(session="s1")
+        ctx_b = _ctx_state(session="s2")
+        await execute(ctx_a, "stash_cursor", {"n": 1})
+        await execute(ctx_b, "stash_cursor", {"n": 2})
+
+        result_a = await execute(ctx_a, "needs_context", {"x": 1})
+        result_b = await execute(ctx_b, "needs_context", {"x": 1})
+
+        assert result_a["context"].get("cursor") == 1
+        assert result_b["context"].get("cursor") == 2
+
+    async def test_different_user_different_cache_keys(self, load_fixture):
+        """Same params, two different authenticated users: no cross-user leak."""
+        load_fixture("tools_context_cached.yaml")
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            result_alice = await execute(_ctx_raises(), "needs_context", {"x": 1})
+        finally:
+            current_user_var.set(None)
+        current_user_var.set(UserModel(username="bob"))
+        try:
+            result_bob = await execute(_ctx_raises(), "needs_context", {"x": 1})
+        finally:
+            current_user_var.set(None)
+
+        assert result_alice["context"]["user"] == "alice"
+        assert result_bob["context"]["user"] == "bob"
 
 
 class TestSearchCache:
