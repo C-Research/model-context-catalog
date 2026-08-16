@@ -42,15 +42,28 @@ async def lifespan(server):
     yield
 
 
-# Session-scoped context store. ElasticsearchStore derives index names as
+# Session-scoped context store. Both stores derive index names as
 # "{index_prefix}-{collection}", and FastMCP's state store uses the collection
 # "fastmcp_state", so this touches only "mcc-ctx-fastmcp_state" and cannot clobber
-# the users/tools/keys indices. Reuses the existing ES client wiring; default 24h
-# TTL is FastMCP's and needs no setting.
-_session_store = ElasticsearchStore(
-    elasticsearch_client=AsyncElasticsearch(**_client_kwargs()),
-    index_prefix="mcc-ctx",
-)
+# the users/tools/keys indices. Reuses the existing client wiring for whichever
+# backend is active, so `search_backend: opensearch` needs no Elasticsearch
+# cluster reachable for session state either. Default 24h TTL is FastMCP's and
+# needs no setting.
+if settings.SEARCH_BACKEND == "opensearch":
+    from key_value.aio.stores.opensearch import OpenSearchStore
+    from opensearchpy import AsyncOpenSearch
+
+    from mcc.db import _os_client_kwargs
+
+    _session_store = OpenSearchStore(
+        opensearch_client=AsyncOpenSearch(**_os_client_kwargs()),
+        index_prefix="mcc-ctx",
+    )
+else:
+    _session_store = ElasticsearchStore(
+        elasticsearch_client=AsyncElasticsearch(**_client_kwargs()),
+        index_prefix="mcc-ctx",
+    )
 
 # Event store for streamable-http stream resumability (Mcp-Session-Id +
 # Last-Event-ID replay after a dropped connection). Backend is a URI, same

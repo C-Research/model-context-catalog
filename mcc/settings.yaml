@@ -54,7 +54,13 @@ default:
     website_url: ""
     icon_url: ""
 
+  # Storage/search backend for UsersIndex, KeysIndex, and ToolIndex. Read once
+  # at process start — not switchable at runtime. "opensearch" requires the
+  # mcc[opensearch] extra to be installed.
+  search_backend: "elasticsearch"
+
   elasticsearch_url: "http://localhost:9200"
+  opensearch_url: "http://localhost:9200"
   user_index: "mcc-users"
   tool_index: "mcc-tools"
   key_index: "mcc-keys"

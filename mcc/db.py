@@ -77,36 +77,9 @@ class ESIndex(_ESIndexBase):
         return AsyncElasticsearch(**_client_kwargs())
 
 
-class UsersIndex(ESIndex):
-    index = settings.USER_INDEX
-    mapping = {
-        "mappings": {
-            "properties": {
-                "username": {"type": "keyword"},
-                "email": {"type": "keyword"},
-                "groups": {"type": "keyword"},
-                "tools": {"type": "keyword"},
-            }
-        }
-    }
+class ToolIndexES(ESIndex):
+    """Elasticsearch-backed ToolIndex: native `knn` + `dense_vector`."""
 
-
-class KeysIndex(ESIndex):
-    index = settings.KEY_INDEX
-    mapping = {
-        "mappings": {
-            "properties": {
-                "prefix": {"type": "keyword"},
-                "hash": {"type": "keyword"},
-                "username": {"type": "keyword"},
-                "expires_at": {"type": "date"},
-                "created_at": {"type": "date"},
-            }
-        }
-    }
-
-
-class ToolIndex(ESIndex):
     index = settings.TOOL_INDEX
     mapping = {
         "mappings": {
@@ -169,3 +142,164 @@ class ToolIndex(ESIndex):
             "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000
         )
         return hits
+
+
+if settings.SEARCH_BACKEND == "opensearch":
+    from opensearchpy import AsyncOpenSearch
+
+    from mcc.osindex import OSIndex as _OSIndexBase
+
+    def _os_client_kwargs() -> dict:
+        """Build AsyncOpenSearch kwargs from OPENSEARCH_URL.
+
+        Same URL convention as `_client_kwargs()`: scheme/host/port/credentials
+        in one value. Unlike AsyncElasticsearch, AsyncOpenSearch takes
+        `use_ssl`/`verify_certs`/`http_auth` as separate constructor kwargs
+        rather than accepting query-string options on the URL itself.
+        """
+        url = settings.OPENSEARCH_URL
+        parsed = urlparse(url)
+        kwargs: dict = {"use_ssl": parsed.scheme == "https"}
+
+        params = parse_qs(parsed.query)
+        if "verify_certs" in params:
+            kwargs["verify_certs"] = params["verify_certs"][0].lower() not in (
+                "false",
+                "0",
+                "no",
+            )
+
+        if parsed.username:
+            kwargs["http_auth"] = (parsed.username, parsed.password or "")
+
+        netloc = parsed.hostname or ""
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        kwargs["hosts"] = [urlunparse(parsed._replace(netloc=netloc, query=""))]
+        return kwargs
+
+    class OSIndex(_OSIndexBase):
+        """mcc's OS index: connects to ``OPENSEARCH_URL`` and pings on enter.
+
+        Document operations are inherited from the shared, settings-agnostic
+        base; only the client construction is mcc-specific.
+        """
+
+        ping_on_enter = True
+
+        def _make_client(self) -> AsyncOpenSearch:
+            return AsyncOpenSearch(**_os_client_kwargs())
+
+    class ToolIndexOS(OSIndex):
+        """OpenSearch-backed ToolIndex: k-NN plugin `knn_vector` + query clause."""
+
+        index = settings.TOOL_INDEX
+        mapping = {
+            "settings": {"index.knn": True},
+            "mappings": {
+                "properties": {
+                    "signature": {"type": "text"},
+                    "groups": {"type": "keyword"},
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": settings.EMBEDDING_DIMS,
+                        "method": {
+                            "name": "hnsw",
+                            "engine": "faiss",
+                            "space_type": "cosinesimil",
+                        },
+                    },
+                }
+            },
+        }
+
+        async def signatures(self) -> list[str]:
+            """Return every indexed tool's signature, ordered by tool key."""
+            resp = await self._client.search(
+                index=self.index, body={"query": {"match_all": {}}, "size": 10000}
+            )
+            hits = sorted(
+                (hit["_id"], hit["_source"]["signature"])
+                for hit in resp["hits"]["hits"]
+            )
+            return [sig for _, sig in hits]
+
+        async def index_tool(self, tool: ToolModel) -> None:
+            await self.put(
+                tool.key,
+                {
+                    "signature": tool.signature,
+                    "groups": tool.groups,
+                    "embedding": await embed(tool.signature),
+                },
+            )
+
+        async def query(
+            self, query: str, min_score: Optional[float] = None
+        ) -> list[tuple[str, float]]:
+            vector = await embed(query)
+            body: dict = {
+                "query": {
+                    "bool": {
+                        "should": [
+                            {
+                                "match": {
+                                    "signature": {
+                                        "query": query,
+                                        "fuzziness": "AUTO",
+                                    }
+                                }
+                            },
+                            {"knn": {"embedding": {"vector": vector, "k": 10}}},
+                        ]
+                    }
+                },
+                "size": 10000,
+            }
+            if min_score is not None:
+                body["min_score"] = min_score
+            t0 = time()
+            resp = await self._client.search(index=self.index, body=body)
+            hits = [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
+            logger.debug(
+                "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000
+            )
+            return hits
+
+    _BASE = OSIndex
+    _TOOL_INDEX_CLS = ToolIndexOS
+else:
+    _BASE = ESIndex
+    _TOOL_INDEX_CLS = ToolIndexES
+
+
+class UsersIndex(_BASE):
+    index = settings.USER_INDEX
+    mapping = {
+        "mappings": {
+            "properties": {
+                "username": {"type": "keyword"},
+                "email": {"type": "keyword"},
+                "groups": {"type": "keyword"},
+                "tools": {"type": "keyword"},
+            }
+        }
+    }
+
+
+class KeysIndex(_BASE):
+    index = settings.KEY_INDEX
+    mapping = {
+        "mappings": {
+            "properties": {
+                "prefix": {"type": "keyword"},
+                "hash": {"type": "keyword"},
+                "username": {"type": "keyword"},
+                "expires_at": {"type": "date"},
+                "created_at": {"type": "date"},
+            }
+        }
+    }
+
+
+ToolIndex = _TOOL_INDEX_CLS
