@@ -14,14 +14,31 @@ def list_archive(path: str) -> list[str]:
     raise ValueError(f"Unsupported archive format: {path}")
 
 
+def _reject_unsafe_members(names: list[str], dest: Path) -> None:
+    """Raise if any archive member would extract outside dest (zip slip).
+
+    zipfile.extractall has no equivalent of tarfile's `filter="data"` (added in
+    3.12), so a malicious entry name like '../../etc/passwd' or an absolute
+    path is not rejected by the stdlib and must be checked here before
+    extraction.
+    """
+    for name in names:
+        target = (dest / name).resolve()
+        if not target.is_relative_to(dest):
+            raise ValueError(f"Archive member escapes destination: {name!r}")
+
+
 def extract(path: str, dest: str) -> list[str]:
     """Extract a zip or tar archive to a destination directory. Returns extracted paths."""
     dest_path = Path(dest)
     dest_path.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_path.resolve()
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
-            zf.extractall(dest_path)
-            return zf.namelist()
+            names = zf.namelist()
+            _reject_unsafe_members(names, dest_path)
+            zf.extractall(dest_path)  # nosec B202 -- members validated above
+            return names
     if tarfile.is_tarfile(path):
         with tarfile.open(path) as tf:
             tf.extractall(dest_path, filter="data")

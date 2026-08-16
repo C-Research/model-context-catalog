@@ -95,3 +95,15 @@ class TestExtract:
         dest = str(tmp_path / "deep" / "nested" / "out")
         await execute(_CTX, "admin.archive.extract", {"path": archive, "dest": dest})
         assert (Path(dest) / "a.txt").exists()
+
+    async def test_rejects_zip_slip(self, tmp_path):
+        archive = tmp_path / "evil.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("../escaped.txt", "pwned")
+        dest = str(tmp_path / "extracted")
+        # fn tools run in a subprocess; errors come back as (code, stdout, stderr)
+        result = await execute(_CTX, "admin.archive.extract", {"path": str(archive), "dest": dest})
+        code, _, stderr = result
+        assert code != 0
+        assert "escapes destination" in stderr
+        assert not (tmp_path / "escaped.txt").exists()

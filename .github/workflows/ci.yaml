@@ -18,8 +18,15 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv run pyright mcc/
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run bandit -r mcc/ toolsets/ -c pyproject.toml
+
   test:
-    needs: [ lint, typecheck ]
+    needs: [ lint, typecheck, security ]
     runs-on: ubuntu-latest
     services:
       elasticsearch:

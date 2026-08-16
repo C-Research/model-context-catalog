@@ -11,7 +11,9 @@ def _quote_filter(value: Any) -> str:
     return shlex.quote(str(value))
 
 
-jinja_env = Environment(
+jinja_env = Environment(  # nosec B701 -- output is shell commands and markdown, never
+    # HTML; autoescape=True would HTML-escape shell metacharacters (e.g. `&` -> `&amp;`)
+    # and corrupt both the `quote` filter's shlex output and the rendered markdown.
     loader=FileSystemLoader(Path(__file__).parent / "templates"),
     trim_blocks=True,  # removes newline after block tags
     lstrip_blocks=True,  # strips leading whitespace from block tags

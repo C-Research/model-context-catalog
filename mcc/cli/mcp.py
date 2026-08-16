@@ -82,7 +82,8 @@ def do_install(dest: str, **kwargs):
     from fastmcp.cli.cli import app
 
     install_cmd = app["install"][dest].default_command
-    assert install_cmd is not None, f"No default_command for install target '{dest}'"
+    if install_cmd is None:
+        raise RuntimeError(f"No default_command for install target '{dest}'")
 
     supported = inspect.signature(install_cmd).parameters
     call_kwargs: dict = {

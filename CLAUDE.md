@@ -6,7 +6,7 @@ MCC (Model Context Catalog) is an MCP server that exposes Python callables as a 
 
 ## Agents
 
-See [AGENTS.md](./AGENTS.md) for how to run pytest, ruff, and pyright. Always run all three before considering a task complete.
+See [AGENTS.md](./AGENTS.md) for how to run pytest, ruff, pyright, and bandit. Always run all four before considering a task complete.
 
 ## Running the server
 

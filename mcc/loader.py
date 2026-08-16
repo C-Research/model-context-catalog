@@ -59,7 +59,9 @@ def _batch_introspect(
 
     logger.debug("introspecting %d fn(s) with %s: %s", len(fn_paths), python, fn_paths)
     t0 = time()
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603 -- argv list, no shell; python/pyrunner_path
+        # are resolved internally and fn_paths come from admin-authored tool YAML, not
+        # runtime/caller input
         [python, pyrunner_path, "introspect", *fn_paths],
         **run_kwargs,
     )

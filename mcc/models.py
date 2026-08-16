@@ -123,8 +123,10 @@ class ToolModel(BaseModel):
             if self.params is None:
                 self.params = []
             return self
-        assert self.fn is not None
-        assert self.python is not None
+        if self.fn is None or self.python is None:
+            # Guaranteed by validate_fn_or_exec, which runs first: fn is set
+            # whenever exec isn't, and python is set whenever fn is.
+            raise RuntimeError("ToolModel invariant violated: fn/python unset with no exec")
         # Introspect whenever params or return_type is unset — an entry with
         # explicit params still needs a subprocess round-trip to learn the
         # function's return_type, but must not have its declared params
@@ -142,7 +144,9 @@ class ToolModel(BaseModel):
                     self.env, self.env_file, self.env_passthrough, effective_cwd
                 ),
             }
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 -- argv list, no shell; self.python/
+                # pyrunner_path are resolved internally and self.fn comes from
+                # admin-authored tool YAML, not runtime/caller input
                 [self.python, pyrunner_path, "introspect", self.fn],
                 **run_kwargs,
             )
@@ -215,8 +219,10 @@ class ToolModel(BaseModel):
                 self.env_passthrough,
                 self._resolved_transform,
             )
-        assert self.fn is not None
-        assert self.python is not None
+        if self.fn is None or self.python is None:
+            # Guaranteed by validate_fn_or_exec, which runs first: fn is set
+            # whenever exec isn't, and python is set whenever fn is.
+            raise RuntimeError("ToolModel invariant violated: fn/python unset with no exec")
         return make_py_callable(
             self.fn,
             self.python,

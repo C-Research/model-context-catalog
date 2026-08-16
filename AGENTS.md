@@ -36,5 +36,14 @@ uv run pyright mcc/
 
 All type errors must be resolved. Do not use `# type: ignore` to silence errors without a comment explaining why.
 
+## bandit
 
+Python files only
 
+Security-scan with:
+
+```bash
+uv run bandit -r mcc/ toolsets/ -c pyproject.toml
+```
+
+All findings must be resolved. Fix real issues; do not suppress with `# nosec` unless there is a specific, documented reason (e.g. a mitigation bandit's static analysis can't detect, or a check that doesn't apply in context).
