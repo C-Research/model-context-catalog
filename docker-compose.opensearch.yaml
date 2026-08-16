@@ -1,0 +1,45 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - os-data:/usr/share/opensearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mcc:
+    build:
+      context: .
+      args:
+        MCC_UV_EXTRA_ARGS: "--extra opensearch"
+    environment:
+      - MCC_SEARCH_BACKEND=opensearch
+      - MCC_OPENSEARCH_URL=http://opensearch:9200
+      - MCC_AUTH=dev-admin
+      - FASTEMBED_CACHE_PATH=/cache/fastembed
+    volumes:
+      - model-cache:/cache
+      - ./mcc:/app/mcc
+      # Mount local tool files:
+      # - ./my-tools:/tools
+    ports:
+      - "8000:8000"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+volumes:
+  os-data:
+  model-cache:

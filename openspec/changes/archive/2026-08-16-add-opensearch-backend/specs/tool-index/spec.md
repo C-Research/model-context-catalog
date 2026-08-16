@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: ToolIndex class backed by Elasticsearch or OpenSearch
 The system SHALL provide a `ToolIndex` class, exposed by `mcc/db/__init__.py`'s dispatch from either `mcc/db/es.py` or `mcc/db/os.py` based on `settings.SEARCH_BACKEND`. Both backends index the same three fields, unsplit: `signature` (the tool's full rendered signature block — name, description, and params — as one text field) as text/keyword-analyzed text, `groups` as keyword, and `embedding` (the vector of `signature`) as the backend's native vector type. There is no separate `name`/`description` split — search is not hybrid across independently-scored fields; the vector is computed over `signature` alone, same as the existing Elasticsearch implementation. When `search_backend` is `"elasticsearch"` (default), `ToolIndex` SHALL subclass `ESIndex` with `embedding` as `dense_vector`. When `search_backend` is `"opensearch"`, `ToolIndex` SHALL subclass `OSIndex` with `embedding` as `knn_vector`. In both cases the index name SHALL be read from `settings.TOOL_INDEX` and the document ID SHALL be `tool.key`. The two backend implementations SHALL be separate classes with independent mapping and query logic — no shared query-building code between them.
@@ -26,46 +26,7 @@ The system SHALL provide a `UsersIndex` class, exposed by `mcc/db/__init__.py`'s
 - **WHEN** a user document is put and then retrieved via `UsersIndex`, first with `search_backend: elasticsearch` and then with `search_backend: opensearch`
 - **THEN** both backends return the same stored document for the same operations
 
-### Requirement: ToolIndex stores only search fields
-`ToolIndex` SHALL expose `put(tool: ToolModel) -> None`. `put` SHALL store only `{name, description, groups}` — no `fn`, `params`, or `callable`. The document ID SHALL be `tool.key`.
-
-#### Scenario: put stores only search-relevant fields
-- **WHEN** a `ToolModel` is put into the index
-- **THEN** the stored ES document contains only `name`, `description`, and `groups`
-
-### Requirement: ToolIndex search returns keys
-`ToolIndex` SHALL expose `search(query: str, group: str | None = None) -> list[str]` returning document IDs (tool keys). The query SHALL be matched against `name` (boosted 2×) and `description` using a `multi_match` query with `fuzziness: AUTO`. When `group` is provided, results SHALL be filtered to tools whose `groups` field contains that value.
-
-#### Scenario: Search returns matching tool keys
-- **WHEN** query is `"weather"` and a tool with key `"ops.get_weather"` is indexed
-- **THEN** `"ops.get_weather"` is included in the returned key list
-
-#### Scenario: Search matches on description
-- **WHEN** query text appears only in a tool's description, not its name
-- **THEN** that tool's key is included in results
-
-#### Scenario: Fuzzy search tolerates minor typos
-- **WHEN** query is `"wether"` (typo) and a tool named `get_weather` is indexed
-- **THEN** that tool's key is included in results
-
-#### Scenario: Group filter restricts results
-- **WHEN** `group="ops"` is provided and two tools exist with groups `["ops"]` and `["finance"]`
-- **THEN** only the `ops` tool's key is returned
-
-#### Scenario: Empty results return empty list
-- **WHEN** the query matches no indexed tools
-- **THEN** `search()` returns an empty list
-
-### Requirement: Settings split for user and tool indices
-The `elasticsearch` settings block SHALL use `user_index` for the user store index name and `tool_index` for the tool store index name, replacing the previous single `index` key. Default values SHALL be `mcc-users` and `mcc-tools` respectively.
-
-#### Scenario: UsersIndex reads user_index setting
-- **WHEN** `settings.ELASTICSEARCH.USER_INDEX` is `"mcc-users"`
-- **THEN** `UsersIndex` targets the `mcc-users` ES index
-
-#### Scenario: ToolIndex reads tool_index setting
-- **WHEN** `settings.ELASTICSEARCH.TOOL_INDEX` is `"mcc-tools"`
-- **THEN** `ToolIndex` targets the `mcc-tools` ES index
+## ADDED Requirements
 
 ### Requirement: ToolIndex search DSL is backend-specific
 Regardless of backend, `ToolIndex` SHALL expose the same public contract: `put`/`index_tool(tool: ToolModel) -> None` storing `{signature, groups, embedding}` (embedding computed over `signature`, no other fields), and `query(query: str, min_score: Optional[float] = None) -> list[tuple[str, float]]` returning tool keys ranked by relevance to a semantic/text query against `signature`. There is no separate `group` filter parameter on `query()`; narrowing by group is a query-text convention (callers include the group name in the natural-language query), unchanged by this feature. The Elasticsearch-backed implementation SHALL use a combined BM25 `match` and native `knn` query against a `dense_vector` field, unchanged from before this change. The OpenSearch-backed implementation SHALL use the OpenSearch k-NN plugin's query clause against a `knn_vector` field, combined with a text match query on `signature`, as an independent implementation of the same contract.

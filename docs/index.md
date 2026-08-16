@@ -6,7 +6,7 @@ icon: lucide/layers
 
 MCC is an MCP server that acts as a permission-controlled catalog of tools. It exposes pre-defined **Python functions and shell commands** to Claude and other LLM clients through a unified `search` / `execute` interface, with authentication and group based access controls built in.
 
-MCC is written in Python FastMCP and uses Elastic Search for a data store and fastembed for semantic search
+MCC is written in Python FastMCP and uses Elastic or OpenSearch for a data store and fastembed for semantic search
 
 ## How it works
 
@@ -31,8 +31,8 @@ This also makes the catalog self-documenting. The model learns about tools on de
 
 - **Two tool types**: point at any Python callable (`fn:`) which runs in the server's interpreter or wrap any shell command (`exec:`) which can run any interpreter
 - **Tool spec templates**: can interpolate env vars `${MYVAR}` at load time and then `{{ param | quote }}` at execute time for safe shell interpolation, with conditionals and list expansion
-- **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elasticsearch and FastEmbed
-- **Group-based access control** tools specs define `groups` and users are stored in ES. users can be granted tool access via `groups`  or specific `tools`
+- **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elastic or OpenSearch and FastEmbed
+- **Group-based access control** tools specs define `groups` and users are stored in the configured search backend (Elasticsearch or OpenSearch). users can be granted tool access via `groups`  or specific `tools`
 - **Auth backends**: GitHub OAuth, Google, Azure, and more — or dev mode (`dev-admin`)
 - **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
 - **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more

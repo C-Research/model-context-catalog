@@ -2,7 +2,6 @@ import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from elasticsearch import AsyncElasticsearch
 from fastmcp import Context, FastMCP
 from mcp.types import Icon
 from fastmcp.server.elicitation import (
@@ -13,7 +12,6 @@ from fastmcp.server.elicitation import (
 from fastmcp.server.event_store import EventStore
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
-from key_value.aio.stores.elasticsearch import ElasticsearchStore
 from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
@@ -30,7 +28,7 @@ from mcc.context import (
     state_key,
     writeback_context_var,
 )
-from mcc.db import _client_kwargs
+from mcc.db import session_store
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware
 from mcc.settings import logger, settings
@@ -42,28 +40,13 @@ async def lifespan(server):
     yield
 
 
-# Session-scoped context store. Both stores derive index names as
+# Session-scoped context store. Both backends derive index names as
 # "{index_prefix}-{collection}", and FastMCP's state store uses the collection
 # "fastmcp_state", so this touches only "mcc-ctx-fastmcp_state" and cannot clobber
-# the users/tools/keys indices. Reuses the existing client wiring for whichever
-# backend is active, so `search_backend: opensearch` needs no Elasticsearch
-# cluster reachable for session state either. Default 24h TTL is FastMCP's and
-# needs no setting.
-if settings.SEARCH_BACKEND == "opensearch":
-    from key_value.aio.stores.opensearch import OpenSearchStore
-    from opensearchpy import AsyncOpenSearch
-
-    from mcc.db import _os_client_kwargs
-
-    _session_store = OpenSearchStore(
-        opensearch_client=AsyncOpenSearch(**_os_client_kwargs()),
-        index_prefix="mcc-ctx",
-    )
-else:
-    _session_store = ElasticsearchStore(
-        elasticsearch_client=AsyncElasticsearch(**_client_kwargs()),
-        index_prefix="mcc-ctx",
-    )
+# the users/tools/keys indices. session_store() picks the backend matching
+# settings.SEARCH_BACKEND, so this needs no Elasticsearch cluster reachable
+# when running OpenSearch. Default 24h TTL is FastMCP's and needs no setting.
+_session_store = session_store("mcc-ctx")
 
 # Event store for streamable-http stream resumability (Mcp-Session-Id +
 # Last-Event-ID replay after a dropped connection). Backend is a URI, same

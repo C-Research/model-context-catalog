@@ -40,6 +40,9 @@ osint = [
     "sherlock-project>=0.14.3",
     "gdeltdoc>=1.4.0",
 ]
+opensearch = [
+    "opensearch-py[async]>=2.4.0",
+]
 
 [project.scripts]
 mcc = "mcc.cli:cli"

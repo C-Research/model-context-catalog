@@ -112,6 +112,27 @@ embedding_model: BAAI/bge-small-en-v1.5
 
 The model is downloaded on first use and cached locally by fastembed. Changing this requires a server restart to re-index tools.
 
+### Search backend
+
+`search_backend` (env var `MCC_SEARCH_BACKEND`) selects which storage/search engine `UsersIndex`, `KeysIndex`, and `ToolIndex` use. It's read once at process start — not switchable at runtime.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `search_backend` | `elasticsearch` | `elasticsearch` or `opensearch` |
+
+```yaml
+search_backend: opensearch
+opensearch_url: https://opensearch-user:pass@host:9200?verify_certs=false
+```
+
+Switching to `opensearch` requires installing the `opensearch` extra:
+
+```bash
+uv sync --extra opensearch
+```
+
+See [Elasticsearch](#elasticsearch) and [OpenSearch](#opensearch) below for backend-specific connection settings — `user_index`/`tool_index`/`key_index` are shared across both backends.
+
 ### Elasticsearch
 
 The connection is configured with a single `elasticsearch_url` (env var `MCC_ELASTICSEARCH_URL`). Scheme, host, port, and basic-auth credentials all come from the URL:
@@ -128,6 +149,20 @@ Append `?verify_certs=false` to allow self-signed/untrusted certificates over `h
 | `user_index` | `mcc-users` | Index name for user records |
 | `tool_index` | `mcc-tools` | Index name for tool embeddings |
 | `key_index` | `mcc-keys` | Index name for API key records |
+
+### OpenSearch
+
+Used when `search_backend: opensearch`. The connection is configured the same way as Elasticsearch — a single `opensearch_url` (env var `MCC_OPENSEARCH_URL`) carrying scheme, host, port, and basic-auth credentials:
+
+```
+MCC_OPENSEARCH_URL=https://admin:pass@host:9200?verify_certs=false
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `opensearch_url` | `http://localhost:9200` | Full connection URL, including any `user:password@` and optional `?verify_certs=false` |
+
+`user_index`/`tool_index`/`key_index` (above) apply to both backends. `ToolIndex`'s vector search uses the OpenSearch k-NN plugin (`faiss` engine, falling back to `lucene`) rather than Elasticsearch's native `knn` — see the `opensearch-backend` capability for details. Score scales differ between backends, so a `min_score` tuned for Elasticsearch may need recalibrating after switching.
 
 ### `oauth`
 

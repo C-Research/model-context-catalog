@@ -77,8 +77,9 @@ than its bound user; that is intentional.
 - **Hashed storage.** Only a SHA-256 hash, the lookup prefix, and an expiry are
   stored in a dedicated keys index — never the raw key. The raw key is shown
   exactly once at creation and cannot be recovered.
-- **Instant revocation.** The verifier reads Elasticsearch on every request with
-  no caching, so `mcc user key revoke` takes effect immediately.
+- **Instant revocation.** The verifier reads the search backend (Elasticsearch
+  or OpenSearch) on every request with no caching, so `mcc user key revoke`
+  takes effect immediately.
 - **Default TTL.** Keys expire ~90 days out (`api_key.default_ttl_days`),
   bounding the blast radius of a leaked key. Override per key with
   `mcc user key add --expires <days|never>`.

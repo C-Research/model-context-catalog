@@ -4,13 +4,17 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
+# Override at build time with --build-arg MCC_UV_EXTRA_ARGS="--extra opensearch"
+# to install optional extras (e.g. for a search_backend: opensearch deployment).
+ARG MCC_UV_EXTRA_ARGS=""
+
 # Install dependencies first (layer caching)
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project ${MCC_UV_EXTRA_ARGS}
 
 # Install the project itself
 COPY mcc/ ./mcc/
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev ${MCC_UV_EXTRA_ARGS}
 
 EXPOSE 8000
 

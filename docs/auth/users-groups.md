@@ -4,7 +4,7 @@ icon: lucide/users
 
 # Users & Groups
 
-MCC stores users in Elasticsearch. These operations are available via the `mcc user` CLI or from an LLM by calling `execute` with the tool key shown below.
+MCC stores users in the configured search backend — Elasticsearch or OpenSearch, see [Configuration](../getting-started/configuration.md#search-backend). These operations are available via the `mcc user` CLI or from an LLM by calling `execute` with the tool key shown below.
 
 ## User model
 
