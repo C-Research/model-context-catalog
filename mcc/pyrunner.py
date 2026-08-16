@@ -26,6 +26,8 @@ import json
 import os
 import sys
 import traceback
+import types
+import typing
 from typing import Any
 
 # Env var carrying the JSON-encoded context dict (identity + session vars). Must
@@ -54,6 +56,27 @@ _TYPE_NAMES: dict[type, str] = {
     list: "list",
     dict: "dict",
 }
+
+_UNION_ORIGINS = (typing.Union, getattr(types, "UnionType", None))
+
+
+def _annotation_type_name(annotation: Any) -> str:
+    """Map a parameter annotation to one of MCC's coarse type names.
+
+    Unwraps Optional[X] / X | None to X — mcc represents optionality via the
+    param's `required` flag, not the type itself — and generic containers
+    (list[str], dict[str, int]) to their origin, before matching against
+    _TYPE_NAMES. A bare lookup on the raw annotation would silently fall
+    back to "str" for any of these (Optional[list[str]] is never `is` `list`),
+    which is exactly the failure mode this exists to avoid.
+    """
+    origin = typing.get_origin(annotation)
+    if origin in _UNION_ORIGINS:
+        args = [a for a in typing.get_args(annotation) if a is not type(None)]
+        return _annotation_type_name(args[0]) if len(args) == 1 else "str"
+    if origin is not None:
+        return _TYPE_NAMES.get(origin, "str")
+    return _TYPE_NAMES.get(annotation, "str")
 
 
 def json_handler(fn: Any) -> Any:
@@ -120,14 +143,22 @@ def introspect(*fn_paths: str) -> list[dict]:
             for param in sig.parameters.values():
                 if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                     continue
-                annotation = (
-                    param.annotation if param.annotation is not param.empty else str
-                )
                 has_default = param.default is not param.empty
+                if param.annotation is not param.empty:
+                    annotation = param.annotation
+                elif has_default:
+                    # No annotation (common for C builtins like re.sub, or a
+                    # bare `x=False` in Python source): infer from the default's
+                    # runtime type rather than assuming str, or a differently-
+                    # typed default (e.g. a bool flag) would be exposed to
+                    # callers as a str param that rejects the correct type.
+                    annotation = type(param.default)
+                else:
+                    annotation = str
                 params.append(
                     {
                         "name": param.name,
-                        "type": _TYPE_NAMES.get(annotation, "str"),
+                        "type": _annotation_type_name(annotation),
                         "required": not has_default,
                         "default": param.default if has_default else None,
                         "description": "",

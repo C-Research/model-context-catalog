@@ -205,18 +205,33 @@ def _proc_extra(
 
 
 def _sanitize_fn_traceback(err: str) -> str:
-    """Reduce a pyrunner-emitted Python traceback to its final line.
+    """Reduce a pyrunner-emitted Python traceback to its final exception message.
 
     pyrunner prints the full traceback (source file paths, line numbers, code
     context) to stderr on an uncaught exception. Unless settings.DEBUG is on,
     that would leak the tool's source code to the LLM, so only the exception's
-    type and message survive. Non-traceback stderr (timeouts, resource-limit
-    notices) is left untouched.
+    type and message survive. The message itself can span multiple lines (e.g.
+    a pydantic ValidationError's field-by-field breakdown), so this finds the
+    last "  File ..." frame header and returns everything from the first line
+    after it that isn't more indented than that header — frame source snippets
+    and caret annotations are always indented deeper than their "File" line,
+    while the exception repr that follows can dedent back to column 0. Non-
+    traceback stderr (timeouts, resource-limit notices) is left untouched.
     """
     if settings.get("DEBUG", False) or "Traceback (most recent call last):" not in err:
         return err
     lines = [line for line in err.strip().splitlines() if line.strip()]
-    return lines[-1] if lines else err
+    last_file = next(
+        (i for i in range(len(lines) - 1, -1, -1) if lines[i].lstrip().startswith('File "')),
+        None,
+    )
+    if last_file is None:
+        return lines[-1] if lines else err
+    file_indent = len(lines[last_file]) - len(lines[last_file].lstrip())
+    start = last_file + 1
+    while start < len(lines) and (len(lines[start]) - len(lines[start].lstrip())) > file_indent:
+        start += 1
+    return "\n".join(lines[start:]) if start < len(lines) else lines[-1]
 
 
 def _unwrap_fn_envelope(raw: str) -> str:
