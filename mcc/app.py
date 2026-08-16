@@ -264,7 +264,6 @@ async def execute(ctx: Context, key: str, params: Optional[dict] = None):
     async def _compute():
         # Elicitation is gated behind the cache lookup (it runs only on a miss),
         # so a cached result never re-prompts the caller.
-        # XXX: make sure this doesnt clobber the context from oauth providers
         merged = await _elicit_missing(ctx, key, tool, params)
         token = current_context_var.set(context)
         wb_token = writeback_context_var.set(NO_WRITEBACK)

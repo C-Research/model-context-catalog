@@ -40,6 +40,24 @@ tools:
 
 Omit `groups` entirely to default to `[public]` (accessible to all users).
 
+### Group matching
+
+A user is granted access if any of their groups matches one of the tool's declared groups. Matching is either an exact tag or a `prefix.*` pattern:
+
+- An exact group (e.g. `engineering`) matches only that literal tag, wherever it appears in the tool's `groups` list.
+- A `prefix.*` group (e.g. `atlas.*`) matches tools whose `groups` list *begins with* that prefix, in declared order (file-level groups first, then any per-tool override). It does not match tools where the prefix appears as a later, secondary tag.
+
+```yaml
+groups: [atlas]           # file-level: leading segment for every tool below
+tools:
+  - fn: mymodule:count_related     # groups: [atlas] -> "atlas.*" matches
+  - fn: mymodule:cypher_query
+    groups: [admin, atlas]         # groups: [admin, atlas] -> "atlas.*" does NOT match
+                                    # ("atlas" is a secondary tag, not the leading segment)
+```
+
+So a user with `groups: [atlas.*]` sees `atlas.count_related` but not `admin.atlas.cypher_query` — even though the flat tag `atlas` (`groups: [atlas]` on the user) would grant both. Prefix and exact-tag grants aren't a superset of one another; give a user both forms if you want the union.
+
 ## `name`, `description`, and `example`
 
 For `fn` tools `name` and `description` are optional — MCC introspects them from the callable. For `exec` tools, `name` is required and `description` should be set manually since there's no callable to inspect.

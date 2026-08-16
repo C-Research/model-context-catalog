@@ -191,6 +191,21 @@ class TestCanAccess:
         user = UserModel(username="alice")
         assert can_access(user, self._tool(groups=["ops"])) is False
 
+    def test_prefix_group_matches_leading_segment(self):
+        user = UserModel(username="alice", groups=["atlas.*"])
+        assert can_access(user, self._tool(groups=["atlas", "core"])) is True
+        assert can_access(user, self._tool(groups=["atlas"])) is True
+
+    def test_prefix_group_does_not_match_secondary_tag(self):
+        # "atlas" is a secondary tag here, not the leading namespace segment,
+        # so "atlas.*" must not grant access.
+        user = UserModel(username="alice", groups=["atlas.*"])
+        assert can_access(user, self._tool(groups=["admin", "atlas"])) is False
+
+    def test_prefix_group_no_overlap(self):
+        user = UserModel(username="alice", groups=["atlas.*"])
+        assert can_access(user, self._tool(groups=["sandp", "neo4j"])) is False
+
 
 class TestGetCurrentUser:
     async def test_resolves_via_email(self):

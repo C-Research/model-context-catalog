@@ -7,6 +7,21 @@ from mcc.models import ToolModel
 from mcc.settings import logger
 
 
+def _group_matches(pattern: str, groups: list[str]) -> bool:
+    """True if `pattern` grants access given a tool's authored groups list.
+
+    A plain tag (e.g. "atlas") matches via exact membership, same as before.
+    A pattern ending in ".*" (e.g. "atlas.*") is a prefix match against the
+    tool's groups in their declared order (file-level groups first, then any
+    per-entry groups) — it only matches tools where "atlas" leads the group
+    path, not tools where "atlas" merely appears as a secondary tag.
+    """
+    if pattern.endswith(".*"):
+        prefix = pattern[:-2].split(".")
+        return groups[: len(prefix)] == prefix
+    return pattern in groups
+
+
 def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     """returns true if user can access tool"""
     if not tool.groups or "public" in tool.groups:
@@ -18,7 +33,7 @@ def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
     if "admin" in user.groups:
         logger.debug("access granted to %s: %s is admin", tool.key, user.username)
         return True
-    if any(g in user.groups for g in tool.groups):
+    if any(_group_matches(g, tool.groups) for g in user.groups):
         logger.debug(
             "access granted to %s: group overlap for %s", tool.key, user.username
         )
