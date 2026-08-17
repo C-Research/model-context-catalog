@@ -279,6 +279,8 @@ def _make_callable(
             result = _unwrap_fn_envelope(result)
         elif isinstance(result, tuple) and is_fn:
             code, out, err = result
+            if err:
+                logger.error("py_exec failed: code=%s | %s", code, err)
             result = (code, out, _sanitize_fn_traceback(err))
         if isinstance(result, str) and transform_template:
             result = await _apply_transform(
