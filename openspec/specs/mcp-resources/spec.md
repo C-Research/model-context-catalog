@@ -15,7 +15,7 @@ The server SHALL expose a `catalog://tools` MCP resource that returns the signat
 The server SHALL expose a `catalog://tools/{key}` MCP resource template that returns the signature of a single tool by its key.
 
 #### Scenario: Accessible tool
-- **WHEN** a user reads `catalog://tools/public.list_tools`
+- **WHEN** a user reads `catalog://tools/public.text.base64_encode`
 - **THEN** the resource returns that tool's full signature markdown
 
 #### Scenario: Inaccessible tool

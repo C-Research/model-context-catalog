@@ -83,21 +83,3 @@ async def get_current_user() -> Optional[UserModel]:
             "User store unavailable, treating request as unauthenticated: %s", e
         )
     return None
-
-
-async def list_tools(text: bool = False) -> dict | str:
-    """
-    Returns a list of tools that the current user is allowed to execute
-
-    If calling from llm you want to set text=True
-    """
-    from mcc.loader import loader
-
-    user = await get_current_user()
-    tools = {}
-    for key, tool in loader.items():
-        if tool.allows(user):
-            tools[key] = tool
-    if not text:
-        return tools
-    return "\n\n".join([tool.signature for tool in tools.values()])
