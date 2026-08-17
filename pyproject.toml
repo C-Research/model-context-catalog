@@ -43,6 +43,9 @@ osint = [
 opensearch = [
     "opensearch-py[async]>=2.4.0",
 ]
+scraping = [
+    "scrapling[fetchers]>=0.4.14",
+]
 
 [project.scripts]
 mcc = "mcc.cli:cli"

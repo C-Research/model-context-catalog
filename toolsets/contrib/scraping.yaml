@@ -1,0 +1,45 @@
+tools:
+  - fn: toolsets.contrib.scraping:scrape
+    groups: [ admin, scraping ]
+    example: 'scrape(urls=["https://example.com"], css={"title": "h1::text"})'
+    params:
+      - name: urls
+        type: list
+        required: true
+        description: List of page URLs to fetch.
+      - name: css
+        type: dict
+        description: Map of field name to CSS selector (supports ::text/::attr(name)).
+      - name: xpath
+        type: dict
+        description: Map of field name to XPath selector.
+      - name: mode
+        type: str
+        default: static
+        description: "static (fast HTTP), js (headless browser), or stealth (headless browser with anti-bot evasion)."
+      - name: timeout
+        type: float
+        default: 30
+        description: Per-page fetch timeout in seconds.
+  - fn: toolsets.contrib.scraping:scrape
+    name: scrape-static
+    groups: [ public, scraping ]
+    example: 'scrape-static(urls=["https://example.com"], css={"title": "h1::text"})'
+    params:
+      - name: urls
+        type: list
+        required: true
+        description: List of page URLs to fetch.
+      - name: css
+        type: dict
+        description: Map of field name to CSS selector (supports ::text/::attr(name)).
+      - name: xpath
+        type: dict
+        description: Map of field name to XPath selector.
+      - name: mode
+        type: str
+        override: static
+      - name: timeout
+        type: float
+        default: 30
+        description: Per-page fetch timeout in seconds.
