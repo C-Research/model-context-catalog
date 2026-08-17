@@ -1,5 +1,7 @@
 import asyncio
 import json
+import sys
+from pathlib import Path
 from typing import Any
 
 import rich_click as click
@@ -32,6 +34,26 @@ def _parse_kv_pairs(pairs: tuple[str, ...]) -> dict[str, Any] | None:
     return parsed
 
 
+def _load_json_blob(value: str) -> Any | None:
+    """Parse a JSON object from a literal string, or from a file/stdin when
+    `value` starts with `@` (curl-style: `@path` reads a file, `@-` reads
+    stdin). Prints an error and returns None on failure."""
+    if value.startswith("@"):
+        path = value[1:]
+        try:
+            raw = sys.stdin.read() if path == "-" else Path(path).read_text()
+        except OSError as e:
+            err(f"could not read `{path}` — {e}")
+            return None
+    else:
+        raw = value
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        err(f"invalid JSON — {e}")
+        return None
+
+
 @click.group()
 def tool():
     """Browse and call catalog tools."""
@@ -62,7 +84,13 @@ def info(tool):
 @tool.command("call", aliases=["exec", "run"])
 @click.argument("tool")
 @click.argument("params", nargs=-1)
-@click.option("--json", "json_str", default=None, help="JSON object of parameters")
+@click.option(
+    "--json",
+    "json_str",
+    default=None,
+    help="JSON object of parameters. Prefix with @ to read from a file "
+    "(@params.json) or stdin (@-).",
+)
 @click.option(
     "--ctx",
     "ctx_vars",
@@ -75,7 +103,8 @@ def info(tool):
     "--ctx-json",
     "ctx_json_str",
     default=None,
-    help="JSON object of context vars (merged with --ctx, --ctx wins on conflict)",
+    help="JSON object of context vars (merged with --ctx, --ctx wins on conflict). "
+    "Prefix with @ to read from a file (@ctx.json) or stdin (@-).",
 )
 @click.option(
     "--as",
@@ -104,9 +133,13 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
 
         mcc tool call my.tool --json '{"name": "foo", "count": 3}'
 
+        mcc tool call my.tool --json @params.json
+
         mcc tool call public.request url=https://example.com --as ci-bot
 
         mcc tool call my.tool --ctx target_host=10.0.0.5 --ctx budget=100
+
+        mcc tool call my.tool --json @- < params.json
     """
 
     t = loader.get(tool)
@@ -124,10 +157,10 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
 
     kwargs: dict[str, Any] = {}
     if json_str:
-        try:
-            kwargs.update(json.loads(json_str))
-        except json.JSONDecodeError as e:
-            err(f"invalid JSON — {e}")
+        parsed_json = _load_json_blob(json_str)
+        if parsed_json is None:
+            return
+        kwargs.update(parsed_json)
 
     parsed_params = _parse_kv_pairs(params)
     if parsed_params is None:
@@ -136,11 +169,10 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
 
     ctx: dict[str, Any] = {}
     if ctx_json_str:
-        try:
-            ctx.update(json.loads(ctx_json_str))
-        except json.JSONDecodeError as e:
-            err(f"invalid JSON — {e}")
+        parsed_ctx_json = _load_json_blob(ctx_json_str)
+        if parsed_ctx_json is None:
             return
+        ctx.update(parsed_ctx_json)
 
     parsed_ctx = _parse_kv_pairs(ctx_vars)
     if parsed_ctx is None:
