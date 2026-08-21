@@ -30,6 +30,24 @@ default:
     backend: "mem://"
     search_ttl: 60
 
+  # Per-user, per-catalog-tool call-rate limiting for execute(), enforced by
+  # RateLimitMiddleware (mcc/middleware.py). Disabled by default so existing
+  # deployments are unaffected until an operator opts in. Fixed window,
+  # keyed per user per tool key (e.g. "admin.shell") — resets after the
+  # first call in a window. Each value is either:
+  #   - "<count>/<n><unit>", unit one of s|min|hr, e.g. "60/1min", "50/24hr",
+  #     "10/30s"
+  #   - -1, meaning unlimited for that tool (skips the counter entirely)
+  # Only applies to catalog tools reached via execute(); search/whoami/etc.
+  # are never limited. Counters live in the same backend as cache.backend
+  # above (mem:// by default) — on multiple pods without a shared redis://
+  # backend, each pod tracks its own counters, so the effective limit is
+  # configured_limit * pod_count.
+  rate_limit:
+    enabled: false
+    default: "60/1min"
+    tools: {}
+
   embedding_model: "BAAI/bge-small-en-v1.5"
   embedding_dims: 384
 

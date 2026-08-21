@@ -676,3 +676,12 @@ class TestContextWriteback:
             assert json.loads(await get_session(ctx, "seen")) is True
         finally:
             current_user_var.set(None)
+
+
+def test_rate_limit_middleware_not_registered_when_disabled():
+    # settings.yaml ships rate_limit.enabled: false, so the app under test
+    # must not have registered RateLimitMiddleware at all.
+    from mcc.app import mcp
+    from mcc.middleware import RateLimitMiddleware
+
+    assert not any(isinstance(mw, RateLimitMiddleware) for mw in mcp.middleware)
