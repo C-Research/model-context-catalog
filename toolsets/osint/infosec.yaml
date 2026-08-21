@@ -91,13 +91,13 @@ tools:
         description: Domain name or IPv4/IPv6 address to search.
 
   - name: urlscan_search
-    curl: "https://urlscan.io/api/v1/search/?q={{ q | urlencode }}&size={{ size }}"
+    curl: "-H 'API-Key: ${URLSCAN_API_KEY} https://urlscan.io/api/v1/search/?q={{ q | urlencode }}&size={{ size }}"
     example: 'urlscan_search(q="domain:suspicious-site.com")'
     description: |
       Search the urlscan.io public index for existing website scans matching a query.
       Supports Elasticsearch-style queries: domain:example.com, ip:1.2.3.4, hash:<sha256>, etc.
       Returns JSON with scan results including screenshot URLs, page metadata, detected technologies,
-      certificates, and IP/ASN info. No API key required for searching public scans.
+      certificates, and IP/ASN info. 
     params:
       - name: q
         type: str
