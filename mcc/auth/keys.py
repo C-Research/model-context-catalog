@@ -7,6 +7,7 @@ from typing import Optional
 from elasticsearch import NotFoundError
 
 from mcc.db import KeysIndex
+from mcc.settings import logger
 
 _PREFIX_BYTES = 6
 _SECRET_BYTES = 24
@@ -44,6 +45,30 @@ def parse_prefix(raw_key: str) -> Optional[str]:
 def verify_hash(raw_key: str, stored_hash: str) -> bool:
     """Constant-time comparison of a raw key against a stored hash."""
     return hmac.compare_digest(hash_key(raw_key), stored_hash)
+
+
+async def verify_api_key(raw_key: str) -> Optional[dict]:
+    """Resolve `raw_key` to its record in KeysIndex, or None if invalid/expired.
+
+    Prefix lookup, constant-time hash comparison, and expiry check — shared by
+    ApiKeyVerifier (MCP transport auth) and any HTTP route that authenticates
+    via API key directly against the keys index, so both paths reject
+    malformed/unknown/revoked/expired keys identically.
+    """
+    prefix = parse_prefix(raw_key)
+    if prefix is None:
+        return None
+    record = await get_key_by_prefix(prefix)
+    if record is None:
+        return None
+    if not verify_hash(raw_key, record["hash"]):
+        return None
+    raw_expiry = record.get("expires_at")
+    expires_at = datetime.fromisoformat(raw_expiry) if raw_expiry else None
+    if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+        logger.debug("rejecting expired key for %s", record["username"])
+        return None
+    return record
 
 
 async def create_key(username: str, ttl_days: Optional[int]) -> str:

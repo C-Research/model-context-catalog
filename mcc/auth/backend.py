@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastmcp.server.auth import RemoteAuthProvider, TokenVerifier
 from fastmcp.server.auth.auth import AccessToken
@@ -10,7 +10,7 @@ from fastmcp.server.dependencies import get_access_token as fast_token
 
 from mcc.auth.dev import get_admin_context as dev_admin
 from mcc.auth.dev import get_public_context as dev_public
-from mcc.auth.keys import get_key_by_prefix, parse_prefix, verify_hash
+from mcc.auth.keys import verify_api_key
 from mcc.settings import logger, settings
 
 _DEV_BACKENDS = {
@@ -90,24 +90,16 @@ class ApiKeyVerifier(TokenVerifier):
     """
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        prefix = parse_prefix(token)
-        if prefix is None:
-            return None
-        record = await get_key_by_prefix(prefix)
+        record = await verify_api_key(token)
         if record is None:
-            return None
-        if not verify_hash(token, record["hash"]):
             return None
         raw_expiry = record.get("expires_at")
         expires_at = datetime.fromisoformat(raw_expiry) if raw_expiry else None
-        if expires_at is not None and expires_at <= datetime.now(timezone.utc):
-            logger.debug("rejecting expired key for %s", record["username"])
-            return None
         # token carries the non-secret prefix, never the raw key: the
         # get_user_context admin tool surfaces this AccessToken to the LLM, so
         # nothing key-derived may live in token/claims/scopes.
         return AccessToken(
-            token=f"mcc_{prefix}",
+            token=f"mcc_{record['prefix']}",
             client_id=record["username"],
             scopes=[],
             expires_at=int(expires_at.timestamp()) if expires_at else None,

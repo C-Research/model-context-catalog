@@ -4,8 +4,9 @@ from typing import cast
 
 import mcc.app as app_module
 import mcc.db.base as db_base
-from mcc.app import healthz, readyz
+import mcc.routes as routes_module
 from mcc.context import current_user_var
+from mcc.routes import healthz, readyz
 from starlette.requests import Request
 
 # The handlers never read the request (neither check depends on it) — a typed
@@ -39,12 +40,12 @@ def _body(response):
 
 class TestHealthz:
     async def test_ok_with_no_backend_calls(self, monkeypatch):
-        monkeypatch.setattr(app_module, "UsersIndex", _RaisingIndex)
+        monkeypatch.setattr(routes_module, "UsersIndex", _RaisingIndex)
 
         async def _boom(*args, **kwargs):
             raise RuntimeError("cache must not be touched by /healthz")
 
-        monkeypatch.setattr(app_module.cache, "ping", _boom)
+        monkeypatch.setattr(routes_module.cache, "ping", _boom)
 
         response = await healthz(_REQ)
         assert response.status_code == 200
@@ -58,39 +59,39 @@ class TestReadyz:
         assert _body(response) == {"status": "ok"}
 
     async def test_degraded_when_search_backend_down(self, monkeypatch):
-        monkeypatch.setattr(app_module, "UsersIndex", _RaisingIndex)
+        monkeypatch.setattr(routes_module, "UsersIndex", _RaisingIndex)
         response = await readyz(_REQ)
         assert response.status_code == 503
         assert _body(response) == {"status": "degraded"}
 
     async def test_degraded_when_loader_empty(self):
-        original = dict(app_module.loader)
-        app_module.loader.clear()
+        original = dict(routes_module.loader)
+        routes_module.loader.clear()
         try:
             response = await readyz(_REQ)
             assert response.status_code == 503
             assert _body(response) == {"status": "degraded"}
         finally:
-            app_module.loader.update(original)
+            routes_module.loader.update(original)
 
     async def test_degraded_when_cache_down(self, monkeypatch):
         async def _boom(*args, **kwargs):
             raise RuntimeError("cache unreachable")
 
-        monkeypatch.setattr(app_module.cache, "ping", _boom)
+        monkeypatch.setattr(routes_module.cache, "ping", _boom)
         response = await readyz(_REQ)
         assert response.status_code == 503
         assert _body(response) == {"status": "degraded"}
 
     async def test_degraded_on_timeout(self, monkeypatch):
-        monkeypatch.setattr(app_module, "UsersIndex", _SlowIndex)
-        monkeypatch.setattr(app_module, "_READYZ_TIMEOUT", 0.01)
+        monkeypatch.setattr(routes_module, "UsersIndex", _SlowIndex)
+        monkeypatch.setattr(routes_module, "_READYZ_TIMEOUT", 0.01)
         response = await readyz(_REQ)
         assert response.status_code == 503
         assert _body(response) == {"status": "degraded"}
 
     async def test_failure_reason_not_leaked_in_body(self, monkeypatch, caplog):
-        monkeypatch.setattr(app_module, "UsersIndex", _RaisingIndex)
+        monkeypatch.setattr(routes_module, "UsersIndex", _RaisingIndex)
         with caplog.at_level("WARNING"):
             response = await readyz(_REQ)
         assert _body(response) == {"status": "degraded"}

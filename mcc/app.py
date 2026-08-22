@@ -1,4 +1,3 @@
-import asyncio
 import json
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -14,12 +13,10 @@ from fastmcp.server.event_store import EventStore
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field, ValidationError, create_model
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from mcc import __version__
 from mcc.auth.backend import get_provider
-from mcc.cache import cache, cached, params_hash
+from mcc.cache import cached, params_hash
 from mcc.context import (
     NO_WRITEBACK,
     RESERVED_KEYS,
@@ -31,12 +28,11 @@ from mcc.context import (
     state_key,
     writeback_context_var,
 )
-from mcc.db import UsersIndex, session_store
+from mcc.db import session_store
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, LoggingMiddleware, RateLimitMiddleware
+from mcc.routes import register_routes
 from mcc.settings import logger, settings
-
-_READYZ_TIMEOUT = 3
 
 
 @asynccontextmanager
@@ -91,42 +87,7 @@ mcp.add_middleware(
 if settings.get("rate_limit", {}).get("enabled", False):
     mcp.add_middleware(RateLimitMiddleware())
 
-
-@mcp.custom_route("/healthz", methods=["GET"])
-async def healthz(request: Request) -> JSONResponse:
-    """Liveness check: the process can handle an HTTP request. No backend calls."""
-    return JSONResponse({"status": "ok"})
-
-
-@mcp.custom_route("/readyz", methods=["GET"])
-async def readyz(request: Request) -> JSONResponse:
-    """Readiness check: the search backend, cache backend, and tool loader are all ready.
-
-    Each check is bounded by _READYZ_TIMEOUT so a hung backend fails the probe
-    quickly instead of holding the connection open. The specific failure is
-    logged server-side only — the response body never names which backend
-    failed, to avoid leaking internal topology to this unauthenticated route.
-    """
-
-    async def _check_search_backend() -> None:
-        async with UsersIndex():
-            pass
-
-    async def _check_loader() -> None:
-        if not len(loader):
-            raise RuntimeError("tool loader has no tools registered")
-
-    for name, check in (
-        ("search backend", _check_search_backend),
-        ("cache backend", cache.ping),
-        ("tool loader", _check_loader),
-    ):
-        try:
-            await asyncio.wait_for(check(), timeout=_READYZ_TIMEOUT)
-        except Exception as exc:
-            logger.warning("readyz: %s check failed: %s", name, exc)
-            return JSONResponse({"status": "degraded"}, status_code=503)
-    return JSONResponse({"status": "ok"})
+register_routes(mcp)
 
 
 def banner():

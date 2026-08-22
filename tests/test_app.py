@@ -685,3 +685,83 @@ def test_rate_limit_middleware_not_registered_when_disabled():
     from mcc.middleware import RateLimitMiddleware
 
     assert not any(isinstance(mw, RateLimitMiddleware) for mw in mcp.middleware)
+
+
+class TestRequireAdmin:
+    """require_admin gates a custom_route handler on an admin API key, checked
+    directly against the keys index rather than through settings.auth."""
+
+    def _request(self, headers=None):
+        from starlette.requests import Request
+
+        raw = [
+            (k.lower().encode(), v.encode()) for k, v in (headers or {}).items()
+        ]
+        return Request({"type": "http", "headers": raw})
+
+    def _handler(self):
+        from starlette.responses import JSONResponse
+
+        calls = []
+
+        async def handler(request, user):
+            calls.append(user.username)
+            return JSONResponse({"username": user.username})
+
+        return handler, calls
+
+    async def test_missing_header_returns_401_without_calling_handler(self):
+        from mcc.routes import require_admin
+
+        handler, calls = self._handler()
+        response = await require_admin(handler)(self._request())
+        assert response.status_code == 401
+        assert calls == []
+
+    async def test_non_bearer_scheme_returns_401(self):
+        from mcc.routes import require_admin
+
+        handler, calls = self._handler()
+        request = self._request({"Authorization": "Basic dXNlcjpwYXNz"})
+        response = await require_admin(handler)(request)
+        assert response.status_code == 401
+        assert calls == []
+
+    async def test_invalid_key_returns_401(self):
+        from mcc.routes import require_admin
+
+        handler, calls = self._handler()
+        request = self._request({"Authorization": "Bearer garbage"})
+        response = await require_admin(handler)(request)
+        assert response.status_code == 401
+        assert calls == []
+
+    async def test_valid_admin_key_calls_handler(self, users_idx, keys_idx):
+        from mcc.routes import require_admin
+        from mcc.auth import create_user
+        from mcc.auth.keys import create_key
+
+        await create_user("ci-bot", groups=["admin"])
+        raw = await create_key("ci-bot", ttl_days=90)
+
+        handler, calls = self._handler()
+        request = self._request({"Authorization": f"Bearer {raw}"})
+        response = await require_admin(handler)(request)
+        assert response.status_code == 200
+        assert calls == ["ci-bot"]
+
+    async def test_valid_non_admin_key_returns_401_without_calling_handler(
+        self, users_idx, keys_idx
+    ):
+        from mcc.routes import require_admin
+        from mcc.auth import create_user
+        from mcc.auth.keys import create_key
+
+        await create_user("ci-bot", groups=["public"])
+        raw = await create_key("ci-bot", ttl_days=90)
+
+        handler, calls = self._handler()
+        request = self._request({"Authorization": f"Bearer {raw}"})
+        response = await require_admin(handler)(request)
+        assert response.status_code == 401
+        assert calls == []

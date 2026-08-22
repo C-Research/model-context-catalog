@@ -2,6 +2,7 @@ from typing import Optional
 
 from mcc.auth.backend import get_user_context
 from mcc.auth.db import get_user_by_email, get_user_by_username
+from mcc.auth.keys import verify_api_key
 from mcc.auth.models import UserModel
 from mcc.models import ToolModel
 from mcc.settings import logger
@@ -83,3 +84,30 @@ async def get_current_user() -> Optional[UserModel]:
             "User store unavailable, treating request as unauthenticated: %s", e
         )
     return None
+
+
+async def get_user_by_key(
+    raw_key: str, groups: Optional[list[str]] = None
+) -> Optional[UserModel]:
+    """Resolves `raw_key` to a UserModel via the keys index directly.
+
+    Independent of `settings.auth`/`get_provider()` — HTTP routes that gate on
+    this always check the raw key against the mcc-keys index, so they don't
+    inherit whatever OAuth/JWT backend the MCP transport is configured with.
+
+    If `groups` is given, the resolved user must belong to at least one of
+    them, unless they're an admin — same admin-bypass semantics as
+    `can_access`. If `groups` is None, any successfully resolved user passes.
+    Returns None for an invalid/expired/unknown key, an unknown username, or
+    a user that doesn't satisfy `groups`.
+    """
+    record = await verify_api_key(raw_key)
+    if record is None:
+        return None
+    user = await get_user_by_username(record["username"])
+    if user is None:
+        return None
+    if groups is not None and "admin" not in user.groups:
+        if not any(g in user.groups for g in groups):
+            return None
+    return user

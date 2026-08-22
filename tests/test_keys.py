@@ -16,8 +16,10 @@ from mcc.auth.keys import (
     list_keys,
     parse_prefix,
     revoke_key,
+    verify_api_key,
     verify_hash,
 )
+from mcc.auth.util import get_user_by_key
 from mcc.cli.users import user
 from mcc.db import KeysIndex
 
@@ -208,6 +210,109 @@ class TestApiKeyVerifier:
         assert token is not None
         assert token.claims["login"] == "ci-bot"
         assert token.expires_at is None
+
+
+# --- verify_api_key (shared by ApiKeyVerifier and admin HTTP auth) ---
+
+
+class TestVerifyApiKey:
+    async def test_valid_key_returns_record(self):
+        raw = await create_key("ci-bot", ttl_days=90)
+        record = await verify_api_key(raw)
+        assert record is not None
+        assert record["username"] == "ci-bot"
+
+    async def test_unknown_prefix_returns_none(self):
+        assert await verify_api_key("mcc_deadbeef_secret") is None
+
+    async def test_malformed_key_returns_none(self):
+        assert await verify_api_key("garbage") is None
+
+    async def test_hash_mismatch_returns_none(self):
+        raw = await create_key("ci-bot", ttl_days=90)
+        prefix = parse_prefix(raw)
+        forged = f"mcc_{prefix}_wrongsecret"
+        assert await verify_api_key(forged) is None
+
+    async def test_expired_key_returns_none(self):
+        raw, prefix = generate_key()
+        past = datetime.now(timezone.utc) - timedelta(days=1)
+        async with KeysIndex() as idx:
+            await idx.put(
+                "ci-bot",
+                {
+                    "prefix": prefix,
+                    "hash": hash_key(raw),
+                    "username": "ci-bot",
+                    "created_at": (past - timedelta(days=90)).isoformat(),
+                    "expires_at": past.isoformat(),
+                },
+            )
+        assert await verify_api_key(raw) is None
+
+    async def test_never_expiring_key_returns_record(self):
+        raw = await create_key("ci-bot", ttl_days=None)
+        record = await verify_api_key(raw)
+        assert record is not None
+        assert record["expires_at"] is None
+
+
+# --- get_user_by_key (HTTP routes that authenticate by API key directly,
+# independent of settings.auth) ---
+
+
+class TestGetUserByKey:
+    async def test_no_groups_filter_resolves_any_user(self, users_idx):
+        await create_user("ci-bot", groups=["public"])
+        raw = await create_key("ci-bot", ttl_days=90)
+        user = await get_user_by_key(raw)
+        assert user is not None
+        assert user.username == "ci-bot"
+
+    async def test_matching_group_resolves(self, users_idx):
+        await create_user("ci-bot", groups=["editors"])
+        raw = await create_key("ci-bot", ttl_days=90)
+        user = await get_user_by_key(raw, groups=["editors", "reviewers"])
+        assert user is not None
+        assert user.username == "ci-bot"
+
+    async def test_non_matching_group_returns_none(self, users_idx):
+        await create_user("ci-bot", groups=["public"])
+        raw = await create_key("ci-bot", ttl_days=90)
+        assert await get_user_by_key(raw, groups=["admin"]) is None
+
+    async def test_admin_bypasses_groups_filter(self, users_idx):
+        await create_user("ci-bot", groups=["admin"])
+        raw = await create_key("ci-bot", ttl_days=90)
+        user = await get_user_by_key(raw, groups=["editors"])
+        assert user is not None
+        assert user.username == "ci-bot"
+
+    async def test_key_with_no_matching_user_returns_none(self, users_idx):
+        # key exists (username "ci-bot") but no such user was ever created
+        raw = await create_key("ci-bot", ttl_days=90)
+        assert await get_user_by_key(raw, groups=["admin"]) is None
+
+    async def test_invalid_key_returns_none(self, users_idx):
+        await create_user("ci-bot", groups=["admin"])
+        assert await get_user_by_key("garbage", groups=["admin"]) is None
+
+    async def test_expired_key_returns_none_even_for_admin(self, users_idx):
+        await create_user("ci-bot", groups=["admin"])
+        raw, prefix = generate_key()
+        past = datetime.now(timezone.utc) - timedelta(days=1)
+        async with KeysIndex() as idx:
+            await idx.put(
+                "ci-bot",
+                {
+                    "prefix": prefix,
+                    "hash": hash_key(raw),
+                    "username": "ci-bot",
+                    "created_at": (past - timedelta(days=90)).isoformat(),
+                    "expires_at": past.isoformat(),
+                },
+            )
+        assert await get_user_by_key(raw, groups=["admin"]) is None
 
 
 class TestNeverExpires:
