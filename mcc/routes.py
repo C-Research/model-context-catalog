@@ -1,11 +1,12 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from functools import wraps
+from typing import Optional
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from mcc.auth import get_user_by_key
+from mcc.auth import get_user_by_key, whoami_info
 from mcc.auth.models import UserModel
 from mcc.cache import cache
 from mcc.db import UsersIndex
@@ -15,12 +16,23 @@ from mcc.settings import logger
 _READYZ_TIMEOUT = 3
 
 
+def _extract_api_key(request: Request) -> Optional[str]:
+    """Extracts the raw key from `X-API-Key`, or `Authorization: Bearer <key>`, or None.
+
+    `X-API-Key` takes precedence when both are present.
+    """
+    if api_key := request.headers.get("x-api-key"):
+        return api_key
+    scheme, _, raw_key = request.headers.get("authorization", "").partition(" ")
+    return raw_key if scheme.lower() == "bearer" else None
+
+
 def require_admin(
     handler: Callable[[Request, UserModel], Awaitable[JSONResponse]],
 ) -> Callable[[Request], Awaitable[JSONResponse]]:
     """Gates a custom_route handler on an admin API key, independent of settings.auth.
 
-    Checks the raw key in the `Authorization: Bearer` header against the
+    Checks the raw key from `X-API-Key` or `Authorization: Bearer` against the
     mcc-keys index directly (see `get_user_by_key`) rather than going through
     `get_provider()`/`settings.auth` — so admin HTTP routes work the same
     whether the MCP transport is configured for jwt, an OAuth proxy, or dev
@@ -30,12 +42,8 @@ def require_admin(
 
     @wraps(handler)
     async def wrapper(request: Request) -> JSONResponse:
-        scheme, _, raw_key = request.headers.get("authorization", "").partition(" ")
-        user = (
-            await get_user_by_key(raw_key, groups=["admin"])
-            if scheme.lower() == "bearer"
-            else None
-        )
+        raw_key = _extract_api_key(request)
+        user = await get_user_by_key(raw_key, groups=["admin"]) if raw_key else None
         if user is None:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         return await handler(request, user)
@@ -78,16 +86,24 @@ async def readyz(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-@require_admin
-async def admin_whoami(request: Request, user: UserModel) -> JSONResponse:
-    """Sanity check: resolves the caller's admin API key and echoes their user record."""
-    return JSONResponse(user.model_dump())
+async def whoami(request: Request) -> JSONResponse:
+    """Identity + accessible-tools check, as JSON — the HTTP counterpart to the
+    whoami MCP tool in app.py (same fields via whoami_info, rendered as text there).
+
+    Open to any valid key, not just admins — unlike require_admin, this checks
+    get_user_by_key with no `groups` filter, so any resolvable user passes.
+    """
+    raw_key = _extract_api_key(request)
+    user = await get_user_by_key(raw_key) if raw_key else None
+    if user is None:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return JSONResponse(whoami_info(user))
 
 
 ROUTES: list[tuple[str, list[str], Callable]] = [
     ("/healthz", ["GET"], healthz),
     ("/readyz", ["GET"], readyz),
-    ("/admin/whoami", ["GET"], admin_whoami),
+    ("/whoami", ["GET"], whoami),
 ]
 
 

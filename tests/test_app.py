@@ -765,3 +765,33 @@ class TestRequireAdmin:
         response = await require_admin(handler)(request)
         assert response.status_code == 401
         assert calls == []
+
+    async def test_valid_admin_key_via_x_api_key_header(self, users_idx, keys_idx):
+        from mcc.routes import require_admin
+        from mcc.auth import create_user
+        from mcc.auth.keys import create_key
+
+        await create_user("ci-bot", groups=["admin"])
+        raw = await create_key("ci-bot", ttl_days=90)
+
+        handler, calls = self._handler()
+        request = self._request({"X-API-Key": raw})
+        response = await require_admin(handler)(request)
+        assert response.status_code == 200
+        assert calls == ["ci-bot"]
+
+    async def test_x_api_key_takes_precedence_over_bearer(self, users_idx, keys_idx):
+        from mcc.routes import require_admin
+        from mcc.auth import create_user
+        from mcc.auth.keys import create_key
+
+        await create_user("ci-bot", groups=["admin"])
+        raw = await create_key("ci-bot", ttl_days=90)
+
+        handler, calls = self._handler()
+        request = self._request(
+            {"X-API-Key": raw, "Authorization": "Bearer garbage"}
+        )
+        response = await require_admin(handler)(request)
+        assert response.status_code == 200
+        assert calls == ["ci-bot"]

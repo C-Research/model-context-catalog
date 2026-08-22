@@ -15,6 +15,7 @@ from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
+from mcc.auth import whoami_info
 from mcc.auth.backend import get_provider
 from mcc.cache import cached, params_hash
 from mcc.context import (
@@ -315,12 +316,12 @@ async def whoami() -> str:
     cache_key = f"whoami:{user.username}" if search_ttl else None
 
     async def _summary() -> str:
-        accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
+        info = whoami_info(user)
         lines = [
-            f"username: {user.username}",
-            f"email: {user.email or '(none)'}",
-            f"groups: {', '.join(user.groups) if user.groups else '(none)'}",
-            f"tools: {', '.join(accessible) if accessible else '(none)'}",
+            f"username: {info['username']}",
+            f"email: {info['email'] or '(none)'}",
+            f"groups: {', '.join(info['groups']) if info['groups'] else '(none)'}",
+            f"tools: {', '.join(info['tools']) if info['tools'] else '(none)'}",
         ]
         return "\n".join(lines)
 

@@ -4,6 +4,7 @@ from mcc.auth.backend import get_user_context
 from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.auth.keys import verify_api_key
 from mcc.auth.models import UserModel
+from mcc.loader import loader
 from mcc.models import ToolModel
 from mcc.settings import logger
 
@@ -50,6 +51,22 @@ def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
         user.username,
     )
     return False
+
+
+def whoami_info(user: UserModel) -> dict:
+    """Assembles a user's identity + accessible-tool-keys summary.
+
+    Shared by the whoami MCP tool (renders as text) and the /whoami HTTP route
+    (renders as JSON), so both surfaces report the same fields. Callers handle
+    the unauthenticated case themselves before calling this.
+    """
+    accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
+    return {
+        "username": user.username,
+        "email": user.email,
+        "groups": user.groups,
+        "tools": accessible,
+    }
 
 
 async def get_current_user() -> Optional[UserModel]:
