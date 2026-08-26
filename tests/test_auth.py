@@ -2,8 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
-
-from mcc.auth.models import UserModel
 from mcc.auth import (
     add_group,
     add_tool,
@@ -13,9 +11,13 @@ from mcc.auth import (
     get_current_user,
     get_user_by_email,
     get_user_by_username,
+    list_users,
     remove_group,
     remove_tool,
 )
+from mcc.auth.keys import create_key
+from mcc.auth.models import UserModel
+from mcc.db import UsersIndex
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -74,6 +76,47 @@ class TestDeleteUser:
     async def test_not_found_raises(self):
         with pytest.raises(ValueError, match="not found"):
             await delete_user("ghost")
+
+
+class TestListUsers:
+    async def test_user_without_key_has_none(self):
+        await create_user("alice")
+        [user] = await list_users()
+        assert user.key is None
+
+    async def test_user_with_key_has_prefix_and_timestamps_only(self, keys_idx):
+        await create_user("alice")
+        raw = await create_key("alice", ttl_days=90)
+        prefix = raw.split("_")[1]
+
+        [user] = await list_users()
+        assert user.key is not None
+        assert user.key["prefix"] == f"mcc_{prefix}"
+        assert user.key["created_at"] is not None
+        assert user.key["expires_at"] is not None
+        assert "hash" not in user.key
+        assert raw not in str(user.key)
+
+    async def test_key_field_never_persisted_to_users_index(self, keys_idx):
+        await create_user("alice")
+        await create_key("alice", ttl_days=90)
+        await list_users()  # populates .key in-memory only
+
+        async with UsersIndex() as idx:
+            doc = await idx.get("alice")
+        assert doc is not None
+        assert "key" not in doc
+
+    async def test_key_still_absent_from_index_after_group_update(self, keys_idx):
+        await create_user("alice")
+        await create_key("alice", ttl_days=90)
+        await list_users()
+        await add_group("alice", "osint")
+
+        async with UsersIndex() as idx:
+            doc = await idx.get("alice")
+        assert doc is not None
+        assert "key" not in doc
 
 
 class TestGetUserByUsername:

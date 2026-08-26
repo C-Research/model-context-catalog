@@ -1,7 +1,6 @@
-from typing import Optional
-
 from elasticsearch import NotFoundError
 
+from mcc.auth.keys import list_keys
 from mcc.auth.models import UserModel
 from mcc.cache import cache
 from mcc.db import UsersIndex
@@ -14,9 +13,9 @@ async def _invalidate_whoami(username: str) -> None:
 
 async def create_user(
     username: str,
-    email: Optional[str] = None,
-    tools: Optional[list[str]] = None,
-    groups: Optional[list[str]] = None,
+    email: str | None = None,
+    tools: list[str] | None = None,
+    groups: list[str] | None = None,
 ) -> None:
     """creates a user and assigns their tools/groups perms"""
     async with UsersIndex() as idx:
@@ -27,7 +26,7 @@ async def create_user(
         user = UserModel(
             username=username, email=email, groups=groups or [], tools=tools or []
         )
-        await idx.put(username, user.model_dump())
+        await idx.put(username, user.model_dump(exclude={"key"}))
     await _invalidate_whoami(username)
 
 
@@ -42,18 +41,36 @@ async def delete_user(username: str) -> None:
 
 
 async def list_users() -> list[UserModel]:
+    """Lists all users, each with `.key` populated if they have an API key.
+
+    `.key` is {"prefix", "created_at", "expires_at"} — never the hash or raw
+    key — or None. Costs one extra KeysIndex round-trip (list_keys() fetches
+    every key once, batched, not per-user) on top of the existing UsersIndex
+    read.
+    """
     async with UsersIndex() as idx:
         docs = await idx.search({"match_all": {}})
-        return [UserModel(**doc) for doc in docs]
+        users = [UserModel(**doc) for doc in docs]
+
+    keys_by_username = {k["username"]: k for k in await list_keys()}
+    for user in users:
+        record = keys_by_username.get(user.username)
+        if record is not None:
+            user.key = {
+                "prefix": f"mcc_{record['prefix']}",
+                "created_at": record.get("created_at"),
+                "expires_at": record.get("expires_at"),
+            }
+    return users
 
 
-async def get_user_by_username(username: str) -> Optional[UserModel]:
+async def get_user_by_username(username: str) -> UserModel | None:
     async with UsersIndex() as idx:
         doc = await idx.get(username)
         return UserModel(**doc) if doc else None
 
 
-async def get_user_by_email(email: str) -> Optional[UserModel]:
+async def get_user_by_email(email: str) -> UserModel | None:
     async with UsersIndex() as idx:
         docs = await idx.search({"term": {"email": email}})
         return UserModel(**docs[0]) if docs else None
@@ -61,7 +78,7 @@ async def get_user_by_email(email: str) -> Optional[UserModel]:
 
 async def _update_user(username: str, user: UserModel) -> None:
     async with UsersIndex() as idx:
-        await idx.put(username, user.model_dump())
+        await idx.put(username, user.model_dump(exclude={"key"}))
     await _invalidate_whoami(username)
 
 
