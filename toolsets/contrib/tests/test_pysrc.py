@@ -1,5 +1,4 @@
 import pytest
-
 from mcc.app import execute
 
 from .conftest import CTX as _CTX
@@ -55,18 +54,18 @@ class TestGetSignature:
 class TestListMembers:
     async def test_excludes_reexported_imports(self):
         result = await execute(
-            _CTX, "admin.dev.list_members", {"module_path": "mcc.db"}
+            _CTX, "admin.dev.list_members", {"module_path": "mcc.loader"}
         )
         assert isinstance(result, list)
         names = [m["name"] for m in result]
-        assert "AsyncElasticsearch" not in names
-        assert "ToolIndex" in names
+        assert "EnvYAML" not in names
+        assert "Loader" in names
 
     async def test_kind_filters_to_class(self):
         result = await execute(
             _CTX,
             "admin.dev.list_members",
-            {"module_path": "mcc.db", "kind": "class"},
+            {"module_path": "mcc.loader", "kind": "class"},
         )
         assert isinstance(result, list)
         assert result

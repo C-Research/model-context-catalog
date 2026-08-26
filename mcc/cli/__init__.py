@@ -57,16 +57,16 @@ def cli(ctx, env, verbose):
     if ctx.invoked_subcommand != "download":
         try:
             arun(loader.save())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             err(f"ES Connection error: {exc}")
     if env is not None:
         settings.setenv(env)
 
 
-from mcc.cli.download import download  # noqa: E402
-from mcc.cli.mcp import mcp_cmd  # noqa: E402, F401
-from mcc.cli.tools import tool  # noqa: E402
-from mcc.cli.users import user  # noqa: E402
+from mcc.cli.download import download
+from mcc.cli.mcp import mcp_cmd
+from mcc.cli.tools import tool
+from mcc.cli.users import user
 
 cli.add_command(download)
 cli.add_command(user)

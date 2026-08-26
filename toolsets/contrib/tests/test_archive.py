@@ -3,7 +3,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from mcc.app import execute
 
 from .conftest import CTX as _CTX

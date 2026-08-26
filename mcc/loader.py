@@ -7,7 +7,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from time import time
-from typing import Optional, cast
+from typing import ClassVar, cast
 
 from envyaml import EnvYAML
 
@@ -50,7 +50,11 @@ def _batch_introspect(
     """
 
     pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
-    run_kwargs: dict = {"capture_output": True, "text": True, "timeout": 60}
+    run_kwargs: dict = {
+        "capture_output": True,
+        "text": True,
+        "timeout": 60,
+    }
     effective_cwd = cwd if cwd else os.getcwd()
     run_kwargs["cwd"] = effective_cwd
     # MCC_SKIP_AUTOLOAD prevents recursive subprocess spawning when introspected
@@ -63,6 +67,7 @@ def _batch_introspect(
         # are resolved internally and fn_paths come from admin-authored tool YAML, not
         # runtime/caller input
         [python, pyrunner_path, "introspect", *fn_paths],
+        check=False,
         **run_kwargs,
     )
     logger.debug("introspect subprocess finished in %dms", (time() - t0) * 1000)
@@ -148,7 +153,7 @@ def load_file(path: str | Path) -> list[ToolModel]:
 
 
 class Loader(dict):
-    paths = set()
+    paths: ClassVar[set[str]] = set()
 
     def load(self, *paths: str | Path) -> None:
         t0 = time()
@@ -205,7 +210,7 @@ class Loader(dict):
         logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
-        self, query: str, min_score: Optional[float] = None
+        self, query: str, min_score: float | None = None
     ) -> list[tuple[ToolModel, float]]:
         search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
         cache_key = (

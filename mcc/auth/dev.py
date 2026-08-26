@@ -6,7 +6,7 @@ from mcc.settings import logger
 async def _get_user_context(group: str) -> UserModel:
     try:
         users = await list_users()
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("Unable to list users, ES users index might b blank.")
         users = []
     for user in users:

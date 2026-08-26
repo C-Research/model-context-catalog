@@ -3,7 +3,6 @@ import sys
 
 import pytest
 from jinja2 import UndefinedError
-
 from mcc.auth.models import UserModel
 from mcc.context import current_user_var
 from mcc.exec import make_py_callable
@@ -23,7 +22,7 @@ class TestExecToolLoading:
 
     def test_fn_and_exec_raises(self):
         with pytest.raises(ValueError, match="either 'fn' or 'exec'"):
-            ToolModel(fn="os:getcwd", **{"exec": "echo hi"})
+            ToolModel(fn="os:getcwd", exec="echo hi")
 
     def test_neither_fn_nor_exec_raises(self):
         with pytest.raises(ValueError, match="either 'fn' or 'exec'"):
@@ -31,28 +30,28 @@ class TestExecToolLoading:
 
     def test_missing_name_raises(self):
         with pytest.raises(ValueError, match="name"):
-            ToolModel(**{"exec": "echo hello"})
+            ToolModel(exec="echo hello")
 
 
 class TestInterpolationMode:
     async def test_params_interpolated(self):
         tool = ToolModel(
             name="greet",
-            **{"exec": "echo {{ message | quote }}"},
+            exec="echo {{ message | quote }}",
             params=[{"name": "message", "type": "str", "required": True}],
         )
         stdout = await tool.call(message="hello world")
         assert "hello world" in stdout
 
     async def test_successful_returns_stdout(self):
-        tool = ToolModel(name="ok", **{"exec": "echo ok"})
+        tool = ToolModel(name="ok", exec="echo ok")
         result = await tool.call()
         assert isinstance(result, str)
         assert "ok" in result
 
     async def test_failed_returns_tuple(self):
-        tool = ToolModel(name="fail", **{"exec": "false"})
-        code, out, err = await tool.call()
+        tool = ToolModel(name="fail", exec="false")
+        code, _out, _err = await tool.call()
         assert code != 0
 
 
@@ -60,7 +59,7 @@ class TestStdinMode:
     async def test_json_sent_on_stdin(self):
         tool = ToolModel(
             name="reader",
-            **{"exec": "cat"},
+            exec="cat",
             stdin=True,
             params=[{"name": "key", "type": "str", "required": True}],
         )
@@ -72,7 +71,7 @@ class TestJinjaQuoteFilter:
     async def test_scalar_with_spaces_is_quoted(self):
         tool = ToolModel(
             name="echo_safe",
-            **{"exec": "echo {{ msg | quote }}"},
+            exec="echo {{ msg | quote }}",
             params=[{"name": "msg", "type": "str", "required": True}],
         )
         stdout = await tool.call(msg="hello world")
@@ -81,7 +80,7 @@ class TestJinjaQuoteFilter:
     async def test_shell_metacharacters_quoted(self):
         tool = ToolModel(
             name="echo_meta",
-            **{"exec": "echo {{ msg | quote }}"},
+            exec="echo {{ msg | quote }}",
             params=[{"name": "msg", "type": "str", "required": True}],
         )
         stdout = await tool.call(msg="hello; rm -rf /")
@@ -99,7 +98,7 @@ class TestJinjaQuoteFilter:
     async def test_conditional_block_includes_flag(self):
         tool = ToolModel(
             name="grepper",
-            **{"exec": "echo {% if flag %}-v {% endif %}{{ msg | quote }}"},
+            exec="echo {% if flag %}-v {% endif %}{{ msg | quote }}",
             params=[
                 {"name": "flag", "type": "bool", "required": True},
                 {"name": "msg", "type": "str", "required": True},
@@ -111,7 +110,7 @@ class TestJinjaQuoteFilter:
     async def test_conditional_block_omits_flag(self):
         tool = ToolModel(
             name="grepper2",
-            **{"exec": "echo {% if flag %}-v {% endif %}{{ msg | quote }}"},
+            exec="echo {% if flag %}-v {% endif %}{{ msg | quote }}",
             params=[
                 {"name": "flag", "type": "bool", "required": True},
                 {"name": "msg", "type": "str", "required": True},
@@ -123,7 +122,7 @@ class TestJinjaQuoteFilter:
     async def test_unknown_variable_raises_before_exec(self):
         tool = ToolModel(
             name="bad_template",
-            **{"exec": "echo {{ typo }}"},
+            exec="echo {{ typo }}",
             params=[],
         )
         with pytest.raises(UndefinedError):
@@ -149,7 +148,7 @@ class TestStdinWithInterpolation:
     async def test_stdin_and_interpolation_together(self):
         tool = ToolModel(
             name="combo",
-            **{"exec": "cat"},
+            exec="cat",
             stdin=True,
             params=[
                 {"name": "project", "type": "str", "required": True},
@@ -166,7 +165,7 @@ class TestStdinWithInterpolation:
     async def test_interpolation_applied_to_command_with_stdin(self):
         tool = ToolModel(
             name="echostdin",
-            **{"exec": "echo {{ tag | quote }} && cat"},
+            exec="echo {{ tag | quote }} && cat",
             stdin=True,
             params=[
                 {"name": "tag", "type": "str", "required": True},
@@ -180,8 +179,8 @@ class TestStdinWithInterpolation:
 
 class TestTimeout:
     async def test_timeout_kills_and_returns(self):
-        tool = ToolModel(name="slow", **{"exec": "sleep 10"}, limits={"timeout": 1})
-        code, stdout, stderr = await tool.call()
+        tool = ToolModel(name="slow", exec="sleep 10", limits={"timeout": 1})
+        code, _stdout, stderr = await tool.call()
         assert code == -1
         assert "timeout after 1s" in stderr
 
@@ -199,7 +198,7 @@ class TestPyCallable:
         callable_ = make_py_callable(
             "tests.example:always_fails", sys.executable, None, None
         )
-        code, out, err = await callable_(msg="boom")
+        code, _out, err = await callable_(msg="boom")
         assert code != 0
         assert "RuntimeError" in err
 
@@ -207,7 +206,7 @@ class TestPyCallable:
         callable_ = make_py_callable(
             "tests.example:always_fails", sys.executable, None, None
         )
-        code, out, err = await callable_(msg="boom")
+        code, _out, err = await callable_(msg="boom")
         assert code != 0
         assert "RuntimeError: boom" in err
         assert "Traceback (most recent call last):" not in err
@@ -220,7 +219,7 @@ class TestPyCallable:
         callable_ = make_py_callable(
             "tests.example:always_fails", sys.executable, None, None
         )
-        code, out, err = await callable_(msg="boom")
+        code, _out, err = await callable_(msg="boom")
         assert code != 0
         assert "RuntimeError: boom" in err
         assert "Traceback (most recent call last):" in err
@@ -235,7 +234,7 @@ class TestPyCallable:
             python=sys.executable,
             params=[{"name": "msg", "type": "str", "required": True}],
         )
-        code, out, err = await tool.call(msg="boom")
+        code, _out, err = await tool.call(msg="boom")
         assert code != 0
         assert "RuntimeError: boom" in err
         assert "Traceback (most recent call last):" not in err
@@ -267,28 +266,28 @@ class TestResourceLimits:
     async def test_limits_applied(self):
         tool = ToolModel(
             name="limited",
-            **{"exec": "echo ok"},
+            exec="echo ok",
             limits={"mem_mb": 256, "cpu_sec": 5},
         )
         stdout = await tool.call()
         assert "ok" in stdout
 
     async def test_no_limits_runs_fine(self):
-        tool = ToolModel(name="nolimit", **{"exec": "echo fine"})
+        tool = ToolModel(name="nolimit", exec="echo fine")
         stdout = await tool.call()
         assert "fine" in stdout
 
 
 class TestCwdEnvEnvFile:
     async def test_exec_cwd(self, tmp_path):
-        tool = ToolModel(name="pwd_tool", **{"exec": "pwd"}, cwd=str(tmp_path))
+        tool = ToolModel(name="pwd_tool", exec="pwd", cwd=str(tmp_path))
         stdout = await tool.call()
         assert str(tmp_path) in stdout
 
     async def test_exec_env(self):
         tool = ToolModel(
             name="env_tool",
-            **{"exec": "echo $MY_VAR"},
+            exec="echo $MY_VAR",
             env={"MY_VAR": "hello_env"},
         )
         stdout = await tool.call()
@@ -299,7 +298,7 @@ class TestCwdEnvEnvFile:
         env_file.write_text("MY_FILE_VAR=from_file\n")
         tool = ToolModel(
             name="envfile_tool",
-            **{"exec": "echo $MY_FILE_VAR"},
+            exec="echo $MY_FILE_VAR",
             env_file=str(env_file),
         )
         stdout = await tool.call()
@@ -310,7 +309,7 @@ class TestCwdEnvEnvFile:
         env_file.write_text("MYVAR=from_file\n")
         tool = ToolModel(
             name="override_tool",
-            **{"exec": "echo $MYVAR"},
+            exec="echo $MYVAR",
             env_file=str(env_file),
             env={"MYVAR": "from_env"},
         )
@@ -346,7 +345,7 @@ class TestCwdEnvEnvFile:
         monkeypatch.setenv("MCC_TEST_PARENT_ONLY", "parent_value")
         tool = ToolModel(
             name="check_passthrough",
-            **{"exec": "echo ${MCC_TEST_PARENT_ONLY:-not_inherited}"},
+            exec="echo ${MCC_TEST_PARENT_ONLY:-not_inherited}",
             env={"EXPLICIT": "yes"},
             env_passthrough=False,
         )
@@ -359,10 +358,8 @@ class TestCwdEnvEnvFile:
         monkeypatch.setenv("MCC_GITHUB_TOKEN", "leaked")
         tool = ToolModel(
             name="allowlist_tool",
-            **{
-                "exec": "echo region=${MCC_AWS_REGION:-x} "
-                "secret=${MCC_AWS_SECRET:-x} token=${MCC_GITHUB_TOKEN:-absent}"
-            },
+            exec="echo region=${MCC_AWS_REGION:-x} "
+                "secret=${MCC_AWS_SECRET:-x} token=${MCC_GITHUB_TOKEN:-absent}",
             env_passthrough=["MCC_AWS_*"],
         )
         stdout = await tool.call()
@@ -375,7 +372,7 @@ class TestCwdEnvEnvFile:
         # A lowercase pattern must not match the uppercase var name.
         tool = ToolModel(
             name="case_tool",
-            **{"exec": "echo ${MCC_TEST_UPPER:-absent}"},
+            exec="echo ${MCC_TEST_UPPER:-absent}",
             env_passthrough=["mcc_test_upper"],
         )
         stdout = await tool.call()
@@ -385,7 +382,7 @@ class TestCwdEnvEnvFile:
         monkeypatch.setenv("MCC_TEST_PARENT_ONLY", "parent_value")
         tool = ToolModel(
             name="empty_list_tool",
-            **{"exec": "echo ${MCC_TEST_PARENT_ONLY:-not_inherited}"},
+            exec="echo ${MCC_TEST_PARENT_ONLY:-not_inherited}",
             env_passthrough=[],
         )
         stdout = await tool.call()
@@ -395,7 +392,7 @@ class TestCwdEnvEnvFile:
         monkeypatch.setenv("PATH", "/usr/bin:/bin")
         tool = ToolModel(
             name="floor_tool",
-            **{"exec": "echo path=${PATH:-absent}"},
+            exec="echo path=${PATH:-absent}",
             env_passthrough=False,
         )
         stdout = await tool.call()
@@ -407,7 +404,7 @@ class TestCwdEnvEnvFile:
         monkeypatch.delenv("TZ", raising=False)
         tool = ToolModel(
             name="floor_absent_tool",
-            **{"exec": 'if [ -z "${TZ+set}" ]; then echo unset; else echo set; fi'},
+            exec='if [ -z "${TZ+set}" ]; then echo unset; else echo set; fi',
             env_passthrough=False,
         )
         stdout = await tool.call()
@@ -421,7 +418,7 @@ class TestCwdEnvEnvFile:
         monkeypatch.setattr(exec_mod.settings, "ENV_FLOOR", ["PATH"])
         tool = ToolModel(
             name="floor_config_tool",
-            **{"exec": "echo path=${PATH:-absent} home=${HOME:-absent}"},
+            exec="echo path=${PATH:-absent} home=${HOME:-absent}",
             env_passthrough=False,
         )
         stdout = await tool.call()
@@ -481,7 +478,7 @@ class TestTransform:
     async def test_exec_string_transform(self):
         tool = ToolModel(
             name="echo_transform",
-            **{"exec": "echo hello", "transform": "tr 'a-z' 'A-Z'"},
+            exec="echo hello", transform="tr 'a-z' 'A-Z'",
         )
         result = await tool.call()
         assert "HELLO" in result
@@ -490,10 +487,7 @@ class TestTransform:
         # list is joined into a pipeline; both steps must run
         tool = ToolModel(
             name="echo_list_transform",
-            **{
-                "exec": "echo hello",
-                "transform": ["tr 'a-z' 'A-Z'", "sed 's/HELLO/WORLD/'"],
-            },
+            exec="echo hello", transform=["tr 'a-z' 'A-Z'", "sed 's/HELLO/WORLD/'"],
         )
         result = await tool.call()
         assert "WORLD" in result
@@ -502,15 +496,15 @@ class TestTransform:
     async def test_exec_transform_skipped_on_failure(self):
         tool = ToolModel(
             name="fail_transform",
-            **{"exec": "false", "transform": "tr 'a-z' 'A-Z'"},
+            exec="false", transform="tr 'a-z' 'A-Z'",
         )
-        code, out, err = await tool.call()
+        code, _out, _err = await tool.call()
         assert code != 0
 
     async def test_exec_jinja_transform(self):
         tool = ToolModel(
             name="jinja_transform",
-            **{"exec": "echo hello", "transform": "sed 's/hello/{{ word }}/'"},
+            exec="echo hello", transform="sed 's/hello/{{ word }}/'",
             params=[{"name": "word", "type": "str", "required": True}],
         )
         result = await tool.call(word="world")
@@ -532,7 +526,7 @@ class TestTransform:
             python=sys.executable,
             transform="tr 'a-z' 'A-Z'",
         )
-        code, out, err = await tool.call(msg="boom")
+        code, _out, _err = await tool.call(msg="boom")
         assert code != 0
 
 
@@ -616,7 +610,7 @@ class TestContextPropagation:
             current_user_var.set(None)
 
     async def test_exec_tool_receives_expanded_user(self):
-        tool = ToolModel(name="whoami_sh", **{"exec": "printf %s $MCC_CTX_USER"})
+        tool = ToolModel(name="whoami_sh", exec="printf %s $MCC_CTX_USER")
         current_user_var.set(UserModel(username="bob"))
         try:
             result = await tool.call()
@@ -627,9 +621,7 @@ class TestContextPropagation:
     async def test_exec_tool_has_no_blob(self):
         tool = ToolModel(
             name="blob_sh",
-            **{
-                "exec": 'if [ -z "${MCC_CTX+set}" ]; then echo unset; else echo set; fi'
-            },
+            exec='if [ -z "${MCC_CTX+set}" ]; then echo unset; else echo set; fi',
         )
         current_user_var.set(UserModel(username="bob"))
         try:
@@ -639,7 +631,7 @@ class TestContextPropagation:
             current_user_var.set(None)
 
     async def test_exec_groups_expanded_as_json(self):
-        tool = ToolModel(name="groups_sh", **{"exec": "printf %s $MCC_CTX_GROUPS"})
+        tool = ToolModel(name="groups_sh", exec="printf %s $MCC_CTX_GROUPS")
         current_user_var.set(UserModel(username="alice", groups=["admin", "osint"]))
         try:
             result = await tool.call()
@@ -658,7 +650,7 @@ class TestContextPropagation:
         # A tool declaring its own MCC_CTX_USER must not override the real caller.
         tool = ToolModel(
             name="spoof_sh",
-            **{"exec": "printf %s $MCC_CTX_USER"},
+            exec="printf %s $MCC_CTX_USER",
             env={"MCC_CTX_USER": "attacker"},
         )
         current_user_var.set(UserModel(username="alice"))

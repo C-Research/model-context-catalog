@@ -2,18 +2,17 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pydantic import BaseModel
-
-from mcc.app import describe_tools, execute, search, whoami
-from mcc.auth.models import UserModel
-from mcc.cache import cache, params_hash
-from mcc.loader import loader
-from mcc.context import current_user_var
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
     CancelledElicitation,
     DeclinedElicitation,
 )
+from mcc.app import describe_tools, execute, search, whoami
+from mcc.auth.models import UserModel
+from mcc.cache import cache, params_hash
+from mcc.context import current_user_var
+from mcc.loader import loader
+from pydantic import BaseModel
 
 
 def _with_state(ctx, session="s1"):
@@ -737,9 +736,9 @@ class TestRequireAdmin:
         assert calls == []
 
     async def test_valid_admin_key_calls_handler(self, users_idx, keys_idx):
-        from mcc.routes import require_admin
         from mcc.auth import create_user
         from mcc.auth.keys import create_key
+        from mcc.routes import require_admin
 
         await create_user("ci-bot", groups=["admin"])
         raw = await create_key("ci-bot", ttl_days=90)
@@ -753,9 +752,9 @@ class TestRequireAdmin:
     async def test_valid_non_admin_key_returns_401_without_calling_handler(
         self, users_idx, keys_idx
     ):
-        from mcc.routes import require_admin
         from mcc.auth import create_user
         from mcc.auth.keys import create_key
+        from mcc.routes import require_admin
 
         await create_user("ci-bot", groups=["public"])
         raw = await create_key("ci-bot", ttl_days=90)
@@ -767,9 +766,9 @@ class TestRequireAdmin:
         assert calls == []
 
     async def test_valid_admin_key_via_x_api_key_header(self, users_idx, keys_idx):
-        from mcc.routes import require_admin
         from mcc.auth import create_user
         from mcc.auth.keys import create_key
+        from mcc.routes import require_admin
 
         await create_user("ci-bot", groups=["admin"])
         raw = await create_key("ci-bot", ttl_days=90)
@@ -781,9 +780,9 @@ class TestRequireAdmin:
         assert calls == ["ci-bot"]
 
     async def test_x_api_key_takes_precedence_over_bearer(self, users_idx, keys_idx):
-        from mcc.routes import require_admin
         from mcc.auth import create_user
         from mcc.auth.keys import create_key
+        from mcc.routes import require_admin
 
         await create_user("ci-bot", groups=["admin"])
         raw = await create_key("ci-bot", ttl_days=90)

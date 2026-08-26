@@ -1,6 +1,5 @@
 from asyncio import run as arun
 from pathlib import Path
-from typing import Optional
 
 import rich_click as click
 import uvicorn
@@ -42,7 +41,7 @@ def mcp_cmd():
     envvar="MCC_SERVER__PORT",
     help="Port to bind (HTTP transports).",
 )
-def run(transport: str, host: Optional[str], port: Optional[int]):
+def run(transport: str, host: str | None, port: int | None):
     """Start the MCP server."""
     from mcc.app import banner, event_store, mcp
 
@@ -104,14 +103,14 @@ def do_install(dest: str, **kwargs):
 
 @install.command("claude-code")
 @common_options
-def install_claude_code(env_file: Optional[str], env: tuple[str, ...]):
+def install_claude_code(env_file: str | None, env: tuple[str, ...]):
     """Install MCC in Claude Code."""
     do_install("claude-code", env=env, env_file=env_file)
 
 
 @install.command("claude-desktop")
 @common_options
-def install_claude_desktop(env_file: Optional[str], env: tuple[str, ...]):
+def install_claude_desktop(env_file: str | None, env: tuple[str, ...]):
     """Install MCC in Claude Desktop."""
     do_install("claude-desktop", env=env, env_file=env_file)
 
@@ -121,27 +120,27 @@ def install_claude_desktop(env_file: Optional[str], env: tuple[str, ...]):
 @click.option(
     "--copy", is_flag=True, default=False, help="Copy to clipboard instead of printing."
 )
-def install_mcp_json(env_file: Optional[str], env: tuple[str, ...], copy: bool):
+def install_mcp_json(env_file: str | None, env: tuple[str, ...], copy: bool):
     """Print (or copy) MCP JSON config."""
     do_install("mcp-json", env=env, env_file=env_file, copy=copy)
 
 
 @install.command("cursor")
 @common_options
-def install_cursor(env_file: Optional[str], env: tuple[str, ...]):
+def install_cursor(env_file: str | None, env: tuple[str, ...]):
     """Install MCC in Cursor."""
     do_install("cursor", env=env, env_file=env_file)
 
 
 @install.command("gemini-cli")
 @common_options
-def install_gemini_cli(env_file: Optional[str], env: tuple[str, ...]):
+def install_gemini_cli(env_file: str | None, env: tuple[str, ...]):
     """Install MCC in Gemini CLI."""
     do_install("gemini-cli", env=env, env_file=env_file)
 
 
 @install.command("goose")
 @common_options
-def install_goose(env_file: Optional[str], env: tuple[str, ...]):
+def install_goose(env_file: str | None, env: tuple[str, ...]):
     """Install MCC in Goose."""
     do_install("goose", env=env, env_file=env_file)

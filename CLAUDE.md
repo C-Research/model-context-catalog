@@ -49,6 +49,17 @@ The nav structure is defined in `mkdocs.yml`. When adding a new page, register i
 ## Code style
 
 - **Imports at module level.** All imports go at the top of the file. Never use method-level or function-level imports unless required to break a circular dependency (and document why with a comment).
+- **`tests/`, `toolsets/contrib/tests/`, and `scripts/` are excluded from ruff and pyright** (see `[tool.ruff]`/`[tool.pyright]` in `pyproject.toml`). Test helper scripts don't need to satisfy the same type/lint bar as shipped code — don't fight the linter there, and don't add per-file `noqa`s to work around it.
+- **`X | None`, not `Optional[X]`.** Ruff's UP045 flags this repo-wide; write the union form from the start.
+- **Import `Callable`/`Awaitable` from `collections.abc`, not `typing`** (UP035).
+- **`subprocess.run(...)` needs an explicit `check=` kwarg** (PLW1510). If the caller inspects `result.returncode` itself (mcc's pyrunner subprocess calls all do this), pass `check=False` explicitly — passing it inside a `**kwargs` dict doesn't satisfy the rule, it has to be a literal keyword at the call site.
+- **Class-level mutable defaults (`= {}`, `= set()`, `= []`) need `ClassVar[...]`** (RUF012), even on plain classes and test fixtures.
+- **`except Exception` is flagged (BLE001).** Prefer catching the specific exception type. Where a broad catch is genuinely the right call (subprocess/CLI top-level boundaries, best-effort auth fallbacks that must never crash the request), keep it but add `# noqa: BLE001` — don't invent a narrower exception type that isn't actually what can be raised there.
+- **Unused unpacked tuple elements get a leading underscore** (`code, _out, _err = ...`), not a bare unused name (RUF059).
+- **`raise` inside an `except ... as exc:` block, not `raise exc`** (TRY201) — preserves the original traceback and satisfies the linter.
+- **`datetime.fromtimestamp()` needs an explicit `tz=`** (DTZ006) — use `datetime.UTC` (not `timezone.utc`, per UP017) unless local time is specifically intended.
+- **Collapse nested `if` into one `and`-joined condition where possible** (SIM102).
+- **Remove stale `# noqa` comments** once the rule they suppressed no longer fires (RUF100) — ruff treats an unused blanket `noqa` as an error, not a no-op.
 
 ## Project layout
 

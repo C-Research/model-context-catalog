@@ -65,6 +65,12 @@ markers = [
     "smoke: fast tests that do not spawn subprocesses or hit external services",
 ]
 
+[tool.ruff]
+extend-exclude = ["tests", "toolsets/contrib/tests", "scripts"]
+
+[tool.pyright]
+exclude = ["tests", "toolsets/contrib/tests", "scripts", ".venv", "build"]
+
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "build"]
 # B404 (subprocess import) is purely informational noise: subprocess-based sandboxed

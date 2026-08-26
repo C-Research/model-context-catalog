@@ -1,7 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Optional
 
 from markdown_it import MarkdownIt
 from starlette.requests import Request
@@ -20,7 +19,7 @@ _markdown = MarkdownIt()
 _READYZ_TIMEOUT = 3
 
 
-def _extract_api_key(request: Request) -> Optional[str]:
+def _extract_api_key(request: Request) -> str | None:
     """Extracts the raw key from `X-API-Key`, or `Authorization: Bearer <key>`, or None.
 
     `X-API-Key` takes precedence when both are present.
@@ -84,7 +83,7 @@ async def readyz(request: Request) -> JSONResponse:
     ):
         try:
             await asyncio.wait_for(check(), timeout=_READYZ_TIMEOUT)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("readyz: %s check failed: %s", name, exc)
             return JSONResponse({"status": "degraded"}, status_code=503)
     return JSONResponse({"status": "ok"})
@@ -104,7 +103,7 @@ async def whoami(request: Request) -> JSONResponse:
     return JSONResponse(whoami_info(user))
 
 
-def _accessible_tools(user: Optional[UserModel]) -> list[ToolModel]:
+def _accessible_tools(user: UserModel | None) -> list[ToolModel]:
     """Tools `user` can access, sorted by key. `user=None` yields public tools only."""
     return sorted(
         (t for t in loader.values() if t.allows(user)), key=lambda t: t.key

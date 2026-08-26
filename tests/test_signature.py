@@ -1,5 +1,4 @@
 import pytest
-
 from mcc.models import ParamModel, ToolModel
 
 

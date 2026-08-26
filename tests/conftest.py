@@ -14,10 +14,10 @@ os.environ.update(
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-from mcc.cache import cache  # noqa: E402
-from mcc.db import KeysIndex, ToolIndex, UsersIndex  # noqa: E402
-from mcc.loader import load_file as load  # noqa: E402
-from mcc.loader import loader  # noqa: E402
+from mcc.cache import cache
+from mcc.db import KeysIndex, ToolIndex, UsersIndex
+from mcc.loader import load_file as load
+from mcc.loader import loader
 
 
 @pytest.fixture(autouse=True)

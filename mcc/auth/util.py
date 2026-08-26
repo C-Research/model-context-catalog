@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mcc.auth.backend import get_user_context
 from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.auth.keys import verify_api_key
@@ -24,7 +22,7 @@ def _group_matches(pattern: str, groups: list[str]) -> bool:
     return pattern in groups
 
 
-def can_access(user: Optional[UserModel], tool: ToolModel) -> bool:
+def can_access(user: UserModel | None, tool: ToolModel) -> bool:
     """returns true if user can access tool"""
     if not tool.groups or "public" in tool.groups:
         logger.debug("access granted to %s: public tool", tool.key)
@@ -69,12 +67,12 @@ def whoami_info(user: UserModel) -> dict:
     }
 
 
-async def get_current_user() -> Optional[UserModel]:
+async def get_current_user() -> UserModel | None:
     """resolves auth identity to a UserModel; prefers email, falls back to login"""
 
     try:
         token = await get_user_context()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("Error getting user context: %s", exc)
         return None
     if token is None:
@@ -92,11 +90,12 @@ async def get_current_user() -> Optional[UserModel]:
             if user:
                 logger.debug("resolved user by email: %s", user.username)
                 return user
-        if login := claims.get("login"):
-            if user := await get_user_by_username(login):
-                logger.debug("resolved user by login: %s", user.username)
-                return user
-    except Exception as e:
+        if (login := claims.get("login")) and (
+            user := await get_user_by_username(login)
+        ):
+            logger.debug("resolved user by login: %s", user.username)
+            return user
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "User store unavailable, treating request as unauthenticated: %s", e
         )
@@ -104,8 +103,8 @@ async def get_current_user() -> Optional[UserModel]:
 
 
 async def get_user_by_key(
-    raw_key: str, groups: Optional[list[str]] = None
-) -> Optional[UserModel]:
+    raw_key: str, groups: list[str] | None = None
+) -> UserModel | None:
     """Resolves `raw_key` to a UserModel via the keys index directly.
 
     Independent of `settings.auth`/`get_provider()` — HTTP routes that gate on
@@ -124,7 +123,10 @@ async def get_user_by_key(
     user = await get_user_by_username(record["username"])
     if user is None:
         return None
-    if groups is not None and "admin" not in user.groups:
-        if not any(g in user.groups for g in groups):
-            return None
+    if (
+        groups is not None
+        and "admin" not in user.groups
+        and not any(g in user.groups for g in groups)
+    ):
+        return None
     return user

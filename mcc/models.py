@@ -4,9 +4,10 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
@@ -148,6 +149,7 @@ class ToolModel(BaseModel):
                 # pyrunner_path are resolved internally and self.fn comes from
                 # admin-authored tool YAML, not runtime/caller input
                 [self.python, pyrunner_path, "introspect", self.fn],
+                check=False,
                 **run_kwargs,
             )
             if result.returncode != 0:
@@ -255,7 +257,7 @@ class ToolModel(BaseModel):
         """
         return jinja_env.get_template("tool_signature.md").render(tool=self)
 
-    def allows(self, user: Optional["UserModel"]) -> bool:
+    def allows(self, user: "UserModel | None") -> bool:
         """Returns True if a user can access this tool"""
         from mcc.auth import can_access
 
@@ -278,4 +280,4 @@ class ToolModel(BaseModel):
             return result
         except Exception as exc:
             logger.exception("Error calling %s with %s: %s", self.key, kwargs, exc)
-            raise exc
+            raise

@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from envyaml import EnvYAML
-
 from mcc.loader import load_file
 
 

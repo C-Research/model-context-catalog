@@ -49,7 +49,7 @@ async def scrape(
         async with semaphore:
             try:
                 page = await caller(url, timeout=timeout)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 return url, f"{type(exc).__name__}: {exc}"
             fields: dict[str, list[str]] = {}
             for name, selector in (css or {}).items():

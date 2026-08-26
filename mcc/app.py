@@ -1,9 +1,7 @@
 import json
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastmcp import Context, FastMCP
-from mcp.types import Icon
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
     CancelledElicitation,
@@ -12,6 +10,7 @@ from fastmcp.server.elicitation import (
 from fastmcp.server.event_store import EventStore
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
+from mcp.types import Icon
 from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
@@ -102,7 +101,7 @@ def banner():
 
 
 @mcp.tool()
-async def search(query: str, min_score: Optional[float] = None) -> str:
+async def search(query: str, min_score: float | None = None) -> str:
     """Search the tool catalog using natural language. Combines keyword and semantic
     similarity for best results.
 
@@ -152,7 +151,7 @@ class _ElicitationCancelled(Exception):
     """Raised when the caller declines or cancels elicitation of required params."""
 
 
-async def _elicit_missing(ctx: Context, key: str, tool, params: Optional[dict]) -> dict:
+async def _elicit_missing(ctx: Context, key: str, tool, params: dict | None) -> dict:
     """Prompt the caller for any required, elicitable params not already supplied.
 
     Returns the params dict to call the tool with (the originals merged with any
@@ -174,7 +173,7 @@ async def _elicit_missing(ctx: Context, key: str, tool, params: Optional[dict]) 
     summary = ", ".join(f"{p.name} ({p.type})" for p in missing)
     try:
         result = await ctx.elicit(f"Tool '{key}' requires: {summary}", MissingModel)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("elicitation failed for %s: %s", key, exc)
         return params or {}
     if isinstance(result, AcceptedElicitation):
@@ -223,7 +222,7 @@ async def _apply_writeback(ctx: Context, user) -> None:
 
 
 @mcp.tool()
-async def execute(ctx: Context, key: str, params: Optional[dict] = None):
+async def execute(ctx: Context, key: str, params: dict | None = None):
     """Execute a tool from the catalog by its exact key.
 
     The tool key is shown in search() results (e.g. "admin.shell", "public.request").
@@ -329,7 +328,7 @@ async def whoami() -> str:
 
 
 @mcp.tool()
-async def describe_tools(groups: Optional[list[str]] = None) -> str:
+async def describe_tools(groups: list[str] | None = None) -> str:
     """List all tools accessible to the current user with their descriptions.
 
     Use this only if everything else fails, returns many tools and will pollute context

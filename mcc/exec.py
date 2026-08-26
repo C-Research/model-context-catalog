@@ -2,10 +2,11 @@ import asyncio
 import json
 import os
 import sys
+from collections.abc import Callable
 from fnmatch import fnmatchcase
 from pathlib import Path
 from time import time
-from typing import Any, Callable
+from typing import Any
 
 from dotenv import dotenv_values
 
@@ -128,7 +129,7 @@ async def _communicate_and_return(
     t0 = time()
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(blob), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return (-1, "", f"timeout after {timeout}s")

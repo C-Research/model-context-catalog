@@ -1,7 +1,6 @@
 import platform
 
 import pytest
-
 from mcc.app import execute
 
 from .conftest import CTX as _CTX

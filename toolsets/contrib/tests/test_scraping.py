@@ -176,7 +176,7 @@ class TestOptionalDependency:
 
     async def test_missing_dependency_raises_import_error(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "scrapling", None)
-        with pytest.raises(ImportError, match=r"mcc\[scraping\]"):
+        with pytest.raises(ImportError, match=r"model-context-catalog\[scraping\]"):
             await scrape(["https://example.com"], css={"title": "h1::text"})
 
 

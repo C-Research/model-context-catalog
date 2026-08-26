@@ -203,7 +203,7 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
 
     try:
         result = asyncio.run(_execute())
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         err(e)
         return
 

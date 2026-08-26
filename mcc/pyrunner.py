@@ -132,7 +132,7 @@ def introspect(*fn_paths: str) -> list[dict]:
     for fn_path in fn_paths:
         try:
             resolved[fn_path] = resolve(fn_path)
-        except Exception:
+        except Exception:  # noqa: BLE001
             result_map[fn_path] = {"fn_path": fn_path, "error": traceback.format_exc()}
 
     # Phase 2 — inspect successfully resolved fns
@@ -177,7 +177,7 @@ def introspect(*fn_paths: str) -> list[dict]:
                 "params": params,
                 "return_type": return_type,
             }
-        except Exception:
+        except Exception:  # noqa: BLE001
             result_map[fn_path] = {"fn_path": fn_path, "error": traceback.format_exc()}
 
     return [result_map[fp] for fp in fn_paths]
@@ -229,6 +229,6 @@ if __name__ == "__main__":
         else:
             print(f"unknown mode: {_mode!r}", file=sys.stderr)
             sys.exit(1)
-    except Exception:
+    except Exception:  # noqa: BLE001
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)

@@ -7,5 +7,5 @@ class TestBash:
         assert out.strip() == "hello"
 
     async def test_nonzero_exit(self):
-        code, out, err = await bash("exit 42")
+        code, _out, _err = await bash("exit 42")
         assert code == 42

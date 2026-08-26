@@ -1,2 +1,2 @@
-from mcc.auth.db import *  # noqa
-from mcc.auth.util import *  # noqa
+from mcc.auth.db import *
+from mcc.auth.util import *

@@ -1,8 +1,7 @@
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from elasticsearch import NotFoundError
 
@@ -30,7 +29,7 @@ def hash_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
-def parse_prefix(raw_key: str) -> Optional[str]:
+def parse_prefix(raw_key: str) -> str | None:
     """Extract the prefix segment from a raw key, or None if malformed.
 
     The secret segment (``token_urlsafe``) may itself contain underscores, so
@@ -47,7 +46,7 @@ def verify_hash(raw_key: str, stored_hash: str) -> bool:
     return hmac.compare_digest(hash_key(raw_key), stored_hash)
 
 
-async def verify_api_key(raw_key: str) -> Optional[dict]:
+async def verify_api_key(raw_key: str) -> dict | None:
     """Resolve `raw_key` to its record in KeysIndex, or None if invalid/expired.
 
     Prefix lookup, constant-time hash comparison, and expiry check — shared by
@@ -65,13 +64,13 @@ async def verify_api_key(raw_key: str) -> Optional[dict]:
         return None
     raw_expiry = record.get("expires_at")
     expires_at = datetime.fromisoformat(raw_expiry) if raw_expiry else None
-    if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+    if expires_at is not None and expires_at <= datetime.now(UTC):
         logger.debug("rejecting expired key for %s", record["username"])
         return None
     return record
 
 
-async def create_key(username: str, ttl_days: Optional[int]) -> str:
+async def create_key(username: str, ttl_days: int | None) -> str:
     """Mint a key for ``username``, replacing any existing one.
 
     Computes ``created_at``/``expires_at``, ensures the keys index exists with
@@ -80,7 +79,7 @@ async def create_key(username: str, ttl_days: Optional[int]) -> str:
     ``None`` mints a key that never expires (``expires_at`` is null).
     """
     raw_key, prefix = generate_key()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(days=ttl_days) if ttl_days is not None else None
     async with KeysIndex() as idx:
         await idx.create()
@@ -97,7 +96,7 @@ async def create_key(username: str, ttl_days: Optional[int]) -> str:
     return raw_key
 
 
-async def get_key_by_prefix(prefix: str) -> Optional[dict]:
+async def get_key_by_prefix(prefix: str) -> dict | None:
     """Return the key record matching ``prefix``, or None."""
     async with KeysIndex() as idx:
         docs = await idx.search({"term": {"prefix": prefix}})

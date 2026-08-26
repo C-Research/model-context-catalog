@@ -40,11 +40,11 @@ def state_backed_ctx(session="s1"):
 # switch to a per-test fixture to avoid cross-test bleed.
 CTX = state_backed_ctx()
 
-from mcc.auth import create_user  # noqa: E402
-from mcc.auth.models import UserModel  # noqa: E402
-from mcc.db import UsersIndex  # noqa: E402
-from mcc.loader import loader  # noqa: E402
-from mcc.middleware import current_user_var  # noqa: E402
+from mcc.auth import create_user
+from mcc.auth.models import UserModel
+from mcc.db import UsersIndex
+from mcc.loader import loader
+from mcc.middleware import current_user_var
 
 
 @pytest.fixture

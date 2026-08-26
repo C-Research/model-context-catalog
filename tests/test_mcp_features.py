@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
-
 from mcc.app import debug_error, explain_tool, find_and_run
 from mcc.auth.models import UserModel
 from mcc.cache import parse_rate_limit
@@ -62,7 +62,7 @@ class TestLoggingMiddleware:
 
         class FakeMessage:
             name = "test.tool"
-            arguments = {"key": "val"}
+            arguments: ClassVar = {"key": "val"}
 
         class FakeContext:
             message = FakeMessage()
@@ -122,7 +122,7 @@ class _FakeSettings:
 def _execute_ctx(key="admin.shell"):
     class FakeMessage:
         name = "execute"
-        arguments = {"key": key}
+        arguments: ClassVar = {"key": key}
 
     class FakeContext:
         message = FakeMessage()
@@ -236,7 +236,7 @@ class TestRateLimitMiddleware:
 
             class FakeMessage:
                 name = "execute"
-                arguments = {}
+                arguments: ClassVar = {}
 
             class FakeContext:
                 message = FakeMessage()
@@ -258,7 +258,7 @@ class TestRateLimitMiddleware:
 
             class FakeMessage:
                 name = "execute"
-                arguments = {"key": None}
+                arguments: ClassVar = {"key": None}
 
             class FakeContext:
                 message = FakeMessage()
@@ -283,7 +283,7 @@ class TestRateLimitMiddleware:
 
             class FakeMessage:
                 name = verb
-                arguments = {"key": "admin.shell"}
+                arguments: ClassVar = {"key": "admin.shell"}
 
             class FakeContext:
                 message = FakeMessage()

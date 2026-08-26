@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from mcc import pyrunner
 
 resolve = pyrunner.resolve
@@ -20,6 +19,7 @@ def run_introspect(*fn_paths: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         env=_ENV,
+        check=False,
     )
 
 
@@ -30,6 +30,7 @@ def run_exec(fn_path: str, kwargs: dict) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         env=_ENV,
+        check=False,
     )
 
 

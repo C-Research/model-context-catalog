@@ -1,5 +1,5 @@
 import shutil
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import aiofiles
@@ -60,7 +60,7 @@ def stat(path: str) -> dict:
         "is_file": fpath.is_file(),
         "is_dir": fpath.is_dir(),
         "size": result.st_size,
-        "mtime": datetime.fromtimestamp(result.st_mtime).isoformat(),
-        "atime": datetime.fromtimestamp(result.st_atime).isoformat(),
-        "ctime": datetime.fromtimestamp(result.st_ctime).isoformat(),
+        "mtime": datetime.fromtimestamp(result.st_mtime, tz=UTC).isoformat(),
+        "atime": datetime.fromtimestamp(result.st_atime, tz=UTC).isoformat(),
+        "ctime": datetime.fromtimestamp(result.st_ctime, tz=UTC).isoformat(),
     }

@@ -5,9 +5,8 @@ import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import mcc.loader
+import pytest
 from mcc.loader import Loader, load_file
 from mcc.models import ParamModel, ToolModel
 
@@ -193,7 +192,7 @@ class TestIsolatedPython:
         with pytest.raises(ValueError, match="'python' can only be used with 'fn'"):
             ToolModel(
                 name="bad",
-                **{"exec": "echo hi"},
+                exec="echo hi",
                 python=sys.executable,
             )
 

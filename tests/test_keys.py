@@ -1,11 +1,10 @@
 from asyncio import run as arun
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
 from click.testing import CliRunner
-
 from mcc.auth import create_user
 from mcc.auth.backend import ApiKeyVerifier, get_provider
 from mcc.auth.keys import (
@@ -189,7 +188,7 @@ class TestApiKeyVerifier:
         await create_key("ci-bot", ttl_days=90)
         # overwrite the stored record with an expired timestamp
         raw, prefix = generate_key()
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         async with KeysIndex() as idx:
             await idx.put(
                 "ci-bot",
@@ -236,7 +235,7 @@ class TestVerifyApiKey:
 
     async def test_expired_key_returns_none(self):
         raw, prefix = generate_key()
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         async with KeysIndex() as idx:
             await idx.put(
                 "ci-bot",
@@ -300,7 +299,7 @@ class TestGetUserByKey:
     async def test_expired_key_returns_none_even_for_admin(self, users_idx):
         await create_user("ci-bot", groups=["admin"])
         raw, prefix = generate_key()
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         async with KeysIndex() as idx:
             await idx.put(
                 "ci-bot",
@@ -395,8 +394,8 @@ class TestKeyIntegration:
     async def test_narrow_key_executes_and_denies(self, users_idx, load_fixture):
         from mcc.app import execute
         from mcc.auth import create_user
-        from mcc.loader import loader
         from mcc.context import current_user_var
+        from mcc.loader import loader
 
         # public.request-style narrow grant: bind to a grouped tool explicitly.
         load_fixture("tools_grouped.yaml")
@@ -419,8 +418,8 @@ class TestKeyIntegration:
     ):
         from mcc.app import execute
         from mcc.auth import create_user, remove_tool
-        from mcc.loader import loader
         from mcc.context import current_user_var
+        from mcc.loader import loader
 
         load_fixture("tools_grouped.yaml")
         await loader.save()
