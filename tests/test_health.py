@@ -1,6 +1,5 @@
 import asyncio
 import json
-from typing import cast
 
 import mcc.app as app_module
 import mcc.db.base as db_base
@@ -9,9 +8,11 @@ from mcc.context import current_user_var
 from mcc.routes import healthz, readyz
 from starlette.requests import Request
 
-# The handlers never read the request (neither check depends on it) — a typed
-# None stand-in avoids constructing a real ASGI scope in every test.
-_REQ = cast(Request, None)
+# The handlers' own bodies never read the request, but both are wrapped by
+# @route(anonymous=True), which always sets request.scope["user"] = None
+# before calling them — so a real (if minimal) Request is needed, not a bare
+# None stand-in.
+_REQ = Request({"type": "http", "headers": [], "query_string": b""})
 
 
 class _RaisingIndex:

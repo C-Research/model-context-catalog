@@ -1,18 +1,42 @@
 import asyncio
+import json
+import time
+import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
 
 from markdown_it import MarkdownIt
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from pydantic import ValidationError
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
-from mcc.auth import get_user_by_key, whoami_info
+# app.py constructs `mcp` before its own `import mcc.routes` (placed after
+# mcp's construction and middleware registration specifically so this works),
+# so `mcp` already exists on the partially-initialized mcc.app module by the
+# time this line runs — the standard way to break a two-module import cycle.
+# Needed here (not deferred to a function) because @route registers each
+# route directly via mcp.custom_route at decoration time.
+from mcc.app import mcp
+from mcc.auth import get_user_by_key, list_users, whoami_info
 from mcc.auth.models import UserModel
 from mcc.cache import cache
+from mcc.context import (
+    NO_WRITEBACK,
+    assemble_context,
+    current_context_var,
+    writeback_context_var,
+)
 from mcc.db import UsersIndex
 from mcc.loader import loader
+from mcc.middleware import (
+    check_rate_limit,
+    log_tool_call_end,
+    log_tool_call_start,
+    record_tool_call,
+)
 from mcc.models import ToolModel
-from mcc.settings import logger
+from mcc.settings import logger, settings
 
 _markdown = MarkdownIt()
 
@@ -20,45 +44,85 @@ _READYZ_TIMEOUT = 3
 
 
 def _extract_api_key(request: Request) -> str | None:
-    """Extracts the raw key from `X-API-Key`, or `Authorization: Bearer <key>`, or None.
+    """Extracts the raw key from `X-API-Key`, `Authorization: Bearer <key>`,
+    or the `api-key` query parameter, in that order.
 
-    `X-API-Key` takes precedence when both are present.
+    A header always takes priority over the query parameter when both are
+    present. The query parameter exists for clients that can't easily set
+    custom headers; prefer a header where possible since query parameters are
+    more likely to be captured in access logs, proxy logs, or browser history.
     """
     if api_key := request.headers.get("x-api-key"):
         return api_key
     scheme, _, raw_key = request.headers.get("authorization", "").partition(" ")
-    return raw_key if scheme.lower() == "bearer" else None
+    if scheme.lower() == "bearer":
+        return raw_key
+    return request.query_params.get("api-key")
 
 
-def require_admin(
-    handler: Callable[[Request, UserModel], Awaitable[JSONResponse]],
-) -> Callable[[Request], Awaitable[JSONResponse]]:
-    """Gates a custom_route handler on an admin API key, independent of settings.auth.
+def route(
+    path: str,
+    methods: list[str] | None = None,
+    *,
+    admin: bool = False,
+    anonymous: bool = False,
+    optional: bool = False,
+) -> Callable[[Callable[[Request], Awaitable[Response]]], Callable[[Request], Awaitable[Response]]]:
+    """Decorator that both declares and gates a custom HTTP route.
 
-    Checks the raw key from `X-API-Key` or `Authorization: Bearer` against the
-    mcc-keys index directly (see `get_user_by_key`) rather than going through
-    `get_provider()`/`settings.auth` — so admin HTTP routes work the same
-    whether the MCP transport is configured for jwt, an OAuth proxy, or dev
-    mode. Responds 401 without calling `handler` if the key is
-    missing/invalid/expired or doesn't belong to an admin user.
+    Registers `path`/`methods` (default `["GET"]`) directly onto `mcp` via
+    `mcp.custom_route`, and wraps the handler so it resolves the caller's
+    identity from an API key and gates the route according to its declared
+    mode, attaching the resolved user (or `None`) to `request.scope["user"]`
+    — read inside handlers as `request.user`, matching Starlette's own
+    `Request.user` convention — before invoking the handler, which keeps its
+    native `(request) -> Response` signature.
+
+    Modes:
+      (default) a resolved user is required; responds `401` if the key is
+        missing, invalid, or expired.
+      anonymous=True: never attempts key resolution — `request.user` is
+        always `None`, regardless of what credentials the request carries.
+      optional=True: resolves a key if present, but never requires one —
+        `401` is never returned for a missing/invalid key.
+      admin=True: requires a resolved user in the `admin` group; responds
+        `401` if no user resolves, or if the resolved user isn't an admin.
+        Incompatible with `anonymous=True`/`optional=True` — raises at
+        decoration time rather than picking one silently.
     """
+    if admin and (anonymous or optional):
+        raise ValueError(
+            "route(admin=True) cannot be combined with anonymous=True or optional=True"
+        )
 
-    @wraps(handler)
-    async def wrapper(request: Request) -> JSONResponse:
-        raw_key = _extract_api_key(request)
-        user = await get_user_by_key(raw_key, groups=["admin"]) if raw_key else None
-        if user is None:
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
-        return await handler(request, user)
+    def decorator(
+        handler: Callable[[Request], Awaitable[Response]],
+    ) -> Callable[[Request], Awaitable[Response]]:
+        @wraps(handler)
+        async def wrapper(request: Request) -> Response:
+            if anonymous:
+                request.scope["user"] = None
+                return await handler(request)
+            raw_key = _extract_api_key(request)
+            groups = ["admin"] if admin else None
+            user = await get_user_by_key(raw_key, groups=groups) if raw_key else None
+            if user is None and not optional:
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            request.scope["user"] = user
+            return await handler(request)
 
-    return wrapper
+        return mcp.custom_route(path, methods=methods or ["GET"])(wrapper)
+
+    return decorator
 
 
+@route("/healthz", anonymous=True)
 async def healthz(request: Request) -> JSONResponse:
     """Liveness check: the process can handle an HTTP request. No backend calls."""
     return JSONResponse({"status": "ok"})
 
 
+@route("/readyz", anonymous=True)
 async def readyz(request: Request) -> JSONResponse:
     """Readiness check: the search backend, cache backend, and tool loader are all ready.
 
@@ -89,18 +153,12 @@ async def readyz(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+@route("/whoami")
 async def whoami(request: Request) -> JSONResponse:
     """Identity + accessible-tools check, as JSON — the HTTP counterpart to the
     whoami MCP tool in app.py (same fields via whoami_info, rendered as text there).
-
-    Open to any valid key, not just admins — unlike require_admin, this checks
-    get_user_by_key with no `groups` filter, so any resolvable user passes.
     """
-    raw_key = _extract_api_key(request)
-    user = await get_user_by_key(raw_key) if raw_key else None
-    if user is None:
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
-    return JSONResponse(whoami_info(user))
+    return JSONResponse(whoami_info(request.user))
 
 
 def _accessible_tools(user: UserModel | None) -> list[ToolModel]:
@@ -108,6 +166,16 @@ def _accessible_tools(user: UserModel | None) -> list[ToolModel]:
     return sorted(
         (t for t in loader.values() if t.allows(user)), key=lambda t: t.key
     )
+
+
+def _lookup_accessible_tool(key: str, user: UserModel | None) -> ToolModel | None:
+    """Returns the tool for `key` if it exists and `user` can access it, else
+    None — the shared 404-masking lookup for both /tools/{key} routes, so a
+    caller can't distinguish "no such tool" from "not yours"."""
+    tool = loader.get(key)
+    if tool is None or not tool.allows(user):
+        return None
+    return tool
 
 
 def _serialize_tool(tool: ToolModel) -> dict:
@@ -132,6 +200,7 @@ def _serialize_tool(tool: ToolModel) -> dict:
     }
 
 
+@route("/tools", optional=True)
 async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResponse:
     """Lists the caller's accessible tools, detailed, in JSON (default), markdown, or HTML.
 
@@ -139,9 +208,7 @@ async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResp
     tool.allows() already scopes to public tools only (same anonymous
     behavior search()/describe_tools() have as MCP tools).
     """
-    raw_key = _extract_api_key(request)
-    user = await get_user_by_key(raw_key) if raw_key else None
-    accessible = _accessible_tools(user)
+    accessible = _accessible_tools(request.user)
 
     fmt = request.query_params.get("format", "json")
     if fmt == "md":
@@ -152,15 +219,100 @@ async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResp
     return JSONResponse([_serialize_tool(t) for t in accessible])
 
 
-ROUTES: list[tuple[str, list[str], Callable]] = [
-    ("/healthz", ["GET"], healthz),
-    ("/readyz", ["GET"], readyz),
-    ("/whoami", ["GET"], whoami),
-    ("/tools", ["GET"], tools),
-]
+@route("/tools/{key}", optional=True)
+async def tool_detail(request: Request) -> JSONResponse:
+    """GET /tools/{key}: a single tool's detail, same shape as one GET /tools
+    entry. 404s for an unknown key or one the caller can't access —
+    indistinguishable, so probing keys can't enumerate gated tools.
+    """
+    tool = _lookup_accessible_tool(request.path_params["key"], request.user)
+    if tool is None:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return JSONResponse(_serialize_tool(tool))
 
 
-def register_routes(mcp) -> None:
-    """Registers every custom HTTP route in ROUTES onto `mcp`."""
-    for path, methods, handler in ROUTES:
-        mcp.custom_route(path, methods=methods)(handler)
+def _error_text(exc: Exception) -> str:
+    """Plain-text error body: the full traceback when settings.DEBUG is true,
+    otherwise a one-line `Type: message` summary."""
+    if settings.get("DEBUG", False):
+        return "".join(traceback.format_exception(exc))
+    return f"{type(exc).__name__}: {exc}"
+
+
+@route("/tools/{key}", ["POST"], optional=True)
+async def tool_execute(request: Request) -> PlainTextResponse:
+    """POST /tools/{key}: executes the tool with the JSON request body as its
+    parameters, returning the result as plain text. Same 404 masking as
+    tool_detail for an unknown or inaccessible key.
+
+    Runs with an identity-only context (no stored session state, no
+    write-back) — v1 has no HTTP session equivalent to MCP's
+    ctx.get_state/set_state. Shares its rate-limit bucket with the MCP
+    execute tool for the same key. Errors are plain text: the full traceback
+    when settings.DEBUG is true, otherwise a one-line message.
+    """
+    key = request.path_params["key"]
+    user = request.user
+    tool = _lookup_accessible_tool(key, user)
+    if tool is None:
+        return PlainTextResponse("Not found", status_code=404)
+
+    raw_body = await request.body()
+    try:
+        params = json.loads(raw_body) if raw_body else {}
+    except json.JSONDecodeError as exc:
+        return PlainTextResponse(_error_text(exc), status_code=400)
+    if not isinstance(params, dict):
+        return PlainTextResponse("Request body must be a JSON object", status_code=400)
+
+    username = user.username if user else "anon"
+    if settings.get("rate_limit", {}).get("enabled", False):
+        exceeded, remaining = await check_rate_limit(key, username)
+        if exceeded:
+            return PlainTextResponse(
+                f"Rate limit exceeded for {key} — retry in {remaining}s.",
+                status_code=429,
+            )
+
+    context = assemble_context(None, user)
+    context_token = current_context_var.set(context)
+    writeback_token = writeback_context_var.set(NO_WRITEBACK)
+    start = time.perf_counter()
+    try:
+        result = await tool.call(**params)
+    except ValidationError as exc:
+        record_tool_call(key, "error", time.perf_counter() - start)
+        return PlainTextResponse(_error_text(exc), status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        record_tool_call(key, "error", time.perf_counter() - start)
+        logger.exception("REST execution of %s failed", key)
+        return PlainTextResponse(_error_text(exc), status_code=500)
+    finally:
+        writeback_context_var.reset(writeback_token)
+        current_context_var.reset(context_token)
+
+    elapsed = time.perf_counter() - start
+    record_tool_call(key, "success", elapsed)
+    log_tool_call_start(username, key, params)
+    log_tool_call_end(username, key, elapsed)
+    return PlainTextResponse(str(result))
+
+
+@route("/users", admin=True)
+async def users_list(request: Request) -> JSONResponse:
+    """GET /users: lists all users. Admin-gated. `?keys=true` includes each
+    user's `.key` metadata (`{"prefix", "created_at", "expires_at"}`, never
+    the hash or raw key); omitted by default.
+    """
+    include_keys = request.query_params.get("keys", "").lower() == "true"
+    users = await list_users()
+    exclude = set() if include_keys else {"key"}
+    return JSONResponse([u.model_dump(exclude=exclude) for u in users])
+
+
+@route("/metrics", anonymous=True)
+async def metrics(request: Request) -> Response:
+    """GET /metrics: Prometheus text-exposition of tool-call counters and
+    duration histograms, fed by both the MCP execute() path and
+    POST /tools/{key}."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

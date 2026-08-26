@@ -30,8 +30,12 @@ from mcc.context import (
 )
 from mcc.db import session_store
 from mcc.loader import loader
-from mcc.middleware import AuthMiddleware, LoggingMiddleware, RateLimitMiddleware
-from mcc.routes import register_routes
+from mcc.middleware import (
+    AuthMiddleware,
+    LoggingMiddleware,
+    MetricsMiddleware,
+    RateLimitMiddleware,
+)
 from mcc.settings import logger, settings
 
 
@@ -86,8 +90,16 @@ mcp.add_middleware(
 )
 if settings.get("rate_limit", {}).get("enabled", False):
     mcp.add_middleware(RateLimitMiddleware())
+# Always registered (independent of rate_limit.enabled) and added last so it
+# sits innermost — closest to the terminal tool-call handler — and only
+# records calls that actually execute, not ones RateLimitMiddleware throttles.
+mcp.add_middleware(MetricsMiddleware())
 
-register_routes(mcp)
+# Side-effecting: mcc.routes's @route decorator registers each HTTP route
+# directly onto `mcp` via mcp.custom_route as its module body executes. Must
+# come after `mcp` is constructed above — mcc.routes does `from mcc.app import
+# mcp`, which resolves against this (still-executing) module's namespace.
+import mcc.routes  # noqa: F401
 
 
 def banner():
