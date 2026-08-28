@@ -17,6 +17,7 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, R
 # Needed here (not deferred to a function) because @route registers each
 # route directly via mcp.custom_route at decoration time.
 from mcc.app import mcp
+from mcc.audit import _record_search
 from mcc.auth import get_user_by_key, list_users, whoami_info
 from mcc.auth.models import UserModel
 from mcc.cache import cache
@@ -29,7 +30,7 @@ from mcc.context import (
 )
 from mcc.db import UsersIndex
 from mcc.loader import loader
-from mcc.middleware import check_rate_limit, log_tool_call_throttled
+from mcc.middleware import check_rate_limit, display_username, log_tool_call_throttled
 from mcc.models import ToolModel
 from mcc.settings import logger, settings
 
@@ -62,7 +63,9 @@ def route(
     admin: bool = False,
     anonymous: bool = False,
     optional: bool = False,
-) -> Callable[[Callable[[Request], Awaitable[Response]]], Callable[[Request], Awaitable[Response]]]:
+) -> Callable[
+    [Callable[[Request], Awaitable[Response]]], Callable[[Request], Awaitable[Response]]
+]:
     """Decorator that both declares and gates a custom HTTP route.
 
     Registers `path`/`methods` (default `["GET"]`) directly onto `mcp` via
@@ -165,9 +168,7 @@ async def whoami(request: Request) -> JSONResponse:
 
 def _accessible_tools(user: UserModel | None) -> list[ToolModel]:
     """Tools `user` can access, sorted by key. `user=None` yields public tools only."""
-    return sorted(
-        (t for t in loader.values() if t.allows(user)), key=lambda t: t.key
-    )
+    return sorted((t for t in loader.values() if t.allows(user)), key=lambda t: t.key)
 
 
 def _lookup_accessible_tool(key: str, user: UserModel | None) -> ToolModel | None:
@@ -196,7 +197,9 @@ def _serialize_tool(tool: ToolModel) -> dict:
             }
             for p in tool.visible_params
         ],
-        "return_type": "str | (int, str, str)" if tool.exec else (tool.return_type or "unknown"),
+        "return_type": "str | (int, str, str)"
+        if tool.exec
+        else (tool.return_type or "unknown"),
         "description": tool.description,
         "example": tool.example,
     }
@@ -312,3 +315,28 @@ async def metrics(request: Request) -> Response:
     duration histograms, fed by both the MCP execute() path and
     POST /tools/{key}."""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@route("/search", optional=True)
+async def search_tools(request: Request) -> JSONResponse:
+    """GET /search?q=...&min_score=...: natural-language tool search over the
+    caller's accessible tools — the HTTP counterpart to the search MCP tool
+    in app.py, with the same scoring and audit behavior.
+    """
+    query = request.query_params.get("q", "")
+    raw_min_score = request.query_params.get("min_score")
+    try:
+        min_score = float(raw_min_score) if raw_min_score is not None else None
+    except ValueError:
+        return JSONResponse({"error": "min_score must be a number"}, status_code=400)
+
+    results = await loader.search(query, min_score)
+    allowed = [(t, s) for t, s in results if t.allows(request.user)]
+    if settings.AUDIT_SEARCH_INDEX:
+        await _record_search(
+            display_username(request.user),
+            query,
+            min_score,
+            [(t.key, s) for t, s in allowed],
+        )
+    return JSONResponse([{"score": s, **_serialize_tool(t)} for t, s in allowed])
