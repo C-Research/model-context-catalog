@@ -63,6 +63,7 @@ def cli(ctx, env, verbose):
         settings.setenv(env)
 
 
+from mcc.cli.audit import audit
 from mcc.cli.download import download
 from mcc.cli.mcp import mcp_cmd
 from mcc.cli.tools import tool
@@ -72,3 +73,4 @@ cli.add_command(download)
 cli.add_command(user)
 cli.add_command(tool)
 cli.add_command(mcp_cmd)
+cli.add_command(audit)

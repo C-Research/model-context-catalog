@@ -86,12 +86,18 @@ default:
   # Persisted audit trail of catalog tool calls (see mcc/audit.py). Empty (the
   # default) disables auditing entirely — no hook is registered, nothing is
   # written. Any non-empty value both enables auditing and names the index.
-  audit_index: ""
+  audit_tool_index: ""
 
   # Whether audit records include the call's visible parameters, serialized
   # as "key=var;key=var" text. Only affects the params field — username, tool
   # key, duration, and status/error are always recorded when auditing is on.
   audit_params: true
+
+  # Persisted audit trail of search() calls (see mcc/audit.py). Empty (the
+  # default) disables search auditing entirely — nothing is written. Any
+  # non-empty value both enables it and names the index. Independent of
+  # audit_tool_index — either can be enabled without the other.
+  audit_search_index: ""
 
   api_key:
     default_ttl_days: 90

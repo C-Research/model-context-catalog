@@ -2,6 +2,7 @@ import json
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
+import mcc.audit as audit_module
 import pytest
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
@@ -9,6 +10,7 @@ from fastmcp.server.elicitation import (
     DeclinedElicitation,
 )
 from mcc.app import describe_tools, execute, search, whoami
+from mcc.audit import SearchAuditIndex
 from mcc.auth.models import UserModel
 from mcc.cache import cache, params_hash
 from mcc.context import current_user_var
@@ -89,6 +91,62 @@ class TestSearch:
         await loader.save()
         result = await search("echo")
         assert result.startswith("No tools matched your query.")
+
+
+class TestSearchAudit:
+    async def test_records_ordered_keys_and_scores(self, load_fixture, search_audit_idx):
+        load_fixture("tools_ungrouped.yaml")
+        await loader.save()
+        await search("echo")
+        docs = await search_audit_idx.search({"match_all": {}})
+        assert len(docs) == 1
+        doc = docs[0]
+        assert doc["query"] == "echo"
+        assert doc["username"] == "anonymous"
+        assert "echo=" in doc["results"]
+        # Only key/score-derived fields ever reach the record -- no
+        # signature/description/params field exists on the doc at all.
+        assert set(doc.keys()) <= {
+            "timestamp",
+            "username",
+            "query",
+            "min_score",
+            "results",
+        }
+
+    async def test_no_record_when_disabled(self, load_fixture, monkeypatch):
+        monkeypatch.setattr(SearchAuditIndex, "index", "mcc-search-audit-test")
+        assert not real_settings.AUDIT_SEARCH_INDEX  # disabled for the whole test session
+        load_fixture("tools_ungrouped.yaml")
+        await loader.save()
+        await search("echo")
+        async with SearchAuditIndex() as idx:
+            await idx.create()
+            docs = await idx.search({"match_all": {}})
+        assert docs == []
+
+    async def test_only_accessible_results_recorded(self, load_fixture, search_audit_idx):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        await loader.save()
+        await search("echo")
+        docs = await search_audit_idx.search({"match_all": {}})
+        assert len(docs) == 1
+        results = docs[0]["results"]
+        assert "echo=" in results
+        assert "example.echo" not in results
+
+    async def test_write_failure_does_not_propagate(self, load_fixture, monkeypatch):
+        async def _boom(self):
+            raise RuntimeError("index unreachable")
+
+        monkeypatch.setattr(
+            audit_module.settings, "AUDIT_SEARCH_INDEX", "mcc-search-audit-test"
+        )
+        monkeypatch.setattr(audit_module.SearchAuditIndex, "__aenter__", _boom)
+        load_fixture("tools_ungrouped.yaml")
+        await loader.save()
+        result = await search("echo")  # must not raise
+        assert "echo" in result
 
 
 class TestExecute:

@@ -33,6 +33,7 @@ from mcc.loader import loader
 from mcc.middleware import (
     AuthMiddleware,
     check_rate_limit,
+    display_username,
     log_tool_call_throttled,
     validate_rate_limit_settings,
 )
@@ -91,14 +92,15 @@ if settings.get("rate_limit", {}).get("enabled", False):
     validate_rate_limit_settings()
 
 # Side-effecting, must come after `mcp` is constructed above: mcc.audit
-# registers the audit hook (mcc.models.on_tool_call) if settings.audit_index
+# registers the audit hook (mcc.models.on_tool_call) if settings.audit_tool_index
 # is set (logging/metrics hooks are already registered by importing
-# mcc.middleware above); mcc.routes's @route decorator registers each HTTP
-# route directly onto `mcp` via mcp.custom_route as its module body executes
-# — it does `from mcc.app import mcp`, which resolves against this
-# (still-executing) module's namespace.
+# mcc.middleware above), and search() below calls mcc.audit._record_search
+# directly; mcc.routes's @route decorator registers each HTTP route directly
+# onto `mcp` via mcp.custom_route as its module body executes — it does
+# `from mcc.app import mcp`, which resolves against this (still-executing)
+# module's namespace.
 import mcc.audit
-import mcc.routes  # noqa: F401
+import mcc.routes
 
 
 def banner():
@@ -145,14 +147,17 @@ async def search(query: str, min_score: float | None = None) -> str:
     """
     user = current_user_var.get(None)
     results = await loader.search(query, min_score)
-    accessible = [
-        f"[{score:.2f}]\n{tool.signature}"
-        for tool, score in results
-        if tool.allows(user)
-    ]
-    if not accessible:
+    allowed = [(tool, score) for tool, score in results if tool.allows(user)]
+    if settings.AUDIT_SEARCH_INDEX:
+        await mcc.audit._record_search(
+            display_username(user),
+            query,
+            min_score,
+            [(tool.key, score) for tool, score in allowed],
+        )
+    if not allowed:
         return "No tools matched your query. Try expanding your query or reducing min_score"
-    return "\n\n".join(accessible)
+    return "\n\n".join(f"[{score:.2f}]\n{tool.signature}" for tool, score in allowed)
 
 
 _ELICITABLE = {"str", "int", "float", "bool"}

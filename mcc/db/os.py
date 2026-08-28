@@ -54,11 +54,23 @@ class _OSIndexBase(IndexLifecycle):
             index=self.index, id=id, params={"refresh": str(refresh).lower()}
         )
 
-    async def search(self, query: dict, size: int = 10000) -> list[dict]:
-        """Run a raw OpenSearch query and return a list of _source dicts."""
-        resp = await self._client.search(
-            index=self.index, body={"query": query, "size": size}
-        )
+    async def search(
+        self,
+        query: dict,
+        limit: int = 10000,
+        offset: int = 0,
+        sort: list | None = None,
+    ) -> list[dict]:
+        """Run a raw OpenSearch query and return a list of _source dicts.
+
+        `offset`/`limit` map to OpenSearch's `from`/`size`. `sort` is passed
+        through verbatim (e.g. `[{"timestamp": "desc"}]`) when given,
+        otherwise OpenSearch's default relevance ordering applies.
+        """
+        body: dict = {"query": query, "size": limit, "from": offset}
+        if sort is not None:
+            body["sort"] = sort
+        resp = await self._client.search(index=self.index, body=body)
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     async def create(self) -> None:

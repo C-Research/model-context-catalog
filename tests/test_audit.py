@@ -1,6 +1,13 @@
 import mcc.audit as audit_module
 import pytest
-from mcc.audit import AuditIndex, _record_call, _serialize_params
+from mcc.audit import (
+    AuditIndex,
+    SearchAuditIndex,
+    _record_call,
+    _record_search,
+    _serialize_params,
+    _serialize_results,
+)
 from mcc.auth.models import UserModel
 from mcc.models import ToolCallEvent, _call_hooks
 
@@ -85,3 +92,62 @@ class TestRecordCall:
         monkeypatch.setattr(AuditIndex, "__aenter__", _boom)
         # Must not raise -- best-effort, logged only.
         await _record_call(_event())
+
+
+class TestSerializeResults:
+    def test_key_equals_score_semicolon_joined_in_order(self):
+        pairs = [("admin.shell", 8.42), ("public.request", 6.1)]
+        assert _serialize_results(pairs) == "admin.shell=8.42;public.request=6.1"
+
+    def test_empty_results(self):
+        assert _serialize_results([]) == ""
+
+
+class TestRecordSearch:
+    async def test_writes_expected_fields(self, search_audit_idx):
+        await _record_search("alice", "shell", 5.0, [("admin.shell", 8.42)])
+        docs = await search_audit_idx.search({"match_all": {}})
+        assert len(docs) == 1
+        doc = docs[0]
+        assert doc["username"] == "alice"
+        assert doc["query"] == "shell"
+        assert doc["min_score"] == 5.0
+        assert doc["results"] == "admin.shell=8.42"
+
+    async def test_anonymous_search_has_no_username(self, search_audit_idx):
+        await _record_search(None, "shell", None, [])
+        docs = await search_audit_idx.search({"match_all": {}})
+        assert docs[0]["username"] is None
+        assert docs[0]["min_score"] is None
+        assert docs[0]["results"] == ""
+
+    async def test_write_failure_does_not_raise(self, monkeypatch):
+        async def _boom(self):
+            raise RuntimeError("index unreachable")
+
+        monkeypatch.setattr(SearchAuditIndex, "__aenter__", _boom)
+        # Must not raise -- best-effort, logged only.
+        await _record_search("alice", "shell", None, [])
+
+
+class TestIndexSearchPagination:
+    """Exercises IndexBase.search()'s limit/offset/sort against AuditIndex --
+    any IndexBase subclass would do, this one's just already fixture-backed."""
+
+    async def test_default_size_unchanged(self, audit_idx):
+        await audit_idx.put(
+            "only", {"timestamp": "2026-01-01T00:00:00+00:00", "username": "a"}
+        )
+        docs = await audit_idx.search({"match_all": {}})
+        assert len(docs) == 1
+
+    async def test_sort_and_paginate(self, audit_idx):
+        for i in range(5):
+            await audit_idx.put(
+                str(i),
+                {"timestamp": f"2026-01-0{i + 1}T00:00:00+00:00", "username": f"u{i}"},
+            )
+        docs = await audit_idx.search(
+            {"match_all": {}}, limit=2, offset=1, sort=[{"timestamp": "desc"}]
+        )
+        assert [d["username"] for d in docs] == ["u3", "u2"]

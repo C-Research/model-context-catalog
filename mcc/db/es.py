@@ -46,9 +46,23 @@ class _ESIndexBase(IndexLifecycle):
         """Delete a document by id. Raises NotFoundError if missing."""
         await self._client.delete(index=self.index, id=id, refresh=refresh)
 
-    async def search(self, query: dict, size: int = 10000) -> list[dict]:
-        """Run a raw ES query and return a list of _source dicts."""
-        resp = await self._client.search(index=self.index, query=query, size=size)
+    async def search(
+        self,
+        query: dict,
+        limit: int = 10000,
+        offset: int = 0,
+        sort: list | None = None,
+    ) -> list[dict]:
+        """Run a raw ES query and return a list of _source dicts.
+
+        `offset`/`limit` map to ES's `from`/`size`. `sort` is passed through
+        verbatim (e.g. `[{"timestamp": "desc"}]`) when given, otherwise ES's
+        default relevance ordering applies.
+        """
+        kwargs: dict = {"query": query, "size": limit, "from_": offset}
+        if sort is not None:
+            kwargs["sort"] = sort
+        resp = await self._client.search(index=self.index, **kwargs)
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     async def create(self) -> None:

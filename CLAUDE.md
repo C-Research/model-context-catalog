@@ -4,6 +4,8 @@
 
 MCC (Model Context Catalog) is an MCP server that exposes Python callables as a permission-controlled tool catalog. LLM clients discover and call tools through a `search` / `execute` interface with RBAC and pluggable auth.
 
+Ignore untracked files always when drafting specs
+
 ## Agents
 
 See [AGENTS.md](./AGENTS.md) for how to run pytest, ruff, pyright, and bandit. Always run all four before considering a task complete.
