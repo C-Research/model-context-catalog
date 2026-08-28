@@ -1,5 +1,5 @@
 from mcc.auth.db import list_users
-from mcc.auth.models import UserModel
+from mcc.context import UserModel
 from mcc.settings import logger
 
 

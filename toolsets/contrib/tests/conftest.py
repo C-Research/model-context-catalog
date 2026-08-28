@@ -41,7 +41,7 @@ def state_backed_ctx(session="s1"):
 CTX = state_backed_ctx()
 
 from mcc.auth import create_user
-from mcc.auth.models import UserModel
+from mcc.context import UserModel
 from mcc.db import UsersIndex
 from mcc.loader import loader
 from mcc.middleware import current_user_var

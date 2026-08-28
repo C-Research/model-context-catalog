@@ -401,7 +401,7 @@ class TestKeyIntegration:
     async def test_narrow_key_executes_and_denies(self, users_idx, load_fixture):
         from mcc.app import execute
         from mcc.auth import create_user
-        from mcc.context import current_user_var
+        from mcc.context import ANONYMOUS_USER, current_user_var
         from mcc.loader import loader
 
         # public.request-style narrow grant: bind to a grouped tool explicitly.
@@ -418,14 +418,14 @@ class TestKeyIntegration:
             allowed = await execute(_ctx_raises(), "example.echo", {"message": "hi"})
             assert allowed == ["hi"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_narrowing_user_narrows_key_without_reminting(
         self, users_idx, load_fixture
     ):
         from mcc.app import execute
         from mcc.auth import create_user, remove_tool
-        from mcc.context import current_user_var
+        from mcc.context import ANONYMOUS_USER, current_user_var
         from mcc.loader import loader
 
         load_fixture("tools_grouped.yaml")
@@ -441,7 +441,7 @@ class TestKeyIntegration:
             denied = await execute(_ctx_raises(), "example.echo", {"message": "hi"})
             assert denied == "Unauthorized"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 class TestKeyCLI:

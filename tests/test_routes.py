@@ -4,7 +4,7 @@ import mcc.routes as routes_module
 import pytest
 from mcc.auth import create_user
 from mcc.auth.keys import create_key
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.middleware import check_rate_limit, record_tool_call
 from mcc.routes import healthz, metrics, route, tool_detail, tool_execute, tools, users_list, whoami
 from mcc.settings import settings as real_settings
@@ -99,17 +99,15 @@ class TestCurrentUserVarSetByRoute:
             await whoami(_request({"Authorization": f"Bearer {raw}"}))
             assert current_user_var.get().username == "ci-bot"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
-    async def test_anonymous_route_sets_current_user_var_to_none(self):
-        from mcc.auth.models import UserModel
-
+    async def test_anonymous_route_sets_current_user_var_to_anonymous(self):
         current_user_var.set(UserModel(username="stale"))
         try:
             await healthz(_request())
-            assert current_user_var.get() is None
+            assert current_user_var.get().is_anonymous
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 class TestApiKeyQueryParamFallback:
@@ -225,7 +223,7 @@ class TestToolExecuteRateLimit:
 
         # Same bucket key format RateLimitMiddleware uses for MCP execute() —
         # already exhausted by the REST call above.
-        exceeded, _remaining = await check_rate_limit("public.echo", "anon")
+        exceeded, _remaining = await check_rate_limit("public.echo", "anonymous")
         assert exceeded is True
 
     async def test_throttled_call_returns_429(self, load_fixture, monkeypatch):

@@ -3,7 +3,7 @@ from prometheus_client import Counter, Histogram
 
 from mcc.auth import get_current_user
 from mcc.cache import over_limit, parse_rate_limit
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.models import ToolCallEvent, on_tool_call
 from mcc.settings import logger, settings
 
@@ -26,9 +26,9 @@ def record_tool_call(tool_key: str, status: str, elapsed: float) -> None:
     TOOL_CALL_DURATION_SECONDS.labels(tool=tool_key).observe(elapsed)
 
 
-def display_username(user) -> str:
-    """Formats a resolved user (or None) for log lines: 'anonymous', 'alice', or 'alice<a@b.com>'."""
-    if user is None:
+def display_username(user: UserModel) -> str:
+    """Formats a user for log lines: 'anonymous', 'alice', or 'alice<a@b.com>'."""
+    if user.is_anonymous:
         return "anonymous"
     if user.email:
         return f"{user.username}<{user.email}>"
@@ -90,7 +90,8 @@ class AuthMiddleware(Middleware):
     """Resolves the current user on every request and stashes in a contextvar."""
 
     async def on_message(self, context: MiddlewareContext, call_next):
-        current_user_var.set(await get_current_user())
+        resolved = await get_current_user()
+        current_user_var.set(resolved if resolved is not None else ANONYMOUS_USER)
         return await call_next(context)
 
 

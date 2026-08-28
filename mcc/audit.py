@@ -75,7 +75,7 @@ def _serialize_results(pairs: list[tuple[str, float]]) -> str:
 async def _record_call(event: ToolCallEvent) -> None:
     doc: dict = {
         "timestamp": datetime.fromtimestamp(event.started_at, tz=UTC).isoformat(),
-        "username": event.user.username if event.user else None,
+        "username": None if event.user.is_anonymous else event.user.username,
         "key_prefix": event.key_prefix,
         "tool_key": event.tool_key,
         "status": event.status,

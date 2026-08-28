@@ -3,8 +3,7 @@ import sys
 
 import pytest
 from jinja2 import UndefinedError
-from mcc.auth.models import UserModel
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.exec import make_py_callable
 from mcc.loader import loader
 from mcc.models import ToolModel
@@ -572,7 +571,7 @@ class TestContextPropagation:
             assert blob["user"] == "alice"
             assert blob["groups"] == ["admin", "osint"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_fn_tool_has_no_expanded_vars(self):
         # fn tools get only the blob, not MCC_CTX_<NAME> expansion.
@@ -582,7 +581,7 @@ class TestContextPropagation:
             result = await tool.call(name="MCC_CTX_USER")
             assert json.loads(result) is None
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_context_kwarg_injected_when_declared(self):
         tool = ToolModel(fn="tests.example:needs_context")
@@ -593,7 +592,7 @@ class TestContextPropagation:
             assert result["context"]["user"] == "alice"
             assert result["context"]["groups"] == ["g1"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_context_param_hidden_from_signature(self):
         tool = ToolModel(fn="tests.example:needs_context")
@@ -607,7 +606,7 @@ class TestContextPropagation:
         try:
             assert json.loads(await tool.call(x=3)) == 3
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_exec_tool_receives_expanded_user(self):
         tool = ToolModel(name="whoami_sh", exec="printf %s $MCC_CTX_USER")
@@ -616,7 +615,7 @@ class TestContextPropagation:
             result = await tool.call()
             assert result.strip() == "bob"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_exec_tool_has_no_blob(self):
         tool = ToolModel(
@@ -628,7 +627,7 @@ class TestContextPropagation:
             result = await tool.call()
             assert "unset" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_exec_groups_expanded_as_json(self):
         tool = ToolModel(name="groups_sh", exec="printf %s $MCC_CTX_GROUPS")
@@ -637,11 +636,11 @@ class TestContextPropagation:
             result = await tool.call()
             assert json.loads(result.strip()) == ["admin", "osint"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_anonymous_blob_has_anonymous_user(self):
         tool = ToolModel(fn="tests.example:get_env_var")
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         result = await tool.call(name="MCC_CTX")
         blob = json.loads(json.loads(result))
         assert blob["user"] == "anonymous"
@@ -658,4 +657,4 @@ class TestContextPropagation:
             result = await tool.call()
             assert result.strip() == "alice"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)

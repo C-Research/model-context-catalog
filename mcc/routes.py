@@ -19,10 +19,11 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, R
 from mcc.app import mcp
 from mcc.audit import _record_search
 from mcc.auth import get_user_by_key, list_users, whoami_info
-from mcc.auth.models import UserModel
 from mcc.cache import cache
 from mcc.context import (
+    ANONYMOUS_USER,
     NO_WRITEBACK,
+    UserModel,
     assemble_context,
     current_context_var,
     current_user_var,
@@ -71,16 +72,17 @@ def route(
     Registers `path`/`methods` (default `["GET"]`) directly onto `mcp` via
     `mcp.custom_route`, and wraps the handler so it resolves the caller's
     identity from an API key and gates the route according to its declared
-    mode, attaching the resolved user (or `None`) to `request.scope["user"]`
-    — read inside handlers as `request.user`, matching Starlette's own
-    `Request.user` convention — before invoking the handler, which keeps its
-    native `(request) -> Response` signature.
+    mode, attaching the resolved user (or ANONYMOUS_USER) to
+    `request.scope["user"]` — read inside handlers as `request.user`,
+    matching Starlette's own `Request.user` convention — before invoking the
+    handler, which keeps its native `(request) -> Response` signature.
 
     Modes:
       (default) a resolved user is required; responds `401` if the key is
         missing, invalid, or expired.
       anonymous=True: never attempts key resolution — `request.user` is
-        always `None`, regardless of what credentials the request carries.
+        always ANONYMOUS_USER, regardless of what credentials the request
+        carries.
       optional=True: resolves a key if present, but never requires one —
         `401` is never returned for a missing/invalid key.
       admin=True: requires a resolved user in the `admin` group; responds
@@ -99,14 +101,15 @@ def route(
         @wraps(handler)
         async def wrapper(request: Request) -> Response:
             if anonymous:
-                request.scope["user"] = None
-                current_user_var.set(None)
+                request.scope["user"] = ANONYMOUS_USER
+                current_user_var.set(ANONYMOUS_USER)
                 return await handler(request)
             raw_key = _extract_api_key(request)
             groups = ["admin"] if admin else None
-            user = await get_user_by_key(raw_key, groups=groups) if raw_key else None
-            if user is None and not optional:
+            resolved = await get_user_by_key(raw_key, groups=groups) if raw_key else None
+            if resolved is None and not optional:
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
+            user = resolved if resolved is not None else ANONYMOUS_USER
             request.scope["user"] = user
             # Mirrors AuthMiddleware's job for the MCP transport: Starlette runs each
             # request in its own asyncio task, so this can't leak across requests, the
@@ -166,12 +169,12 @@ async def whoami(request: Request) -> JSONResponse:
     return JSONResponse(whoami_info(request.user))
 
 
-def _accessible_tools(user: UserModel | None) -> list[ToolModel]:
-    """Tools `user` can access, sorted by key. `user=None` yields public tools only."""
-    return sorted((t for t in loader.values() if t.allows(user)), key=lambda t: t.key)
+def _accessible_tools(user: UserModel) -> list[ToolModel]:
+    """Tools `user` can access, sorted by key. ANONYMOUS_USER yields public tools only."""
+    return user.accessible_tools
 
 
-def _lookup_accessible_tool(key: str, user: UserModel | None) -> ToolModel | None:
+def _lookup_accessible_tool(key: str, user: UserModel) -> ToolModel | None:
     """Returns the tool for `key` if it exists and `user` can access it, else
     None — the shared 404-masking lookup for both /tools/{key} routes, so a
     caller can't distinguish "no such tool" from "not yours"."""
@@ -209,7 +212,7 @@ def _serialize_tool(tool: ToolModel) -> dict:
 async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResponse:
     """Lists the caller's accessible tools, detailed, in JSON (default), markdown, or HTML.
 
-    No auth required — a missing/invalid key resolves to user=None, which
+    No auth required — a missing/invalid key resolves to ANONYMOUS_USER, which
     tool.allows() already scopes to public tools only (same anonymous
     behavior search()/describe_tools() have as MCP tools).
     """
@@ -270,7 +273,7 @@ async def tool_execute(request: Request) -> PlainTextResponse:
     if not isinstance(params, dict):
         return PlainTextResponse("Request body must be a JSON object", status_code=400)
 
-    username = user.username if user else "anon"
+    username = user.username
     if settings.get("rate_limit", {}).get("enabled", False):
         exceeded, remaining = await check_rate_limit(key, username)
         if exceeded:

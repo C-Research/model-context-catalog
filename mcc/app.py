@@ -21,6 +21,7 @@ from mcc.context import (
     NO_WRITEBACK,
     RESERVED_KEYS,
     SLUG_RE,
+    UserModel,
     assemble_context,
     current_context_var,
     current_user_var,
@@ -145,7 +146,7 @@ async def search(query: str, min_score: float | None = None) -> str:
       min_score: Optional minimum relevance score. Results below this threshold are
                  excluded. Observe scores from an initial search to pick a good value.
     """
-    user = current_user_var.get(None)
+    user = current_user_var.get()
     results = await loader.search(query, min_score)
     allowed = [(tool, score) for tool, score in results if tool.allows(user)]
     if settings.AUDIT_SEARCH_INDEX:
@@ -209,7 +210,7 @@ def _coerce_result(result):
     return result
 
 
-async def _apply_writeback(ctx: Context, user) -> None:
+async def _apply_writeback(ctx: Context, user: UserModel) -> None:
     """Persist an fn tool's returned context into session state (full replace).
 
     Reads the context stashed on writeback_context_var by mcc.exec while unwrapping
@@ -260,16 +261,15 @@ async def execute(ctx: Context, key: str, params: dict | None = None):
         logger.warning("execute: unknown tool %r", key)
         return f"Unknown tool: {key}"
     tool = loader[key]
-    user = current_user_var.get(None)
+    user = current_user_var.get()
     if not tool.allows(user):
-        username = user.username if user else "anonymous"
-        logger.warning("execute: %s denied access to %s", username, key)
+        logger.warning("execute: %s denied access to %s", user.username, key)
         return "Unauthorized"
 
     # Checked before the cache lookup below: a call served from cache must
     # still count against the rate limit, and this check never invokes
     # ToolModel.call() at all when throttled.
-    username = user.username if user else "anon"
+    username = user.username
     if settings.get("rate_limit", {}).get("enabled", False):
         exceeded, remaining = await check_rate_limit(tool.key, username)
         if exceeded:
@@ -331,8 +331,8 @@ async def whoami() -> str:
 
     Returns a human-readable summary, or a notice if the request is unauthenticated.
     """
-    user = current_user_var.get(None)
-    if user is None:
+    user = current_user_var.get()
+    if user.is_anonymous:
         return "Not authenticated: no user is associated with this session."
 
     # Cache keyed on username. Invalidated on loader.reload() (the accessible-tool
@@ -368,8 +368,8 @@ async def describe_tools(groups: list[str] | None = None) -> str:
     Example:
       describe_tools([admin,web])
     """
-    user = current_user_var.get(None)
-    tools = [t for t in loader.values() if t.allows(user)]
+    user = current_user_var.get()
+    tools = user.accessible_tools
     if groups:
         groups_set = set(groups)
         tools = [t for t in tools if groups_set.issubset(set(t.groups))]
@@ -408,7 +408,7 @@ async def set_session(ctx: Context, name: str, value: object) -> str:
         )
     if name in RESERVED_KEYS:
         return f"Cannot set reserved identity key {name!r}."
-    user = current_user_var.get(None)
+    user = current_user_var.get()
     skey = state_key(user)
     stored = await ctx.get_state(skey) or {}
     stored[name] = value
@@ -429,7 +429,7 @@ async def get_session(ctx: Context, name: str) -> str:
     Args:
       name: The variable name to read.
     """
-    user = current_user_var.get(None)
+    user = current_user_var.get()
     stored = await ctx.get_state(state_key(user))
     context = assemble_context(stored, user)
     return json.dumps(context.get(name))

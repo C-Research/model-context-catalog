@@ -8,7 +8,7 @@ from mcc.audit import (
     _serialize_params,
     _serialize_results,
 )
-from mcc.auth.models import UserModel
+from mcc.context import ANONYMOUS_USER, UserModel
 from mcc.models import ToolCallEvent, _call_hooks
 
 
@@ -56,7 +56,7 @@ class TestRecordCall:
         assert doc["params"] == "command=ls"
 
     async def test_anonymous_call_has_no_username_or_prefix(self, audit_idx):
-        await _record_call(_event(user=None, key_prefix=None))
+        await _record_call(_event(user=ANONYMOUS_USER, key_prefix=None))
         docs = await audit_idx.search({"match_all": {}})
         assert docs[0]["username"] is None
         assert docs[0]["key_prefix"] is None

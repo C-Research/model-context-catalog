@@ -4,12 +4,12 @@ import json
 import mcc.app as app_module
 import mcc.db.base as db_base
 import mcc.routes as routes_module
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, current_user_var
 from mcc.routes import healthz, readyz
 from starlette.requests import Request
 
 # The handlers' own bodies never read the request, but both are wrapped by
-# @route(anonymous=True), which always sets request.scope["user"] = None
+# @route(anonymous=True), which always sets request.scope["user"] = ANONYMOUS_USER
 # before calling them — so a real (if minimal) Request is needed, not a bare
 # None stand-in.
 _REQ = Request({"type": "http", "headers": [], "query_string": b""})
@@ -126,11 +126,11 @@ class TestNoAuthRequired:
         # No MCP auth or user identity is consulted by either handler — calling
         # them with an explicitly unauthenticated context still succeeds,
         # unlike execute()/search() which check current_user_var.
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         try:
             health = await healthz(_REQ)
             ready = await readyz(_REQ)
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
         assert health.status_code == 200
         assert ready.status_code == 200

@@ -9,17 +9,14 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, create_model, model_validator
 
-from mcc.context import CONTEXT_PARAM, current_user_var
+from mcc.context import CONTEXT_PARAM, UserModel, current_user_var
 from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
-
-if TYPE_CHECKING:
-    from mcc.auth.models import UserModel
 
 
 @dataclass
@@ -33,7 +30,7 @@ class ToolCallEvent:
     """
 
     tool_key: str
-    user: "UserModel | None"
+    user: "UserModel"
     key_prefix: str | None
     params: dict[str, Any]
     started_at: float
@@ -297,7 +294,7 @@ class ToolModel(BaseModel):
         """
         return jinja_env.get_template("tool_signature.md").render(tool=self)
 
-    def allows(self, user: "UserModel | None") -> bool:
+    def allows(self, user: "UserModel") -> bool:
         """Returns True if a user can access this tool"""
         from mcc.auth import can_access
 
@@ -315,8 +312,8 @@ class ToolModel(BaseModel):
         only (hidden/override values forced in below are never included; on
         a validation failure, before params are even known, params is empty).
         """
-        user = current_user_var.get(None)
-        key_prefix = user.key["prefix"] if user and user.key else None
+        user = current_user_var.get()
+        key_prefix = user.key["prefix"] if user.key else None
         started_at = time.time()
         start = time.perf_counter()
         status, error = "success", None

@@ -1,8 +1,8 @@
 from elasticsearch import NotFoundError
 
 from mcc.auth.keys import list_keys
-from mcc.auth.models import UserModel
 from mcc.cache import cache
+from mcc.context import UserModel
 from mcc.db import UsersIndex
 
 

@@ -11,9 +11,8 @@ from fastmcp.server.elicitation import (
 )
 from mcc.app import describe_tools, execute, search, whoami
 from mcc.audit import SearchAuditIndex
-from mcc.auth.models import UserModel
 from mcc.cache import cache, params_hash
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.loader import loader
 from mcc.settings import settings as real_settings
 from pydantic import BaseModel
@@ -234,7 +233,7 @@ class TestDescribeTools:
             assert "a.single_a" not in result
             assert "b.single_b" not in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_groups_filter_no_match(self, load_fixture):
         load_fixture("tools_multigroup.yaml")
@@ -243,7 +242,7 @@ class TestDescribeTools:
             result = await describe_tools(["a", "b", "nonexistent"])
             assert result == "No tools available."
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_empty_description(self, load_fixture):
         load_fixture("tools_no_description.yaml")
@@ -254,7 +253,7 @@ class TestDescribeTools:
 class TestWhoami:
     @pytest.mark.smoke
     async def test_anonymous(self):
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         result = await whoami()
         assert result.startswith("Not authenticated")
 
@@ -271,7 +270,7 @@ class TestWhoami:
             assert "a.single_a" in result
             assert "b.single_b" not in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_tools_union_of_groups_and_direct_grants(self, load_fixture):
         # In group b (→ a.b.multi_ab, b.single_b) plus a direct grant to a.single_a.
@@ -285,7 +284,7 @@ class TestWhoami:
             assert "b.single_b" in result  # via group b
             assert "a.single_a" in result  # via direct grant
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_admin_sees_all_tools(self, load_fixture):
         load_fixture("tools_multigroup.yaml")
@@ -296,7 +295,7 @@ class TestWhoami:
             assert "a.single_a" in result
             assert "b.single_b" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_no_accessible_tools_shows_none(self, load_fixture):
         # User in an unrelated group with no public tools loaded → tools: (none).
@@ -307,7 +306,7 @@ class TestWhoami:
             assert "username: nobody" in result
             assert "tools: (none)" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_no_email_or_groups_shows_none(self, load_fixture):
         load_fixture("tools_multigroup.yaml")
@@ -318,7 +317,7 @@ class TestWhoami:
             assert "groups: (none)" in result
             assert "tools: (none)" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 class TestWhoamiCache:
@@ -333,7 +332,7 @@ class TestWhoamiCache:
             result2 = await whoami()
             assert result2 == "SENTINEL"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_reload_invalidates_cache(self, load_fixture):
         from pathlib import Path
@@ -353,7 +352,7 @@ class TestWhoamiCache:
             assert result != "SENTINEL"
             assert "a.single_a" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_user_modification_invalidates_cache(self, users_idx, load_fixture):
         from mcc.auth.db import add_tool, create_user
@@ -371,7 +370,7 @@ class TestWhoamiCache:
             assert result != "SENTINEL"
             assert "username: carol" in result
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 # Anonymous context assembled by execute() for every TestExecuteCache test below
@@ -445,12 +444,12 @@ class TestExecuteCache:
         try:
             result_alice = await execute(_ctx_raises(), "needs_context", {"x": 1})
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
         current_user_var.set(UserModel(username="bob"))
         try:
             result_bob = await execute(_ctx_raises(), "needs_context", {"x": 1})
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
         assert result_alice["context"]["user"] == "alice"
         assert result_bob["context"]["user"] == "bob"
@@ -553,12 +552,12 @@ class TestSessionTools:
             assert "Set" in await set_session(ctx, "target", "example.com")
             assert json.loads(await get_session(ctx, "target")) == "example.com"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_set_then_get_anonymous(self):
         from mcc.app import get_session, set_session
 
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         ctx = _ctx_state()
         await set_session(ctx, "note", "hi")
         assert json.loads(await get_session(ctx, "note")) == "hi"
@@ -574,7 +573,7 @@ class TestSessionTools:
             assert json.loads(await get_session(ctx, "budget")) == 1000
             assert json.loads(await get_session(ctx, "filters")) == {"q": "x"}
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_missing_key_returns_none(self):
         from mcc.app import get_session
@@ -583,7 +582,7 @@ class TestSessionTools:
         try:
             assert json.loads(await get_session(_ctx_state(), "nope")) is None
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_reserved_key_resolves_to_identity(self):
         from mcc.app import get_session
@@ -594,7 +593,7 @@ class TestSessionTools:
             assert json.loads(await get_session(ctx, "user")) == "alice"
             assert json.loads(await get_session(ctx, "groups")) == ["admin"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_set_rejects_reserved_key(self):
         from mcc.app import get_session, set_session
@@ -607,7 +606,7 @@ class TestSessionTools:
             # identity is unchanged
             assert json.loads(await get_session(ctx, "user")) == "alice"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_set_rejects_bad_slug(self):
         from mcc.app import set_session
@@ -620,7 +619,7 @@ class TestSessionTools:
                 assert "Invalid name" in result
             assert await _with_state_store_empty(ctx)
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_session_isolation_same_user(self):
         from mcc.app import get_session, set_session
@@ -632,7 +631,7 @@ class TestSessionTools:
             await set_session(ctx_a, "secret", "in_a")
             assert json.loads(await get_session(ctx_b, "secret")) is None
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_user_isolation_same_session(self):
         # Same backing store + session id, different usernames → different keys.
@@ -660,7 +659,7 @@ class TestSessionTools:
         try:
             assert json.loads(await get_session(ctx, "k")) is None
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 async def _with_state_store_empty(ctx) -> bool:
@@ -684,7 +683,7 @@ class TestExecuteContextSnapshot:
             assert result["context"]["budget"] == 42
             assert result["context"]["user"] == "alice"
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 class TestContextWriteback:
@@ -705,7 +704,7 @@ class TestContextWriteback:
             follow = await execute(ctx, "needs_context", {"x": 1})
             assert follow["context"]["cursor"] == 6
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_no_context_param_does_not_touch_state(self, load_fixture):
         # no_context declares no `context` param → [result, null] → state untouched.
@@ -722,7 +721,7 @@ class TestContextWriteback:
             # no write-back occurred
             assert ctx.set_state.await_count == 0
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_empty_context_clears_non_identity_vars(self, load_fixture):
         # A tool that empties its context clears stored vars; identity survives.
@@ -740,7 +739,7 @@ class TestContextWriteback:
             assert json.loads(await get_session(ctx, "user")) == "alice"
             assert json.loads(await get_session(ctx, "groups")) == ["admin"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_cannot_spoof_or_delete_identity(self, load_fixture):
         # A tool sets user="admin" and deletes groups; both are ignored.
@@ -754,7 +753,7 @@ class TestContextWriteback:
             assert json.loads(await get_session(ctx, "user")) == "alice"
             assert json.loads(await get_session(ctx, "groups")) == ["admin"]
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_invalid_key_rejects_whole_writeback(self, load_fixture, caplog):
         # An invalid slug key rejects the write-back; result still returns; state kept.
@@ -774,7 +773,7 @@ class TestContextWriteback:
             # the rejection log names the offending key
             assert "bad key" in caplog.text
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
     async def test_list_result_unwrapped_correctly(self, load_fixture):
         # A list-valued result must not be confused with the [result, context] envelope.
@@ -788,7 +787,7 @@ class TestContextWriteback:
             assert result == [1, 2, 3]
             assert json.loads(await get_session(ctx, "seen")) is True
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
 
 async def test_rate_limit_check_skipped_when_disabled(monkeypatch, load_fixture):

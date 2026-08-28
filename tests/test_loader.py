@@ -416,13 +416,28 @@ tools:
         assert "glob_tool" in loader
 
     def test_autoload_reads_env(self, tmp_path, monkeypatch):
-        """The module-level autoload block picks up MCC_TOOL_FILES."""
+        """The module-level autoload block picks up MCC_TOOL_FILES.
+
+        importlib.reload(mcc.loader) replaces the mcc.loader.loader module
+        attribute wholesale with a new Loader() populated from the real
+        mcc/tools catalog (MCC_SKIP_AUTOLOAD is unset for this exercise) plus
+        this test's injected fixture. Everything that bound `loader` once at
+        its own import time (conftest's load_fixture, mcc/routes.py) is
+        unaffected, but anything that re-resolves mcc.loader.loader fresh on
+        every access (UserModel.accessible_tools, deferred for its own
+        circular-import reasons) would otherwise see this replacement bleed
+        into every later test — so it's restored in `finally`.
+        """
+        original_loader = mcc.loader.loader
         self._write(tmp_path / "injected.yaml", "injected_tool")
         monkeypatch.setenv("MCC_TOOL_FILES", str(tmp_path / "injected.yaml"))
         monkeypatch.delenv("MCC_SKIP_AUTOLOAD", raising=False)
 
-        importlib.reload(mcc.loader)
-        assert "injected_tool" in mcc.loader.loader
+        try:
+            importlib.reload(mcc.loader)
+            assert "injected_tool" in mcc.loader.loader
+        finally:
+            mcc.loader.loader = original_loader
 
 
 class TestFileLevelEnv:

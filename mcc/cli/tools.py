@@ -7,11 +7,11 @@ from typing import Any
 import rich_click as click
 
 from mcc.auth import get_user_by_username
-from mcc.auth.models import UserModel
 from mcc.cli import console, err
 from mcc.context import (
     RESERVED_KEYS,
     SLUG_RE,
+    UserModel,
     assemble_context,
     current_context_var,
     current_user_var,

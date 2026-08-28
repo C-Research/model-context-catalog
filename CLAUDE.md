@@ -31,7 +31,7 @@ Configuration is loaded via [dynaconf](https://www.dynaconf.com/) from `mcc/sett
 Tests require a running Elasticsearch instance. The conftest sets up and tears down isolated test indices (`mcc-users-test`, `mcc-tools-test`) automatically — do not share indices with a running dev server.
 
 ```bash
-uv run pytest tests/
+uv run pytest -x tests/
 ```
 
 ## Docs

@@ -176,7 +176,7 @@ def _context_env(kind: str) -> dict[str, str]:
     context = current_context_var.get(None)
     if context is None:
         # No execute() snapshot (e.g. direct callable use); derive identity only.
-        context = assemble_context(None, current_user_var.get(None))
+        context = assemble_context(None, current_user_var.get())
     return ctx_blob_env(context) if kind == "fn" else ctx_expanded_env(context)
 
 

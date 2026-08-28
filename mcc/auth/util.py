@@ -1,9 +1,8 @@
 from mcc.auth.backend import get_user_context
 from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.auth.keys import verify_api_key
-from mcc.auth.models import UserModel
+from mcc.context import UserModel
 from mcc.db import KeysIndex
-from mcc.loader import loader
 from mcc.models import ToolModel
 from mcc.settings import logger
 
@@ -23,15 +22,12 @@ def _group_matches(pattern: str, groups: list[str]) -> bool:
     return pattern in groups
 
 
-def can_access(user: UserModel | None, tool: ToolModel) -> bool:
+def can_access(user: UserModel, tool: ToolModel) -> bool:
     """returns true if user can access tool"""
     if not tool.groups or "public" in tool.groups:
         logger.debug("access granted to %s: public tool", tool.key)
         return True
-    if user is None:
-        logger.debug("access denied to %s: unauthenticated", tool.key)
-        return False
-    if "admin" in user.groups:
+    if user.is_admin:
         logger.debug("access granted to %s: %s is admin", tool.key, user.username)
         return True
     if any(_group_matches(g, tool.groups) for g in user.groups):
@@ -59,7 +55,7 @@ def whoami_info(user: UserModel) -> dict:
     (renders as JSON), so both surfaces report the same fields. Callers handle
     the unauthenticated case themselves before calling this.
     """
-    accessible = sorted(key for key, tool in loader.items() if tool.allows(user))
+    accessible = [t.key for t in user.accessible_tools]
     return {
         "username": user.username,
         "email": user.email,
@@ -139,7 +135,7 @@ async def get_user_by_key(
         return None
     if (
         groups is not None
-        and "admin" not in user.groups
+        and not user.is_admin
         and not any(g in user.groups for g in groups)
     ):
         return None

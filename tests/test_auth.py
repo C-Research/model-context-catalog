@@ -16,7 +16,7 @@ from mcc.auth import (
     remove_tool,
 )
 from mcc.auth.keys import create_key, parse_prefix
-from mcc.auth.models import UserModel
+from mcc.context import ANONYMOUS_USER, UserModel
 from mcc.db import UsersIndex
 
 
@@ -212,10 +212,10 @@ class TestCanAccess:
         return tool
 
     def test_empty_groups_no_user(self):
-        assert can_access(None, self._tool(groups=[])) is True
+        assert can_access(ANONYMOUS_USER, self._tool(groups=[])) is True
 
     def test_no_user_with_groups(self):
-        assert can_access(None, self._tool(groups=["ops"])) is False
+        assert can_access(ANONYMOUS_USER, self._tool(groups=["ops"])) is False
 
     def test_admin_bypasses(self):
         user = UserModel(username="admin", groups=["admin"])

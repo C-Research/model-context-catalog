@@ -5,8 +5,8 @@
 Run the test suite with the following, checking for smoke tests first to fail fast:
 
 ```bash
-uv run pytest -m smoke tests/
-uv run pytest -m "not smoke" tests/
+uv run pytest -m smoke -x tests/
+uv run pytest -m "not smoke" -x tests/
 ```
 
 All tests must pass. Tests are async-first (`asyncio_mode = "auto"`). Do not mock the database or external services unless the test explicitly sets up a mock context — integration behavior matters here.

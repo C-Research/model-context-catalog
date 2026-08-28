@@ -4,9 +4,8 @@ from unittest.mock import patch
 
 import pytest
 from mcc.app import debug_error, explain_tool, find_and_run
-from mcc.auth.models import UserModel
 from mcc.cache import parse_rate_limit
-from mcc.context import current_user_var
+from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.loader import loader
 from mcc.middleware import AuthMiddleware, check_rate_limit
 from mcc.models import ToolCallEvent, on_tool_call
@@ -41,7 +40,7 @@ class TestAuthMiddleware:
             await middleware.on_message(None, _noop)
             assert current_user_var.get() == user
 
-    async def test_anonymous_sets_none(self):
+    async def test_anonymous_sets_anonymous_user(self):
         with patch("mcc.middleware.get_current_user", return_value=None):
             middleware = AuthMiddleware()
 
@@ -49,7 +48,7 @@ class TestAuthMiddleware:
                 return None
 
             await middleware.on_message(None, _noop)
-            assert current_user_var.get() is None
+            assert current_user_var.get().is_anonymous
 
 
 @pytest.mark.smoke
@@ -75,7 +74,7 @@ class TestToolCallHooks:
         _call_hooks.remove(_capture)
 
     async def test_fires_on_success(self, probe):
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         _load("tools_ungrouped.yaml")
         tool = loader["echo"]
 
@@ -93,7 +92,7 @@ class TestToolCallHooks:
         assert event.duration >= 0
 
     async def test_fires_on_runtime_error(self, probe):
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         _load("tools_ungrouped.yaml")
         tool = loader["echo"]
 
@@ -111,7 +110,7 @@ class TestToolCallHooks:
         assert event.error == "RuntimeError: boom"
 
     async def test_fires_on_validation_error(self, probe):
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         _load("tools_ungrouped.yaml")
         tool = loader["echo"]
 
@@ -133,7 +132,7 @@ class TestToolCallHooks:
             tool = loader["echo"]
             await tool.call(message="hi")
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
         event = probe[0]
         assert event.user is user
@@ -146,12 +145,12 @@ class TestToolCallHooks:
             tool = loader["echo"]
             await tool.call(message="hi")
         finally:
-            current_user_var.set(None)
+            current_user_var.set(ANONYMOUS_USER)
 
         assert probe[0].key_prefix is None
 
     async def test_hidden_and_override_params_never_included(self, probe):
-        current_user_var.set(None)
+        current_user_var.set(ANONYMOUS_USER)
         _load("tools_override.yaml")
         tool = loader["echo_with_flag"]
 
@@ -254,7 +253,9 @@ class TestCheckRateLimit:
 
     async def test_anonymous_callers_share_one_bucket(self):
         # No per-connection identity for anonymous callers — both calls pass
-        # the literal "anon" username, landing on the same bucket.
+        # the same literal username, landing on the same bucket (execute()/
+        # tool_execute() derive "anonymous" for real anonymous callers; the
+        # exact string doesn't matter to check_rate_limit itself).
         with patch("mcc.middleware.settings", _FakeSettings(default="1/60s")):
             first, _ = await check_rate_limit("admin.shell", "anon")
             second, _ = await check_rate_limit("admin.shell", "anon")
