@@ -58,7 +58,7 @@ version = { attr = "mcc.__version__" }
 include = ["mcc*"]
 
 [tool.setuptools.package-data]
-mcc = ["settings.yaml", "tools/*.yaml", "templates/*.md"]
+mcc = ["settings.yaml", "tools/*.yaml", "templates/*.md", "static/ui/**"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -1,0 +1,328 @@
+/*
+ * Component styles for the MCC web UI. Colors are read from the --md-*
+ * custom properties orange.css defines per [data-md-color-scheme] — nothing
+ * here hardcodes a color that has a --md-* equivalent, so this app and the
+ * docs site always share one palette and both light/dark variants for free.
+ * The two exceptions are the plain success/error status hues below, which
+ * orange.css has no token for.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* .md-header itself is colored by orange.css (background/text per scheme) */
+.app__header {
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app__title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.app__title i {
+  margin-right: 0.5rem;
+}
+
+.app__main {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+button:hover:not(:disabled) {
+  background: var(--md-primary-fg-color--light);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.theme-toggle {
+  background: none;
+  color: inherit;
+  padding: 0.3rem 0.6rem;
+  font-size: 1rem;
+}
+
+.theme-toggle:hover:not(:disabled) {
+  background: var(--md-default-fg-color--lightest);
+}
+
+input,
+textarea {
+  font: inherit;
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+/* Identity badge */
+
+.identity-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.identity-badge__anon {
+  opacity: 0.85;
+}
+
+.identity-badge__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.identity-badge__error {
+  color: var(--md-primary-fg-color--dark);
+}
+
+/* Tool search / list */
+
+.tool-search__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tool-search__input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+}
+
+.tool-search__status {
+  opacity: 0.7;
+}
+
+.tool-search__status--error {
+  color: var(--md-primary-fg-color--dark);
+}
+
+.group-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.group-filter__chip {
+  background: none;
+  color: var(--md-default-fg-color--light);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.6rem;
+}
+
+.group-filter__chip:hover:not(:disabled) {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
+}
+
+/* Selected state reuses .badge verbatim (see below) — same filled look as
+   the group pills on each tool result tile. This rule only removes the
+   border .badge doesn't have and adds the hover feedback a button needs. */
+.group-filter__chip--active {
+  border-color: var(--md-primary-fg-color);
+}
+
+.group-filter__chip--active:hover:not(:disabled) {
+  background: var(--md-primary-fg-color--light);
+  border-color: var(--md-primary-fg-color--light);
+  color: var(--md-primary-bg-color);
+}
+
+.tool-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tool-list__button {
+  width: 100%;
+  text-align: left;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.tool-list__button:hover {
+  border-color: var(--md-primary-fg-color);
+}
+
+.tool-list__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tool-list__key {
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tool-list__score {
+  margin-left: auto;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.tool-list__description {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+/* Tool detail / call form */
+
+.tool-detail__back {
+  background: none;
+  color: var(--md-typeset-a-color);
+  padding: 0;
+  margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tool-detail__back:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+.tool-detail__key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tool-detail__example,
+.tool-result__body {
+  background: var(--md-code-bg-color);
+  color: var(--md-code-fg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+}
+
+.tool-call-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+.tool-call-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.tool-call-form__label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.tool-call-form__required {
+  color: var(--md-primary-fg-color--dark);
+}
+
+.tool-call-form__type {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.tool-call-form__description {
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.tool-call-form__error {
+  font-size: 0.8rem;
+  color: var(--md-primary-fg-color--dark);
+}
+
+.tool-result {
+  margin-top: 1rem;
+}
+
+.tool-result__status {
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* No orange.css token for success/error status — the one deliberate
+   departure from "everything derives from --md-*". */
+.tool-result--error .tool-result__status {
+  color: #a0392c;
+}
+
+.tool-result--ok .tool-result__status {
+  color: #3a7a4e;
+}

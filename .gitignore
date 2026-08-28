@@ -18,5 +18,11 @@ settings.local.yaml
 elastic-start-local/
 /site
 .DS_Store
+
+# Web UI: ui/dist is already covered by the /dist rule above; these are the
+# other build/dependency artifacts, plus the staged copy `make ui` puts
+# where mcc/routes.py serves it from.
+ui/node_modules/
+/mcc/static/ui/
 # Added by code-review-graph
 .code-review-graph/

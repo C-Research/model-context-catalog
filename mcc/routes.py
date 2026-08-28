@@ -3,6 +3,7 @@ import json
 import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
+from pathlib import Path
 
 from markdown_it import MarkdownIt
 from prometheus_client import (
@@ -13,7 +14,13 @@ from prometheus_client import (
 )
 from pydantic import ValidationError
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+)
 
 # app.py constructs `mcp` before its own `import mcc.routes` (placed after
 # mcp's construction and middleware registration specifically so this works),
@@ -354,3 +361,42 @@ async def search_tools(request: Request) -> JSONResponse:
             [(t.key, s) for t, s in allowed],
         )
     return JSONResponse([{"score": s, **_serialize_tool(t)} for t, s in allowed])
+
+
+@route("/ui{path:path}", anonymous=True)
+async def ui(request: Request) -> Response:
+    """The optional built-in web UI: the built SPA's entry point at exactly
+    `/ui`, and its static assets underneath (e.g. `/ui/assets/index-abc.js`).
+
+    Always registered like every other route here; gated at request time
+    instead of at import time. `/ui` itself needs no auth — the SPA
+    authenticates its own API calls via a client-held key, not this route.
+
+    404s, rather than crashing startup, when `settings.ui_enabled` is off or
+    the SPA was never built (`mcc/static/ui/index.html` missing) — same
+    degrade-don't-crash posture as readyz. No SPA-fallback for unmatched
+    sub-paths by design: there is no client-side router to hand them to.
+    """
+    if not settings.get("ui_enabled", False):
+        return PlainTextResponse("Not found", status_code=404)
+
+    ui_dir = Path(__file__).with_name("static") / "ui"
+
+    # "{path:path}" is greedy and matches immediately after "ui" with no
+    # separator, so without this check "/uifoo" would match too (path="foo").
+    # Require an empty path (bare "/ui") or one starting with "/".
+    raw_path = request.path_params["path"]
+    if raw_path and not raw_path.startswith("/"):
+        return PlainTextResponse("Not found", status_code=404)
+
+    rel = raw_path.lstrip("/") or "index.html"
+    target = (ui_dir / rel).resolve()
+    if ui_dir.resolve() not in (target, *target.parents):
+        return PlainTextResponse("Not found", status_code=404)
+    if not target.is_file():
+        if rel == "index.html":
+            logger.warning(
+                "ui_enabled is true but %s is missing (run `make ui`)", target
+            )
+        return PlainTextResponse("Not found", status_code=404)
+    return FileResponse(target)

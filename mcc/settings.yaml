@@ -72,6 +72,13 @@ default:
     website_url: ""
     icon_url: ""
 
+  # Optional built-in web UI: a static SPA served at /ui that browses/searches
+  # the catalog and calls tools via the existing HTTP routes only. Off by
+  # default, like contrib tools. Serving it also requires mcc/static/ui/index.html
+  # to exist (built via `make ui`) — if enabled but not built, /ui just 404s
+  # (with a logged warning) rather than failing startup.
+  ui_enabled: false
+
   # Storage/search backend for UsersIndex, KeysIndex, and ToolIndex. Read once
   # at process start — not switchable at runtime. "opensearch" requires the
   # mcc[opensearch] extra to be installed.

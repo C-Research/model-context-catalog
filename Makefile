@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck test test-smoke test-rest check docs docs-osint docs-all serve serve-osint clean
+.PHONY: lint format typecheck test test-smoke test-rest check docs docs-osint docs-all serve serve-osint ui clean
 
 # ── Code quality ──────────────────────────────────────────────────────────────
 
@@ -32,7 +32,18 @@ docs:
 serve:
 	uv run python -m http.server -d site -b 127.0.0.1
 
+# ── Web UI ──────────────────────────────────────────────────────────────────────
+
+# Builds the optional web UI (ui/) and stages it where mcc/routes.py serves it
+# from. mcc/static/ui/ is gitignored build output — settings.ui.enabled has
+# nothing to mount until this has run.
+ui:
+	cd ui && pnpm install --frozen-lockfile && pnpm build
+	rm -rf mcc/static/ui
+	mkdir -p mcc/static
+	cp -r ui/dist mcc/static/ui
+
 # ── Housekeeping ──────────────────────────────────────────────────────────────
 
 clean:
-	rm -rf site/
+	rm -rf site/ mcc/static/ui

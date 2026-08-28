@@ -14,5 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      # Must run before `uv build`, so the wheel/sdist package-data glob
+      # (mcc/static/ui/**) actually has something to pick up.
+      - run: make ui
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
