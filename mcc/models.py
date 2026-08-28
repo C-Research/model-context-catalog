@@ -4,20 +4,60 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, create_model, model_validator
+from pydantic import BaseModel, Field, ValidationError, create_model, model_validator
 
-from mcc.context import CONTEXT_PARAM
+from mcc.context import CONTEXT_PARAM, current_user_var
 from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
 from mcc.settings import logger
 from mcc.template import jinja_env
 
 if TYPE_CHECKING:
     from mcc.auth.models import UserModel
+
+
+@dataclass
+class ToolCallEvent:
+    """One completed ToolModel.call() invocation — fired to every on_tool_call hook.
+
+    Only ever produced when the underlying callable actually ran (success or
+    error) — a call vetoed by rate limiting, denied by authorization, cancelled
+    during elicitation, or served from execute()'s result cache never reaches
+    ToolModel.call() and therefore never produces one of these.
+    """
+
+    tool_key: str
+    user: "UserModel | None"
+    key_prefix: str | None
+    params: dict[str, Any]
+    started_at: float
+    duration: float
+    status: str  # "success" | "error"
+    error: str | None = None
+
+
+_call_hooks: list[Callable[[ToolCallEvent], Awaitable[None]]] = []
+
+
+def on_tool_call(fn: Callable[[ToolCallEvent], Awaitable[None]]):
+    """Registers a hook fired once per ToolModel.call() invocation, on both success and failure."""
+    _call_hooks.append(fn)
+    return fn
+
+
+async def _fire_call_hooks(event: ToolCallEvent) -> None:
+    """Best-effort: a failing hook is logged and never propagates to the caller."""
+    for hook in _call_hooks:
+        try:
+            await hook(event)
+        except Exception:  # noqa: BLE001
+            logger.exception("tool-call hook %r failed for %s", hook, event.tool_key)
 
 TYPE_MAP: dict[str, type] = {
     "str": str,
@@ -268,16 +308,47 @@ class ToolModel(BaseModel):
         Executes a tool with given kwarg parameters.
         Any tool overriden params will be forced
         If its async it will be awaited
+
+        Fires one ToolCallEvent to every on_tool_call hook per invocation —
+        including a parameter-validation failure, not just a failure of the
+        callable itself — carrying the caller's identity and visible params
+        only (hidden/override values forced in below are never included; on
+        a validation failure, before params are even known, params is empty).
         """
-        validated = self.param_model(**kwargs)
-        call_kwargs = validated.model_dump()
-        for param in self.hidden_params:
-            call_kwargs[param.name] = param.override
+        user = current_user_var.get(None)
+        key_prefix = user.key["prefix"] if user and user.key else None
+        started_at = time.time()
+        start = time.perf_counter()
+        status, error = "success", None
+        visible_values: dict[str, Any] = {}
         try:
+            validated = self.param_model(**kwargs)
+            call_kwargs = validated.model_dump()
+            for param in self.hidden_params:
+                call_kwargs[param.name] = param.override
+            visible_values = {p.name: call_kwargs[p.name] for p in self.visible_params}
+
             result = self.callable(**call_kwargs)
             if inspect.isawaitable(result):
                 result = await result
             return result
+        except ValidationError as exc:
+            status, error = "error", f"{type(exc).__name__}: {exc}"
+            raise
         except Exception as exc:
+            status, error = "error", f"{type(exc).__name__}: {exc}"
             logger.exception("Error calling %s with %s: %s", self.key, kwargs, exc)
             raise
+        finally:
+            await _fire_call_hooks(
+                ToolCallEvent(
+                    tool_key=self.key,
+                    user=user,
+                    key_prefix=key_prefix,
+                    params=visible_values,
+                    started_at=started_at,
+                    duration=time.perf_counter() - start,
+                    status=status,
+                    error=error,
+                )
+            )

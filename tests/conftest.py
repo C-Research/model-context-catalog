@@ -14,6 +14,7 @@ os.environ.update(
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+from mcc.audit import AuditIndex
 from mcc.cache import cache
 from mcc.db import KeysIndex, ToolIndex, UsersIndex
 from mcc.loader import load_file as load
@@ -48,6 +49,24 @@ async def users_idx():
 @pytest.fixture
 async def keys_idx():
     async with KeysIndex() as idx:
+        await idx.drop()
+        await idx.create()
+        yield idx
+        await idx.drop()
+
+
+@pytest.fixture
+async def audit_idx(monkeypatch):
+    """Isolated audit index for tests that call mcc.audit._record_call directly.
+
+    settings.audit_index ships empty (disabled) for the whole test session —
+    on purpose, so auditing stays off for every other test and the
+    "not registered by default" test stays meaningful — so this points
+    AuditIndex.index at a test index directly rather than via settings,
+    the only lever that works once mcc.audit has already been imported.
+    """
+    monkeypatch.setattr(AuditIndex, "index", "mcc-audit-test")
+    async with AuditIndex() as idx:
         await idx.drop()
         await idx.create()
         yield idx

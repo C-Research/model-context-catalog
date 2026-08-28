@@ -121,7 +121,7 @@ def _client_kwargs() -> dict:
     return kwargs
 
 
-class ESIndex(_ESIndexBase):
+class IndexBase(_ESIndexBase):
     """mcc's ES index: connects to ``ELASTICSEARCH_URL`` and pings on enter."""
 
     ping_on_enter = True
@@ -130,7 +130,7 @@ class ESIndex(_ESIndexBase):
         return AsyncElasticsearch(**_client_kwargs())
 
 
-class UsersIndex(ESIndex):
+class UsersIndex(IndexBase):
     index = settings.USER_INDEX
     mapping: ClassVar[dict] = {
         "mappings": {
@@ -144,7 +144,7 @@ class UsersIndex(ESIndex):
     }
 
 
-class KeysIndex(ESIndex):
+class KeysIndex(IndexBase):
     index = settings.KEY_INDEX
     mapping: ClassVar[dict] = {
         "mappings": {
@@ -159,7 +159,7 @@ class KeysIndex(ESIndex):
     }
 
 
-class ToolIndex(ESIndex):
+class ToolIndex(IndexBase):
     """Native `knn` + `dense_vector` semantic search over `signature`."""
 
     index = settings.TOOL_INDEX

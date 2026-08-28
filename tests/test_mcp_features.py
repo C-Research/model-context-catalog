@@ -1,7 +1,5 @@
 import asyncio
-import logging
 from pathlib import Path
-from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +8,8 @@ from mcc.auth.models import UserModel
 from mcc.cache import parse_rate_limit
 from mcc.context import current_user_var
 from mcc.loader import loader
-from mcc.middleware import AuthMiddleware, LoggingMiddleware, RateLimitMiddleware
+from mcc.middleware import AuthMiddleware, check_rate_limit
+from mcc.models import ToolCallEvent, on_tool_call
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -54,34 +53,113 @@ class TestAuthMiddleware:
 
 
 @pytest.mark.smoke
-class TestLoggingMiddleware:
-    async def test_logs_tool_call(self, caplog):
-        import logging
+class TestToolCallHooks:
+    """ToolModel.call()'s on_tool_call hook mechanism (mcc/models.py) — the
+    single choke point every catalog tool call passes through regardless of
+    transport, fired once per invocation whether it succeeds or fails.
+    LoggingMiddleware/MetricsMiddleware no longer exist as separate FastMCP
+    middleware classes; both are now hooks registered against this same
+    mechanism (mcc/middleware.py), exercised here at the source instead."""
 
+    @pytest.fixture
+    def probe(self):
+        from mcc.models import _call_hooks
+
+        events: list[ToolCallEvent] = []
+
+        async def _capture(event: ToolCallEvent) -> None:
+            events.append(event)
+
+        on_tool_call(_capture)
+        yield events
+        _call_hooks.remove(_capture)
+
+    async def test_fires_on_success(self, probe):
         current_user_var.set(None)
+        _load("tools_ungrouped.yaml")
+        tool = loader["echo"]
 
-        class FakeMessage:
-            name = "test.tool"
-            arguments: ClassVar = {"key": "val"}
+        result = await tool.call(message="hi")
 
-        class FakeContext:
-            message = FakeMessage()
+        # tool.call() returns the fn subprocess's raw JSON string —
+        # execute()'s _coerce_result() is what decodes it, one layer up.
+        assert result == '["hi"]'
+        assert len(probe) == 1
+        event = probe[0]
+        assert event.tool_key == "echo"
+        assert event.status == "success"
+        assert event.error is None
+        assert event.params == {"message": "hi"}
+        assert event.duration >= 0
 
-        middleware = LoggingMiddleware()
+    async def test_fires_on_runtime_error(self, probe):
+        current_user_var.set(None)
+        _load("tools_ungrouped.yaml")
+        tool = loader["echo"]
 
-        async def _noop(ctx):
-            return "result"
+        def _raise(**kwargs):
+            raise RuntimeError("boom")
 
-        mcc_logger = logging.getLogger("mcc")
-        mcc_logger.propagate = True
+        tool.__dict__["callable"] = _raise  # overrides the cached_property
+
+        with pytest.raises(RuntimeError):
+            await tool.call(message="hi")
+
+        assert len(probe) == 1
+        event = probe[0]
+        assert event.status == "error"
+        assert event.error == "RuntimeError: boom"
+
+    async def test_fires_on_validation_error(self, probe):
+        current_user_var.set(None)
+        _load("tools_ungrouped.yaml")
+        tool = loader["echo"]
+
+        with pytest.raises(Exception):
+            await tool.call()  # missing required "message"
+
+        assert len(probe) == 1
+        event = probe[0]
+        assert event.status == "error"
+        # Params are unknown at this point — validation failed before any
+        # were resolved — so the event carries an empty dict, not a guess.
+        assert event.params == {}
+
+    async def test_carries_resolved_user_and_key_prefix(self, probe):
+        user = UserModel(username="alice", key={"prefix": "abc123"})
+        current_user_var.set(user)
         try:
-            with caplog.at_level("INFO", logger="mcc"):
-                await middleware.on_call_tool(FakeContext(), _noop)
-
-            assert "anonymous calling test.tool" in caplog.text
-            assert "completed test.tool" in caplog.text
+            _load("tools_ungrouped.yaml")
+            tool = loader["echo"]
+            await tool.call(message="hi")
         finally:
-            mcc_logger.propagate = False
+            current_user_var.set(None)
+
+        event = probe[0]
+        assert event.user is user
+        assert event.key_prefix == "abc123"
+
+    async def test_no_key_prefix_without_a_key(self, probe):
+        current_user_var.set(UserModel(username="alice"))
+        try:
+            _load("tools_ungrouped.yaml")
+            tool = loader["echo"]
+            await tool.call(message="hi")
+        finally:
+            current_user_var.set(None)
+
+        assert probe[0].key_prefix is None
+
+    async def test_hidden_and_override_params_never_included(self, probe):
+        current_user_var.set(None)
+        _load("tools_override.yaml")
+        tool = loader["echo_with_flag"]
+
+        await tool.call(message="hi")
+
+        event = probe[0]
+        assert event.params == {"message": "hi"}
+        assert "flag" not in event.params
 
 
 @pytest.mark.smoke
@@ -119,255 +197,69 @@ class _FakeSettings:
         self.rate_limit = _FakeRateLimitCfg(default, tools)
 
 
-def _execute_ctx(key="admin.shell"):
-    class FakeMessage:
-        name = "execute"
-        arguments: ClassVar = {"key": key}
-
-    class FakeContext:
-        message = FakeMessage()
-
-    return FakeContext()
-
-
 @pytest.mark.smoke
-class TestRateLimitMiddleware:
+class TestCheckRateLimit:
+    """check_rate_limit() (mcc/middleware.py) — called explicitly by
+    execute() (before its cache lookup) and tool_execute() (before
+    invocation), never from a standalone middleware class. RateLimitMiddleware
+    no longer exists; unlike logging/metrics, rate limiting can't move onto
+    ToolModel.call()'s hook, since a cache hit must still count against the
+    limit and never reaches call() (see design.md). Cache-hit-still-counts
+    and throttled-call-is-logged are exercised at the execute() integration
+    level in test_app.py, since both depend on where this check sits
+    relative to execute()'s cache lookup, not on this function alone."""
+
     async def test_within_limit_passes_through(self):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="5/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
-            result = await middleware.on_call_tool(_execute_ctx(), _compute)
-            assert result == "ok"
+        with patch("mcc.middleware.settings", _FakeSettings(default="5/60s")):
+            exceeded, _remaining = await check_rate_limit("admin.shell", "anon")
+            assert exceeded is False
 
     async def test_over_limit_rejects(self):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-            calls = []
-
-            async def _compute(ctx):
-                calls.append(1)
-                return "ok"
-
-            first = await middleware.on_call_tool(_execute_ctx(), _compute)
-            second = await middleware.on_call_tool(_execute_ctx(), _compute)
-
-            assert first == "ok"
-            assert len(calls) == 1
-            assert "Rate limit exceeded for admin.shell" in second.content[0].text
+        with patch("mcc.middleware.settings", _FakeSettings(default="1/60s")):
+            first, _ = await check_rate_limit("admin.shell", "anon")
+            second, _ = await check_rate_limit("admin.shell", "anon")
+            assert first is False
+            assert second is True
 
     async def test_window_resets_after_period(self):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/1s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
-            first = await middleware.on_call_tool(_execute_ctx(), _compute)
-            throttled = await middleware.on_call_tool(_execute_ctx(), _compute)
+        with patch("mcc.middleware.settings", _FakeSettings(default="1/1s")):
+            first, _ = await check_rate_limit("admin.shell", "anon")
+            throttled, _ = await check_rate_limit("admin.shell", "anon")
             await asyncio.sleep(1.2)
-            third = await middleware.on_call_tool(_execute_ctx(), _compute)
-
-            assert first == "ok"
-            assert "Rate limit exceeded" in throttled.content[0].text
-            assert third == "ok"
+            third, _ = await check_rate_limit("admin.shell", "anon")
+            assert first is False
+            assert throttled is True
+            assert third is False
 
     async def test_tool_specific_overrides_default(self):
-        current_user_var.set(None)
         with patch(
             "mcc.middleware.settings",
-            _FakeSettings(
-                default="100/60s",
-                tools={"admin.shell": "1/60s"},
-            ),
+            _FakeSettings(default="100/60s", tools={"admin.shell": "1/60s"}),
         ):
-            middleware = RateLimitMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
-            first = await middleware.on_call_tool(_execute_ctx("admin.shell"), _compute)
-            second = await middleware.on_call_tool(_execute_ctx("admin.shell"), _compute)
-            other = await middleware.on_call_tool(_execute_ctx("public.request"), _compute)
-
-            assert first == "ok"
-            assert "Rate limit exceeded for admin.shell" in second.content[0].text
-            assert other == "ok"
+            first, _ = await check_rate_limit("admin.shell", "anon")
+            second, _ = await check_rate_limit("admin.shell", "anon")
+            other, _ = await check_rate_limit("public.request", "anon")
+            assert first is False
+            assert second is True
+            assert other is False
 
     async def test_unlimited_tool_never_throttles(self):
-        current_user_var.set(None)
         with patch(
             "mcc.middleware.settings",
-            _FakeSettings(
-                default="1/60s",
-                tools={"admin.shell": -1},
-            ),
+            _FakeSettings(default="1/60s", tools={"admin.shell": -1}),
         ):
-            middleware = RateLimitMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
             for _ in range(5):
-                result = await middleware.on_call_tool(_execute_ctx("admin.shell"), _compute)
-                assert result == "ok"
-
-    async def test_missing_key_argument_skips_check(self):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            class FakeMessage:
-                name = "execute"
-                arguments: ClassVar = {}
-
-            class FakeContext:
-                message = FakeMessage()
-
-            async def _compute(ctx):
-                return "ok"
-
-            for _ in range(3):
-                result = await middleware.on_call_tool(FakeContext(), _compute)
-                assert result == "ok"
-
-    async def test_non_string_key_argument_skips_check(self):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            class FakeMessage:
-                name = "execute"
-                arguments: ClassVar = {"key": None}
-
-            class FakeContext:
-                message = FakeMessage()
-
-            async def _compute(ctx):
-                return "ok"
-
-            for _ in range(3):
-                result = await middleware.on_call_tool(FakeContext(), _compute)
-                assert result == "ok"
-
-    @pytest.mark.parametrize(
-        "verb", ["search", "whoami", "describe_tools", "set_session", "get_session"]
-    )
-    async def test_non_execute_verbs_never_limited(self, verb):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            class FakeMessage:
-                name = verb
-                arguments: ClassVar = {"key": "admin.shell"}
-
-            class FakeContext:
-                message = FakeMessage()
-
-            async def _compute(ctx):
-                return "ok"
-
-            for _ in range(3):
-                result = await middleware.on_call_tool(FakeContext(), _compute)
-                assert result == "ok"
+                exceeded, _ = await check_rate_limit("admin.shell", "anon")
+                assert exceeded is False
 
     async def test_anonymous_callers_share_one_bucket(self):
-        # There is no per-connection identity for anonymous callers in this
-        # system — current_user_var is None for every anonymous caller, so
-        # this demonstrates the shared "anon" bucket directly: two calls with
-        # no user set both land on the same rate-limit key.
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
-            first = await middleware.on_call_tool(_execute_ctx(), _compute)
-            current_user_var.set(None)  # a second, distinct anonymous caller
-            second = await middleware.on_call_tool(_execute_ctx(), _compute)
-
-            assert first == "ok"
-            assert "Rate limit exceeded" in second.content[0].text
-
-    async def test_cache_hit_still_counts(self):
-        # RateLimitMiddleware increments before call_next runs, so it counts a
-        # call regardless of whether call_next turns out to serve a cached
-        # result downstream (execute()'s own cache_ttl lookup).
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="2/60s"),
-        ):
-            middleware = RateLimitMiddleware()
-
-            async def _cached_result(ctx):
-                return "cached-value"
-
-            first = await middleware.on_call_tool(_execute_ctx(), _cached_result)
-            second = await middleware.on_call_tool(_execute_ctx(), _cached_result)
-            third = await middleware.on_call_tool(_execute_ctx(), _cached_result)
-
-            assert first == "cached-value"
-            assert second == "cached-value"
-            assert "Rate limit exceeded" in third.content[0].text
-
-    async def test_throttled_call_still_logged(self, caplog):
-        current_user_var.set(None)
-        with patch(
-            "mcc.middleware.settings",
-            _FakeSettings(default="1/60s"),
-        ):
-            rate_middleware = RateLimitMiddleware()
-            log_middleware = LoggingMiddleware()
-
-            async def _compute(ctx):
-                return "ok"
-
-            async def _chain(ctx):
-                return await rate_middleware.on_call_tool(ctx, _compute)
-
-            mcc_logger = logging.getLogger("mcc")
-            mcc_logger.propagate = True
-            try:
-                with caplog.at_level("INFO", logger="mcc"):
-                    first = await log_middleware.on_call_tool(_execute_ctx(), _chain)
-                    second = await log_middleware.on_call_tool(_execute_ctx(), _chain)
-                assert first == "ok"
-                assert "Rate limit exceeded" in second.content[0].text
-                # both the allowed call and the throttled one produced a
-                # calling/completed log pair — throttling didn't suppress logging
-                assert "anonymous calling execute" in caplog.text
-                assert "anonymous completed execute" in caplog.text
-            finally:
-                mcc_logger.propagate = False
+        # No per-connection identity for anonymous callers — both calls pass
+        # the literal "anon" username, landing on the same bucket.
+        with patch("mcc.middleware.settings", _FakeSettings(default="1/60s")):
+            first, _ = await check_rate_limit("admin.shell", "anon")
+            second, _ = await check_rate_limit("admin.shell", "anon")
+            assert first is False
+            assert second is True
 
 
 # --- Prompts ---

@@ -130,7 +130,7 @@ def _os_client_kwargs() -> dict:
     return kwargs
 
 
-class OSIndex(_OSIndexBase):
+class IndexBase(_OSIndexBase):
     """mcc's OS index: connects to ``OPENSEARCH_URL`` and pings on enter."""
 
     ping_on_enter = True
@@ -139,7 +139,7 @@ class OSIndex(_OSIndexBase):
         return AsyncOpenSearch(**_os_client_kwargs())
 
 
-class UsersIndex(OSIndex):
+class UsersIndex(IndexBase):
     index = settings.USER_INDEX
     mapping: ClassVar[dict] = {
         "mappings": {
@@ -153,7 +153,7 @@ class UsersIndex(OSIndex):
     }
 
 
-class KeysIndex(OSIndex):
+class KeysIndex(IndexBase):
     index = settings.KEY_INDEX
     mapping: ClassVar[dict] = {
         "mappings": {
@@ -168,7 +168,7 @@ class KeysIndex(OSIndex):
     }
 
 
-class ToolIndex(OSIndex):
+class ToolIndex(IndexBase):
     """k-NN plugin `knn_vector` + query clause semantic search over `signature`."""
 
     index = settings.TOOL_INDEX

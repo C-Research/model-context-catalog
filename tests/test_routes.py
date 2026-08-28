@@ -4,6 +4,7 @@ import mcc.routes as routes_module
 import pytest
 from mcc.auth import create_user
 from mcc.auth.keys import create_key
+from mcc.context import current_user_var
 from mcc.middleware import check_rate_limit, record_tool_call
 from mcc.routes import healthz, metrics, route, tool_detail, tool_execute, tools, users_list, whoami
 from mcc.settings import settings as real_settings
@@ -84,6 +85,31 @@ class TestRouteModes:
     def test_admin_with_optional_raises_at_decoration_time(self):
         with pytest.raises(ValueError):
             route("/__test_invalid__", admin=True, optional=True)
+
+
+class TestCurrentUserVarSetByRoute:
+    """route()'s wrapper mirrors AuthMiddleware's job for the MCP transport:
+    sets current_user_var, not just request.scope["user"], so identity is
+    uniformly readable from ToolModel.call()'s hook regardless of transport."""
+
+    async def test_resolved_user_sets_current_user_var(self, users_idx, keys_idx):
+        await create_user("ci-bot")
+        raw = await create_key("ci-bot", ttl_days=90)
+        try:
+            await whoami(_request({"Authorization": f"Bearer {raw}"}))
+            assert current_user_var.get().username == "ci-bot"
+        finally:
+            current_user_var.set(None)
+
+    async def test_anonymous_route_sets_current_user_var_to_none(self):
+        from mcc.auth.models import UserModel
+
+        current_user_var.set(UserModel(username="stale"))
+        try:
+            await healthz(_request())
+            assert current_user_var.get() is None
+        finally:
+            current_user_var.set(None)
 
 
 class TestApiKeyQueryParamFallback:

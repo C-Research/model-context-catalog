@@ -1,15 +1,4 @@
-## ADDED Requirements
-
-### Requirement: Auth middleware resolves user
-The server SHALL register an auth middleware that resolves the current user on every MCP request and makes it available to handlers. The middleware SHALL NOT block requests — it only resolves and stashes the user identity.
-
-#### Scenario: Authenticated request
-- **WHEN** a request arrives with valid auth credentials
-- **THEN** the middleware resolves the user and makes it available for downstream handlers
-
-#### Scenario: Unauthenticated request
-- **WHEN** a request arrives without auth credentials
-- **THEN** the middleware sets the user to None and allows the request to proceed
+## MODIFIED Requirements
 
 ### Requirement: Logging middleware
 The server SHALL log every catalog tool call for which `ToolModel.call()` actually invokes the tool's underlying callable — via the MCP `execute` tool or the `POST /tools/{key}` HTTP route — with the resolved username, tool key, parameters, and timing. This SHALL be implemented as a hook fired from within `ToolModel.call()`, shared by both transports, rather than a per-transport middleware or inline implementation. A call rejected by the rate-limit check SHALL still be logged, via an explicit log call made by the rejecting handler itself (`execute()`/`tool_execute()`), separately from this hook. A cache-hit `execute()` call (served from `cache_ttl` without invoking the callable) SHALL NOT be logged by this hook.
@@ -21,13 +10,6 @@ The server SHALL log every catalog tool call for which `ToolModel.call()` actual
 #### Scenario: Cache hit not logged
 - **WHEN** an `execute()` call is served entirely from its `cache_ttl` cached result
 - **THEN** no log entry is produced by the tool-call logging hook for that call
-
-### Requirement: Timing middleware
-The server SHALL register FastMCP's built-in `TimingMiddleware` to capture performance metrics for all MCP operations.
-
-#### Scenario: Timing captured
-- **WHEN** any MCP operation completes
-- **THEN** the middleware logs the operation type and elapsed time
 
 ### Requirement: Rate limit middleware
 The server SHALL enforce rate limiting, via an explicit check performed by the `execute` and `POST /tools/{key}` handlers themselves — before any cache lookup (for `execute`) or invocation — that limits how often a given user can invoke a given catalog tool, sharing the same bucket per tool key across both transports. This is deliberately not implemented as a hook fired from within `ToolModel.call()`, since a call served from `execute()`'s result cache never reaches `ToolModel.call()` and must still count against the limit. Enforcement SHALL be active only when `rate_limit.enabled` is `true` in settings; when disabled (the default), no rate-limit check SHALL run on either path and behavior SHALL be unchanged from before this requirement existed.

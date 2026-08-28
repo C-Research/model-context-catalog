@@ -15,7 +15,7 @@ from mcc.auth import (
     remove_group,
     remove_tool,
 )
-from mcc.auth.keys import create_key
+from mcc.auth.keys import create_key, parse_prefix
 from mcc.auth.models import UserModel
 from mcc.db import UsersIndex
 
@@ -290,3 +290,30 @@ class TestGetCurrentUser:
         with patch("mcc.auth.util.get_user_context", return_value=mock_token):
             user = await get_current_user()
         assert user is None
+
+
+class TestGetCurrentUserKeyPrefix:
+    """get_current_user() attaches the resolved user's key prefix by looking
+    it up in the keys index directly, regardless of which auth backend
+    (email/login claims here) authenticated this particular request — a
+    user who normally logs in via OAuth/JWT may still have an API key on
+    file for other uses (e.g. CI)."""
+
+    async def test_user_with_a_key_gets_its_prefix(self, keys_idx):
+        await create_user("alice")
+        raw = await create_key("alice", ttl_days=90)
+        mock_token = MagicMock()
+        mock_token.claims = {"email": None, "login": "alice"}
+        with patch("mcc.auth.util.get_user_context", return_value=mock_token):
+            user = await get_current_user()
+        assert user is not None
+        assert user.key == {"prefix": parse_prefix(raw)}
+
+    async def test_user_without_a_key_has_no_prefix(self):
+        await create_user("alice")
+        mock_token = MagicMock()
+        mock_token.claims = {"email": None, "login": "alice"}
+        with patch("mcc.auth.util.get_user_context", return_value=mock_token):
+            user = await get_current_user()
+        assert user is not None
+        assert user.key is None

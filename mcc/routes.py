@@ -1,6 +1,5 @@
 import asyncio
 import json
-import time
 import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
@@ -25,16 +24,12 @@ from mcc.context import (
     NO_WRITEBACK,
     assemble_context,
     current_context_var,
+    current_user_var,
     writeback_context_var,
 )
 from mcc.db import UsersIndex
 from mcc.loader import loader
-from mcc.middleware import (
-    check_rate_limit,
-    log_tool_call_end,
-    log_tool_call_start,
-    record_tool_call,
-)
+from mcc.middleware import check_rate_limit, log_tool_call_throttled
 from mcc.models import ToolModel
 from mcc.settings import logger, settings
 
@@ -102,6 +97,7 @@ def route(
         async def wrapper(request: Request) -> Response:
             if anonymous:
                 request.scope["user"] = None
+                current_user_var.set(None)
                 return await handler(request)
             raw_key = _extract_api_key(request)
             groups = ["admin"] if admin else None
@@ -109,6 +105,12 @@ def route(
             if user is None and not optional:
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             request.scope["user"] = user
+            # Mirrors AuthMiddleware's job for the MCP transport: Starlette runs each
+            # request in its own asyncio task, so this can't leak across requests, the
+            # same reason current_context_var/writeback_context_var already work this
+            # way in tool_execute below. Makes identity uniformly readable from
+            # ToolModel.call()'s hook regardless of which transport called it.
+            current_user_var.set(user)
             return await handler(request)
 
         return mcp.custom_route(path, methods=methods or ["GET"])(wrapper)
@@ -269,6 +271,7 @@ async def tool_execute(request: Request) -> PlainTextResponse:
     if settings.get("rate_limit", {}).get("enabled", False):
         exceeded, remaining = await check_rate_limit(key, username)
         if exceeded:
+            log_tool_call_throttled(username, key, remaining)
             return PlainTextResponse(
                 f"Rate limit exceeded for {key} — retry in {remaining}s.",
                 status_code=429,
@@ -277,24 +280,17 @@ async def tool_execute(request: Request) -> PlainTextResponse:
     context = assemble_context(None, user)
     context_token = current_context_var.set(context)
     writeback_token = writeback_context_var.set(NO_WRITEBACK)
-    start = time.perf_counter()
     try:
         result = await tool.call(**params)
     except ValidationError as exc:
-        record_tool_call(key, "error", time.perf_counter() - start)
         return PlainTextResponse(_error_text(exc), status_code=400)
     except Exception as exc:  # noqa: BLE001
-        record_tool_call(key, "error", time.perf_counter() - start)
         logger.exception("REST execution of %s failed", key)
         return PlainTextResponse(_error_text(exc), status_code=500)
     finally:
         writeback_context_var.reset(writeback_token)
         current_context_var.reset(context_token)
 
-    elapsed = time.perf_counter() - start
-    record_tool_call(key, "success", elapsed)
-    log_tool_call_start(username, key, params)
-    log_tool_call_end(username, key, elapsed)
     return PlainTextResponse(str(result))
 
 

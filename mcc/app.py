@@ -32,9 +32,9 @@ from mcc.db import session_store
 from mcc.loader import loader
 from mcc.middleware import (
     AuthMiddleware,
-    LoggingMiddleware,
-    MetricsMiddleware,
-    RateLimitMiddleware,
+    check_rate_limit,
+    log_tool_call_throttled,
+    validate_rate_limit_settings,
 )
 from mcc.settings import logger, settings
 
@@ -83,22 +83,21 @@ mcp = FastMCP(
 )
 mcp.loader = loader  # type: ignore[attr-defined]
 mcp.add_middleware(AuthMiddleware())
-mcp.add_middleware(LoggingMiddleware())
 mcp.add_middleware(TimingMiddleware(logger))
 mcp.add_middleware(
     ResponseLimitingMiddleware(max_size=settings.server.response_max_size)
 )
 if settings.get("rate_limit", {}).get("enabled", False):
-    mcp.add_middleware(RateLimitMiddleware())
-# Always registered (independent of rate_limit.enabled) and added last so it
-# sits innermost — closest to the terminal tool-call handler — and only
-# records calls that actually execute, not ones RateLimitMiddleware throttles.
-mcp.add_middleware(MetricsMiddleware())
+    validate_rate_limit_settings()
 
-# Side-effecting: mcc.routes's @route decorator registers each HTTP route
-# directly onto `mcp` via mcp.custom_route as its module body executes. Must
-# come after `mcp` is constructed above — mcc.routes does `from mcc.app import
-# mcp`, which resolves against this (still-executing) module's namespace.
+# Side-effecting, must come after `mcp` is constructed above: mcc.audit
+# registers the audit hook (mcc.models.on_tool_call) if settings.audit_index
+# is set (logging/metrics hooks are already registered by importing
+# mcc.middleware above); mcc.routes's @route decorator registers each HTTP
+# route directly onto `mcp` via mcp.custom_route as its module body executes
+# — it does `from mcc.app import mcp`, which resolves against this
+# (still-executing) module's namespace.
+import mcc.audit
 import mcc.routes  # noqa: F401
 
 
@@ -261,6 +260,17 @@ async def execute(ctx: Context, key: str, params: dict | None = None):
         username = user.username if user else "anonymous"
         logger.warning("execute: %s denied access to %s", username, key)
         return "Unauthorized"
+
+    # Checked before the cache lookup below: a call served from cache must
+    # still count against the rate limit, and this check never invokes
+    # ToolModel.call() at all when throttled.
+    username = user.username if user else "anon"
+    if settings.get("rate_limit", {}).get("enabled", False):
+        exceeded, remaining = await check_rate_limit(tool.key, username)
+        if exceeded:
+            log_tool_call_throttled(username, tool.key, remaining)
+            return f"Rate limit exceeded for {tool.key} — retry in {remaining}s."
+
     # Assemble the caller's context snapshot once (stored session vars + identity
     # re-derived from current_user_var, identity wins) and expose it to the
     # subprocess-spawning layer for the duration of the call.

@@ -2,6 +2,7 @@ from mcc.auth.backend import get_user_context
 from mcc.auth.db import get_user_by_email, get_user_by_username
 from mcc.auth.keys import verify_api_key
 from mcc.auth.models import UserModel
+from mcc.db import KeysIndex
 from mcc.loader import loader
 from mcc.models import ToolModel
 from mcc.settings import logger
@@ -67,6 +68,19 @@ def whoami_info(user: UserModel) -> dict:
     }
 
 
+async def _attach_key_prefix(user: UserModel) -> UserModel:
+    """Attaches the resolved user's current API key prefix, if any, regardless
+    of which auth backend authenticated this request — a user who normally
+    logs in via OAuth/JWT may still have a provisioned API key on file. Keys
+    are stored one per user, keyed by username, so this is a direct lookup.
+    """
+    async with KeysIndex() as idx:
+        record = await idx.get(user.username)
+    if record:
+        user.key = {"prefix": record["prefix"]}
+    return user
+
+
 async def get_current_user() -> UserModel | None:
     """resolves auth identity to a UserModel; prefers email, falls back to login"""
 
@@ -89,12 +103,12 @@ async def get_current_user() -> UserModel | None:
             logger.info("email lookup for %s -> %s", email, user)
             if user:
                 logger.debug("resolved user by email: %s", user.username)
-                return user
+                return await _attach_key_prefix(user)
         if (login := claims.get("login")) and (
             user := await get_user_by_username(login)
         ):
             logger.debug("resolved user by login: %s", user.username)
-            return user
+            return await _attach_key_prefix(user)
     except Exception as e:  # noqa: BLE001
         logger.warning(
             "User store unavailable, treating request as unauthenticated: %s", e
@@ -129,4 +143,5 @@ async def get_user_by_key(
         and not any(g in user.groups for g in groups)
     ):
         return None
+    user.key = {"prefix": record["prefix"]}
     return user

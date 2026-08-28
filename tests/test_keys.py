@@ -296,6 +296,13 @@ class TestGetUserByKey:
         await create_user("ci-bot", groups=["admin"])
         assert await get_user_by_key("garbage", groups=["admin"]) is None
 
+    async def test_resolves_with_key_prefix_attached(self, users_idx):
+        await create_user("ci-bot", groups=["public"])
+        raw = await create_key("ci-bot", ttl_days=90)
+        user = await get_user_by_key(raw)
+        assert user is not None
+        assert user.key == {"prefix": parse_prefix(raw)}
+
     async def test_expired_key_returns_none_even_for_admin(self, users_idx):
         await create_user("ci-bot", groups=["admin"])
         raw, prefix = generate_key()

@@ -1,4 +1,5 @@
 import json
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,6 +13,7 @@ from mcc.auth.models import UserModel
 from mcc.cache import cache, params_hash
 from mcc.context import current_user_var
 from mcc.loader import loader
+from mcc.settings import settings as real_settings
 from pydantic import BaseModel
 
 
@@ -396,6 +398,60 @@ class TestExecuteCache:
         assert result_bob["context"]["user"] == "bob"
 
 
+class TestExecuteRateLimit:
+    """execute()'s explicit rate-limit check, run before its cache lookup
+    (RateLimitMiddleware no longer exists — see mcp-middleware capability
+    and design.md for why this can't move onto ToolModel.call()'s hook)."""
+
+    async def test_over_limit_rejects_with_message(self, load_fixture, monkeypatch):
+        load_fixture("tools_ungrouped.yaml")
+        monkeypatch.setattr(real_settings.rate_limit, "enabled", True)
+        monkeypatch.setattr(real_settings.rate_limit, "default", "1/60s")
+        ctx = _ctx_raises()
+
+        first = await execute(ctx, "echo", {"message": "hi"})
+        second = await execute(ctx, "echo", {"message": "hi"})
+
+        assert first == ["hi"]
+        assert "Rate limit exceeded for echo" in second
+
+    async def test_cache_hit_still_counts_against_limit(self, load_fixture, monkeypatch):
+        # The check runs before the cache lookup below, so a call served
+        # from cache still increments the bucket — proven here by the third
+        # call (which would otherwise also be served from cache) being
+        # throttled instead, once the limit is reached by the second
+        # (cache-hit) call.
+        load_fixture("tools_cached.yaml")
+        monkeypatch.setattr(real_settings.rate_limit, "enabled", True)
+        monkeypatch.setattr(real_settings.rate_limit, "default", "2/60s")
+        ctx = _ctx_raises()
+
+        first = await execute(ctx, "echo", {"message": "hi"})
+        second = await execute(ctx, "echo", {"message": "hi"})
+        third = await execute(ctx, "echo", {"message": "hi"})
+
+        assert first == ["hi"]
+        assert second == ["hi"]
+        assert "Rate limit exceeded for echo" in third
+
+    async def test_throttled_call_is_logged(self, load_fixture, monkeypatch, caplog):
+        load_fixture("tools_ungrouped.yaml")
+        monkeypatch.setattr(real_settings.rate_limit, "enabled", True)
+        monkeypatch.setattr(real_settings.rate_limit, "default", "1/60s")
+        ctx = _ctx_raises()
+
+        mcc_logger = logging.getLogger("mcc")
+        mcc_logger.propagate = True
+        try:
+            with caplog.at_level("INFO", logger="mcc"):
+                await execute(ctx, "echo", {"message": "hi"})
+                await execute(ctx, "echo", {"message": "hi"})
+        finally:
+            mcc_logger.propagate = False
+
+        assert "throttled for echo" in caplog.text
+
+
 class TestSearchCache:
     async def test_second_search_uses_cache(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")
@@ -677,10 +733,23 @@ class TestContextWriteback:
             current_user_var.set(None)
 
 
-def test_rate_limit_middleware_not_registered_when_disabled():
-    # settings.yaml ships rate_limit.enabled: false, so the app under test
-    # must not have registered RateLimitMiddleware at all.
-    from mcc.app import mcp
-    from mcc.middleware import RateLimitMiddleware
+async def test_rate_limit_check_skipped_when_disabled(monkeypatch, load_fixture):
+    # settings.yaml ships rate_limit.enabled: false, so execute() must never
+    # even call check_rate_limit — rate limiting is an explicit inline check
+    # now (RateLimitMiddleware no longer exists), not a registered middleware.
+    load_fixture("tools_ungrouped.yaml")
+    import mcc.app as app_module
 
-    assert not any(isinstance(mw, RateLimitMiddleware) for mw in mcp.middleware)
+    called = False
+
+    async def _fail(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        return False, 0
+
+    monkeypatch.setattr(app_module, "check_rate_limit", _fail)
+    ctx = _ctx_raises()
+    result = await execute(ctx, "echo", {"message": "hi"})
+
+    assert result == ["hi"]
+    assert called is False
