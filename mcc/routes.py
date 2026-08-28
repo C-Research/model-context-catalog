@@ -5,7 +5,12 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 
 from markdown_it import MarkdownIt
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    PLATFORM_COLLECTOR,
+    REGISTRY,
+    generate_latest,
+)
 from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -36,6 +41,12 @@ from mcc.models import ToolModel
 from mcc.settings import logger, settings
 
 _markdown = MarkdownIt()
+
+# prometheus_client auto-registers this onto REGISTRY at import time; it emits
+# a python_info metric with the exact major/minor/patchlevel. /metrics is
+# unauthenticated, so left registered it'd hand any caller the precise Python
+# patch version — useful for targeting a known CVE in that patch.
+REGISTRY.unregister(PLATFORM_COLLECTOR)
 
 _READYZ_TIMEOUT = 3
 
