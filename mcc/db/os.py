@@ -8,51 +8,25 @@ Elasticsearch-only install never needs `opensearch-py` present.
 
 from time import time
 from typing import ClassVar
-from urllib.parse import parse_qs, urlparse, urlunparse
 
 from key_value.aio.stores.opensearch import OpenSearchStore
 from opensearchpy import AsyncOpenSearch
 
-from mcc.db.base import embed
-from mcc.models import ToolModel
-from mcc.settings import logger, settings
+from mcc.db.base import (
+    KEYS_MAPPING,
+    USERS_MAPPING,
+    IndexLifecycle,
+    ToolIndexMixin,
+    embed,
+    log_query,
+    parse_backend_url,
+    score_hits,
+    sort_signatures,
+)
+from mcc.settings import settings
 
 
-class _OSIndexBase:
-    """Async OpenSearch index with scoped document operations.
-
-    Used as an async context manager::
-
-        async with SomeIndex() as idx:
-            await idx.put("id", {...})
-
-    Subclasses MUST set ``index`` / ``mapping`` and implement ``_make_client``.
-    Set ``ping_on_enter = True`` to verify connectivity (``client.info()``) on
-    enter — fail-fast at the cost of a round-trip.
-    """
-
-    index = "index"
-    mapping: ClassVar[dict] = {}
-    ping_on_enter: bool = False
-
-    def _make_client(self) -> AsyncOpenSearch:
-        """Return the OpenSearch client this index operates against.
-
-        Override in a subclass to bind the index to a specific cluster/settings.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _make_client()"
-        )
-
-    async def __aenter__(self):
-        self._client = self._make_client()
-        if self.ping_on_enter:
-            await self._client.info()
-        return self
-
-    async def __aexit__(self, *_exc) -> None:
-        await self._client.close()
-
+class _OSIndexBase(IndexLifecycle):
     async def get(self, id: str) -> dict | None:
         """Return _source for the document, or None if not found."""
         resp = await self._client.get(index=self.index, id=id, params={"ignore": 404})
@@ -108,25 +82,14 @@ def _os_client_kwargs() -> dict:
     `use_ssl`/`verify_certs`/`http_auth` as separate constructor kwargs rather
     than accepting query-string options on the URL itself.
     """
-    url = settings.OPENSEARCH_URL
-    parsed = urlparse(url)
-    kwargs: dict = {"use_ssl": parsed.scheme == "https"}
-
-    params = parse_qs(parsed.query)
-    if "verify_certs" in params:
-        kwargs["verify_certs"] = params["verify_certs"][0].lower() not in (
-            "false",
-            "0",
-            "no",
-        )
-
-    if parsed.username:
-        kwargs["http_auth"] = (parsed.username, parsed.password or "")
-
-    netloc = parsed.hostname or ""
-    if parsed.port:
-        netloc = f"{netloc}:{parsed.port}"
-    kwargs["hosts"] = [urlunparse(parsed._replace(netloc=netloc, query=""))]
+    scheme, bare_url, verify_certs, basic_auth = parse_backend_url(
+        settings.OPENSEARCH_URL
+    )
+    kwargs: dict = {"use_ssl": scheme == "https", "hosts": [bare_url]}
+    if verify_certs is not None:
+        kwargs["verify_certs"] = verify_certs
+    if basic_auth is not None:
+        kwargs["http_auth"] = basic_auth
     return kwargs
 
 
@@ -141,34 +104,15 @@ class IndexBase(_OSIndexBase):
 
 class UsersIndex(IndexBase):
     index = settings.USER_INDEX
-    mapping: ClassVar[dict] = {
-        "mappings": {
-            "properties": {
-                "username": {"type": "keyword"},
-                "email": {"type": "keyword"},
-                "groups": {"type": "keyword"},
-                "tools": {"type": "keyword"},
-            }
-        }
-    }
+    mapping: ClassVar[dict] = USERS_MAPPING
 
 
 class KeysIndex(IndexBase):
     index = settings.KEY_INDEX
-    mapping: ClassVar[dict] = {
-        "mappings": {
-            "properties": {
-                "prefix": {"type": "keyword"},
-                "hash": {"type": "keyword"},
-                "username": {"type": "keyword"},
-                "expires_at": {"type": "date"},
-                "created_at": {"type": "date"},
-            }
-        }
-    }
+    mapping: ClassVar[dict] = KEYS_MAPPING
 
 
-class ToolIndex(IndexBase):
+class ToolIndex(IndexBase, ToolIndexMixin):
     """k-NN plugin `knn_vector` + query clause semantic search over `signature`."""
 
     index = settings.TOOL_INDEX
@@ -196,20 +140,7 @@ class ToolIndex(IndexBase):
         resp = await self._client.search(
             index=self.index, body={"query": {"match_all": {}}, "size": 10000}
         )
-        hits = sorted(
-            (hit["_id"], hit["_source"]["signature"]) for hit in resp["hits"]["hits"]
-        )
-        return [sig for _, sig in hits]
-
-    async def index_tool(self, tool: ToolModel) -> None:
-        await self.put(
-            tool.key,
-            {
-                "signature": tool.signature,
-                "groups": tool.groups,
-                "embedding": await embed(tool.signature),
-            },
-        )
+        return sort_signatures(resp["hits"]["hits"])
 
     async def query(
         self, query: str, min_score: float | None = None
@@ -230,10 +161,8 @@ class ToolIndex(IndexBase):
             body["min_score"] = min_score
         t0 = time()
         resp = await self._client.search(index=self.index, body=body)
-        hits = [(hit["_id"], hit["_score"]) for hit in resp["hits"]["hits"]]
-        logger.debug(
-            "search %r → %d hits in %dms", query, len(hits), (time() - t0) * 1000
-        )
+        hits = score_hits(resp["hits"]["hits"])
+        log_query(query, hits, t0)
         return hits
 
 
