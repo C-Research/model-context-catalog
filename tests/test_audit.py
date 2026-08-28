@@ -97,7 +97,7 @@ class TestRecordCall:
 class TestSerializeResults:
     def test_key_equals_score_semicolon_joined_in_order(self):
         pairs = [("admin.shell", 8.42), ("public.request", 6.1)]
-        assert _serialize_results(pairs) == "admin.shell=8.42;public.request=6.1"
+        assert _serialize_results(pairs) == "admin.shell=8.42;public.request=6.10"
 
     def test_empty_results(self):
         assert _serialize_results([]) == ""

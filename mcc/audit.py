@@ -69,7 +69,7 @@ def _serialize_params(params: dict) -> str:
 def _serialize_results(pairs: list[tuple[str, float]]) -> str:
     """"key=score;key=score" text, in result order -- same convention as
     _serialize_params, for human/grep reading, not structured querying."""
-    return ";".join(f"{key}={score}" for key, score in pairs)
+    return ";".join(f"{key}={score:.2f}" for key, score in pairs)
 
 
 async def _record_call(event: ToolCallEvent) -> None:
