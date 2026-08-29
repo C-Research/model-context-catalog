@@ -143,7 +143,10 @@ class ToolIndex(IndexBase, ToolIndexMixin):
         return sort_signatures(resp["hits"]["hits"])
 
     async def query(
-        self, query: str, min_score: float | None = None
+        self,
+        query: str,
+        min_score: float | None = None,
+        groups: list[str] | None = None,
     ) -> list[tuple[str, float]]:
         vector = await embed(query)
         text_query: dict = {
@@ -155,6 +158,10 @@ class ToolIndex(IndexBase, ToolIndexMixin):
             "k": 10,
             "num_candidates": 50,
         }
+        if groups:
+            groups_filter = {"terms": {"groups": groups}}
+            text_query = {"bool": {"must": [text_query], "filter": [groups_filter]}}
+            knn["filter"] = groups_filter
         kwargs: dict = {"query": text_query, "knn": knn, "size": 10000}
         if min_score is not None:
             kwargs["min_score"] = min_score

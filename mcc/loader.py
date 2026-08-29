@@ -210,18 +210,22 @@ class Loader(dict):
         logger.info("Reloaded %d tools in %dms", len(self), (time() - t0) * 1000)
 
     async def search(
-        self, query: str, min_score: float | None = None
+        self,
+        query: str,
+        min_score: float | None = None,
+        groups: set[str] | None = None,
     ) -> list[tuple[ToolModel, float]]:
+        sorted_groups = sorted(groups) if groups else None
         search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
         cache_key = (
-            f"search:{params_hash({'q': query, 's': min_score})}"
+            f"search:{params_hash({'q': query, 's': min_score, 'g': sorted_groups})}"
             if search_ttl
             else None
         )
 
         async def _query() -> list[tuple[str, float]]:
             async with ToolIndex() as idx:
-                return await idx.query(query, min_score)
+                return await idx.query(query, min_score, sorted_groups)
 
         hits = cast(
             list[tuple[str, float]], await cached(cache_key, _query, search_ttl)

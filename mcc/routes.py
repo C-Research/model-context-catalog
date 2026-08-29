@@ -1,9 +1,10 @@
 import asyncio
 import json
 import traceback
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
 from pathlib import Path
+from typing import TypeVar
 
 from markdown_it import MarkdownIt
 from prometheus_client import (
@@ -56,6 +57,8 @@ _markdown = MarkdownIt()
 REGISTRY.unregister(PLATFORM_COLLECTOR)
 
 _READYZ_TIMEOUT = 3
+
+T = TypeVar("T")
 
 
 def _extract_api_key(request: Request) -> str | None:
@@ -124,7 +127,9 @@ def route(
                 return await handler(request)
             raw_key = _extract_api_key(request)
             groups = ["admin"] if admin else None
-            resolved = await get_user_by_key(raw_key, groups=groups) if raw_key else None
+            resolved = (
+                await get_user_by_key(raw_key, groups=groups) if raw_key else None
+            )
             if resolved is None and not optional:
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             user = resolved if resolved is not None else ANONYMOUS_USER
@@ -226,6 +231,54 @@ def _serialize_tool(tool: ToolModel) -> dict:
     }
 
 
+def _parse_groups(request: Request) -> set[str] | None:
+    """Parses `?groups=`, or None if absent. Accepts repeated params
+    (`?groups=a&groups=b`) and/or comma-separated values (`?groups=a,b`),
+    combined. The shared groups filter for /tools and /search — a tool
+    matches if it belongs to any of the requested groups.
+    """
+    raw = request.query_params.getlist("groups")
+    if not raw:
+        return None
+    groups = {g for value in raw for g in value.split(",") if g}
+    return groups or None
+
+
+_DEFAULT_PAGE_LIMIT = 10
+_MAX_PAGE_LIMIT = 50
+
+
+def _paginate(
+    request: Request, items: Sequence[T], *, default_limit: int = _DEFAULT_PAGE_LIMIT
+) -> tuple[list[T], bool, int | None] | JSONResponse:
+    """Slices `items` per `?offset=&limit=`, defaulting to the first
+    `default_limit`. Returns `(page, has_more, next_offset)`, or a 400
+    JSONResponse if either value is a non-integer or negative, or if `limit`
+    exceeds `_MAX_PAGE_LIMIT` — the shared pagination behavior for /tools and
+    /search, which both list the caller's accessible tools (whole or scored)
+    in a stable, pre-sliced order.
+    """
+    try:
+        offset = int(request.query_params.get("offset", 0))
+        limit = int(request.query_params.get("limit", default_limit))
+    except ValueError:
+        return JSONResponse(
+            {"error": "offset and limit must be integers"}, status_code=400
+        )
+    if offset < 0 or limit < 0:
+        return JSONResponse(
+            {"error": "offset and limit must be non-negative"}, status_code=400
+        )
+    if limit > _MAX_PAGE_LIMIT:
+        return JSONResponse(
+            {"error": f"limit must not exceed {_MAX_PAGE_LIMIT}"}, status_code=400
+        )
+    page = list(items[offset : offset + limit])
+    next_offset = offset + limit
+    has_more = next_offset < len(items)
+    return page, has_more, (next_offset if has_more else None)
+
+
 @route("/tools", optional=True)
 async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResponse:
     """Lists the caller's accessible tools, detailed, in JSON (default), markdown, or HTML.
@@ -233,16 +286,36 @@ async def tools(request: Request) -> JSONResponse | PlainTextResponse | HTMLResp
     No auth required — a missing/invalid key resolves to ANONYMOUS_USER, which
     tool.allows() already scopes to public tools only (same anonymous
     behavior search()/describe_tools() have as MCP tools).
+
+    `?groups=`: restricts to tools belonging to any of the given groups
+    (repeated and/or comma-separated). `?offset=&limit=`: pagination over
+    the (optionally group-filtered) accessible list (sorted by key),
+    defaulting to the first 10 tools. The JSON response is
+    `{"tools": [...], "has_more": bool, "next_offset": int | None}`;
+    md/html formats render only the paginated slice.
     """
     accessible = _accessible_tools(request.user)
+    groups = _parse_groups(request)
+    accessible = [t for t in accessible if t.in_groups(groups)]
+
+    paginated = _paginate(request, accessible)
+    if isinstance(paginated, JSONResponse):
+        return paginated
+    page, has_more, next_offset = paginated
 
     fmt = request.query_params.get("format", "json")
     if fmt == "md":
-        return PlainTextResponse("\n\n".join(t.signature for t in accessible))
+        return PlainTextResponse("\n\n".join(t.signature for t in page))
     if fmt == "html":
-        markdown = "\n\n".join(t.signature for t in accessible)
+        markdown = "\n\n".join(t.signature for t in page)
         return HTMLResponse(_markdown.render(markdown))
-    return JSONResponse([_serialize_tool(t) for t in accessible])
+    return JSONResponse(
+        {
+            "tools": [_serialize_tool(t) for t in page],
+            "has_more": has_more,
+            "next_offset": next_offset,
+        }
+    )
 
 
 @route("/tools/{key}", optional=True)
@@ -266,7 +339,7 @@ def _error_text(exc: Exception) -> str:
 
 
 @route("/tools/{key}", ["POST"], optional=True)
-async def tool_execute(request: Request) -> PlainTextResponse:
+async def tool_execute(request: Request) -> PlainTextResponse | JSONResponse:
     """POST /tools/{key}: executes the tool with the JSON request body as its
     parameters, returning the result as plain text. Same 404 masking as
     tool_detail for an unknown or inaccessible key.
@@ -315,7 +388,11 @@ async def tool_execute(request: Request) -> PlainTextResponse:
         writeback_context_var.reset(writeback_token)
         current_context_var.reset(context_token)
 
-    return PlainTextResponse(str(result))
+    if isinstance(result, tuple) and len(result) == 3:
+        code, stdout, stderr = result
+        return JSONResponse({"exit_code": code, "stdout": stdout, "stderr": stderr})
+    else:
+        return PlainTextResponse(str(result))
 
 
 @route("/users", admin=True)
@@ -343,6 +420,15 @@ async def search_tools(request: Request) -> JSONResponse:
     """GET /search?q=...&min_score=...: natural-language tool search over the
     caller's accessible tools — the HTTP counterpart to the search MCP tool
     in app.py, with the same scoring and audit behavior.
+
+    `?groups=`: restricts to tools belonging to any of the given groups
+    (repeated and/or comma-separated), pushed down to the search index
+    itself (`ToolIndex.query`'s `groups` filter) rather than filtered here,
+    so the audit record reflects what was actually searched. `?offset=&limit=`:
+    pagination over the scored results (highest score first), defaulting to
+    the first 10. Audit records the full (group-filtered) result set
+    regardless of pagination. The JSON response is
+    `{"results": [...], "has_more": bool, "next_offset": int | None}`.
     """
     query = request.query_params.get("q", "")
     raw_min_score = request.query_params.get("min_score")
@@ -351,7 +437,8 @@ async def search_tools(request: Request) -> JSONResponse:
     except ValueError:
         return JSONResponse({"error": "min_score must be a number"}, status_code=400)
 
-    results = await loader.search(query, min_score)
+    groups = _parse_groups(request)
+    results = await loader.search(query, min_score, groups)
     allowed = [(t, s) for t, s in results if t.allows(request.user)]
     if settings.AUDIT_SEARCH_INDEX:
         await _record_search(
@@ -360,7 +447,19 @@ async def search_tools(request: Request) -> JSONResponse:
             min_score,
             [(t.key, s) for t, s in allowed],
         )
-    return JSONResponse([{"score": s, **_serialize_tool(t)} for t, s in allowed])
+
+    paginated = _paginate(request, allowed)
+    if isinstance(paginated, JSONResponse):
+        return paginated
+    page, has_more, next_offset = paginated
+
+    return JSONResponse(
+        {
+            "results": [{"score": s, **_serialize_tool(t)} for t, s in page],
+            "has_more": has_more,
+            "next_offset": next_offset,
+        }
+    )
 
 
 @route("/ui{path:path}", anonymous=True)

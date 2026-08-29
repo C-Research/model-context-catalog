@@ -300,6 +300,10 @@ class ToolModel(BaseModel):
 
         return can_access(user, self)
 
+    def in_groups(self, groups: set[str] | None) -> bool:
+        """Returns True if `groups` is None, or this tool belongs to any of them."""
+        return groups is None or bool(set(self.groups) & groups)
+
     async def call(self, **kwargs: Any) -> Any:
         """
         Executes a tool with given kwarg parameters.

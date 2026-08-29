@@ -41,6 +41,33 @@ class TestToolIndex:
         assert results == []
 
 
+class TestToolIndexGroupsFilter:
+    async def test_query_without_groups_returns_all_matches(self, tool_idx):
+        public = _tool(name="echo", groups=[])
+        grouped = _tool(name="echo2", groups=["example"])
+        await tool_idx.index_tool(public)
+        await tool_idx.index_tool(grouped)
+        results = await tool_idx.query("echo")
+        keys = {k for k, _ in results}
+        assert public.key in keys
+        assert grouped.key in keys
+
+    async def test_query_with_groups_restricts_to_matching_tools(self, tool_idx):
+        public = _tool(name="echo", groups=[])
+        grouped = _tool(name="echo2", groups=["example"])
+        await tool_idx.index_tool(public)
+        await tool_idx.index_tool(grouped)
+        results = await tool_idx.query("echo", groups=["example"])
+        keys = {k for k, _ in results}
+        assert keys == {grouped.key}
+
+    async def test_query_with_nonmatching_groups_returns_empty(self, tool_idx):
+        tool = _tool(name="echo", groups=["example"])
+        await tool_idx.index_tool(tool)
+        results = await tool_idx.query("echo", groups=["nonexistent"])
+        assert results == []
+
+
 class TestLoaderSave:
     async def test_save_reflects_loader(self, tool_idx, load_fixture):
         load_fixture("tools_ungrouped.yaml")
@@ -77,3 +104,25 @@ class TestLoaderSearch:
         # ghost is in ES but not in loader — should be skipped
         results = await loader.search("ghost")
         assert all(tool.key != "ghost" for tool, _ in results)
+
+
+class TestLoaderSearchGroupsFilter:
+    async def test_no_groups_returns_all_matches(self, tool_idx, load_fixture):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        await loader.save()
+        results = await loader.search("echo")
+        keys = {tool.key for tool, _ in results}
+        assert keys == {"echo", "example.echo"}
+
+    async def test_groups_filter_restricts_results(self, tool_idx, load_fixture):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        await loader.save()
+        results = await loader.search("echo", groups={"example"})
+        keys = {tool.key for tool, _ in results}
+        assert keys == {"example.echo"}
+
+    async def test_nonmatching_groups_returns_empty(self, tool_idx, load_fixture):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        await loader.save()
+        results = await loader.search("echo", groups={"nonexistent"})
+        assert results == []

@@ -517,7 +517,7 @@ class TestSearchCache:
         assert "echo" in result1
         # Override cache with a nonexistent key sentinel — if cache is hit,
         # the loader filter drops it and search returns the "no results" message.
-        cache_key = f"search:{params_hash({'q': 'echo', 's': None})}"
+        cache_key = f"search:{params_hash({'q': 'echo', 's': None, 'g': None})}"
         await cache.set(cache_key, [("__nonexistent__", 99.0)], expire=60)
         result2 = await search("echo")
         assert result2.startswith("No tools matched")
@@ -530,7 +530,7 @@ class TestSearchCache:
         loader.paths = {fixture_path}
         await loader.save()
         # Prime cache with a nonexistent key sentinel
-        cache_key = f"search:{params_hash({'q': 'echo', 's': None})}"
+        cache_key = f"search:{params_hash({'q': 'echo', 's': None, 'g': None})}"
         await cache.set(cache_key, [("__nonexistent__", 99.0)], expire=60)
         result1 = await search("echo")
         assert result1.startswith("No tools matched")  # served from cache

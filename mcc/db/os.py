@@ -155,20 +155,21 @@ class ToolIndex(IndexBase, ToolIndexMixin):
         return sort_signatures(resp["hits"]["hits"])
 
     async def query(
-        self, query: str, min_score: float | None = None
+        self,
+        query: str,
+        min_score: float | None = None,
+        groups: list[str] | None = None,
     ) -> list[tuple[str, float]]:
         vector = await embed(query)
-        body: dict = {
-            "query": {
-                "bool": {
-                    "should": [
-                        {"match": {"signature": {"query": query, "fuzziness": "AUTO"}}},
-                        {"knn": {"embedding": {"vector": vector, "k": 10}}},
-                    ]
-                }
-            },
-            "size": 10000,
+        bool_query: dict = {
+            "should": [
+                {"match": {"signature": {"query": query, "fuzziness": "AUTO"}}},
+                {"knn": {"embedding": {"vector": vector, "k": 10}}},
+            ]
         }
+        if groups:
+            bool_query["filter"] = [{"terms": {"groups": groups}}]
+        body: dict = {"query": {"bool": bool_query}, "size": 10000}
         if min_score is not None:
             body["min_score"] = min_score
         t0 = time()
