@@ -15,7 +15,7 @@ export function GroupFilter({ groups, selected, onToggle }: Props) {
           <button
             key={group}
             type="button"
-            className={`group-filter__chip${active ? " badge group-filter__chip--active" : ""}`}
+            className={`tag${active ? " tag--active" : ""}`}
             aria-pressed={active}
             onClick={() => onToggle(group)}
           >

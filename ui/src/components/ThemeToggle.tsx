@@ -1,4 +1,5 @@
 import { useTheme } from "../context/ThemeContext";
+import { Icon } from "./Icon";
 
 export function ThemeToggle() {
   const { scheme, toggle } = useTheme();
@@ -11,7 +12,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
-      <i className={`fa-solid ${isDark ? "fa-sun" : "fa-moon"}`} aria-hidden="true" />
+      <Icon name={isDark ? "sun" : "moon"} />
     </button>
   );
 }

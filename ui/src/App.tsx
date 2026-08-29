@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { Icon } from "./components/Icon";
 import { IdentityBadge } from "./components/IdentityBadge";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ToolSearch } from "./components/ToolSearch";
@@ -18,9 +19,12 @@ export default function App() {
         <div className="app">
           {/* md-header: styled directly by orange.css, not app.css */}
           <header className="app__header md-header">
-            <h1 className="app__title">
-              <i className="fa-solid fa-book-open" aria-hidden="true" /> Model Context Catalog
-            </h1>
+            <div className="app__heading">
+              <h1 className="app__title">
+                <Icon name="book-open" className="app__title-icon" /> Model Context Catalog
+              </h1>
+              <p className="app__eyebrow">search &rarr; inspect &rarr; execute</p>
+            </div>
             <div className="app__header-actions">
               <IdentityBadge />
               <ThemeToggle />

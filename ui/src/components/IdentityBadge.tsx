@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import { Icon } from "./Icon";
 
 export function IdentityBadge() {
   const { apiKey, identity, loading, error, setApiKey, clearApiKey } = useAuth();
@@ -10,11 +11,19 @@ export function IdentityBadge() {
     return (
       <div className="identity-badge">
         <span className="identity-badge__user">{identity.username}</span>
-        <span className="identity-badge__groups">
-          {identity.groups.length > 0 ? identity.groups.join(", ") : "no groups"}
-        </span>
+        {identity.groups.length > 0 ? (
+          <span className="identity-badge__groups">
+            {identity.groups.map((group) => (
+              <span key={group} className="tag">
+                {group}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="identity-badge__no-groups">no groups</span>
+        )}
         <button type="button" className="identity-badge__signout" onClick={clearApiKey}>
-          <i className="fa-solid fa-right-from-bracket" aria-hidden="true" /> Sign out
+          <Icon name="sign-out" /> Sign out
         </button>
       </div>
     );
@@ -32,7 +41,7 @@ export function IdentityBadge() {
     <form className="identity-badge identity-badge--anon" onSubmit={handleSubmit}>
       <span className="identity-badge__anon">Anonymous</span>
       <span className="identity-badge__input-wrap">
-        <i className="fa-solid fa-key" aria-hidden="true" />
+        <Icon name="key" />
         <input
           type="password"
           placeholder="API key"

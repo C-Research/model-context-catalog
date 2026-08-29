@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getTool } from "../api";
 import type { CallOutcome, Tool } from "../api";
+import { Icon } from "./Icon";
 import { ToolCallForm } from "./ToolCallForm";
 import { ToolResult } from "./ToolResult";
 
@@ -28,15 +29,24 @@ export function ToolDetail({ toolKey, onBack }: Props) {
   return (
     <div className="tool-detail">
       <button type="button" className="tool-detail__back" onClick={onBack}>
-        <i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to catalog
+        <Icon name="arrow-left" /> Back to catalog
       </button>
 
       {error && <p className="tool-detail__error">{error}</p>}
 
       {tool && (
         <>
-          <h2 className="tool-detail__key">{tool.key}</h2>
-          <p className="tool-detail__description">{tool.description}</p>
+          <div className="tool-detail__record">
+            <h2 className="tool-detail__key">{tool.key}</h2>
+            <span className="tool-detail__tags">
+              {tool.groups.map((group) => (
+                <span key={group} className="tag">
+                  {group}
+                </span>
+              ))}
+            </span>
+            <p className="tool-detail__description">{tool.description}</p>
+          </div>
           {tool.example && <pre className="tool-detail__example">{tool.example}</pre>}
 
           <ToolCallForm tool={tool} onResult={setResult} />

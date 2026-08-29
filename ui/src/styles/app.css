@@ -7,14 +7,31 @@
  * orange.css has no token for.
  */
 
+/*
+ * Type roles: --font-display (IBM Plex Mono) marks anything that reads as an
+ * identifier — the app title, tool keys, param signatures, tags — because
+ * this catalog's real content is a set of typed callables, not prose.
+ * --font-body (IBM Plex Sans) carries everything else. Both self-hosted via
+ * @fontsource, same pattern as the FontAwesome import in main.tsx.
+ */
+:root {
+  --font-display: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
 
+.icon {
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+}
+
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
   background: var(--md-default-bg-color);
   color: var(--md-default-fg-color);
 }
@@ -40,13 +57,32 @@ body {
   gap: 1rem;
 }
 
+.app__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 .app__title {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
   margin: 0;
 }
 
-.app__title i {
+.app__title-icon {
   margin-right: 0.5rem;
+  vertical-align: -0.1em;
+}
+
+.app__eyebrow {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
 }
 
 .app__main {
@@ -97,6 +133,54 @@ textarea {
   padding: 0.4rem 0.6rem;
 }
 
+/* Custom checkbox — the one native form control left unstyled otherwise.
+   A pure-CSS checkmark (clip-path polygon) rather than an icon/image, so
+   there's nothing to load. Overrides the generic input rule above via the
+   attribute selector's higher specificity. */
+input[type="checkbox"] {
+  appearance: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 3px;
+  background: var(--md-default-bg-color);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+input[type="checkbox"]::after {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: var(--md-primary-bg-color);
+  transform: scale(0);
+  transition: transform 100ms ease-in-out;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+input[type="checkbox"]:checked::after {
+  transform: scale(1);
+}
+
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--md-primary-fg-color);
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--md-primary-fg-color);
+  outline-offset: 2px;
+}
+
 /* Identity badge */
 
 .identity-badge {
@@ -108,6 +192,22 @@ textarea {
 
 .identity-badge__anon {
   opacity: 0.85;
+}
+
+.identity-badge__user {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.identity-badge__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.identity-badge__no-groups {
+  font-size: 0.75rem;
+  opacity: 0.6;
 }
 
 .identity-badge__input-wrap {
@@ -142,6 +242,20 @@ textarea {
   color: var(--md-primary-fg-color--dark);
 }
 
+.tool-search__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tool-search__page-count {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+}
+
 .group-filter {
   display: flex;
   flex-wrap: wrap;
@@ -149,28 +263,60 @@ textarea {
   margin-bottom: 1rem;
 }
 
-.group-filter__chip {
-  background: none;
-  color: var(--md-default-fg-color--light);
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: 999px;
-  font-size: 0.75rem;
-  padding: 0.15rem 0.6rem;
-}
-
-.group-filter__chip:hover:not(:disabled) {
+/*
+ * .tag is the one vocabulary used everywhere a group name appears — filter
+ * chips, the tags on a tool-list entry, the groups on the identity badge —
+ * so "this is a group" always looks the same, whether it's a static label
+ * or a toggle. `#` prefix reads as a topic tag, which is what a group
+ * functionally is here. button.tag adds the interactive states on top of
+ * the shared look, so the two roles never fight over specificity.
+ */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  padding: 0.05rem 0.5rem;
+  border-radius: 4px;
   background: var(--md-default-fg-color--lightest);
-  color: var(--md-default-fg-color);
+  color: var(--md-default-fg-color--light);
+  border: 1px solid transparent;
 }
 
-/* Selected state reuses .badge verbatim (see below) — same filled look as
-   the group pills on each tool result tile. This rule only removes the
-   border .badge doesn't have and adds the hover feedback a button needs. */
-.group-filter__chip--active {
+.tag::before {
+  content: "#";
+  opacity: 0.5;
+  margin-right: 0.05em;
+}
+
+button.tag {
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-display);
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+/* Group tiles are the one thing on this page that gets the hard accent
+   color — everything else (card hover, etc.) stays neutral so this reads
+   as the one deliberately "hot" control, not just more decoration. */
+button.tag:hover:not(:disabled) {
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+.tag--active {
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
   border-color: var(--md-primary-fg-color);
 }
 
-.group-filter__chip--active:hover:not(:disabled) {
+.tag--active::before {
+  opacity: 0.85;
+}
+
+button.tag.tag--active:hover:not(:disabled) {
   background: var(--md-primary-fg-color--light);
   border-color: var(--md-primary-fg-color--light);
   color: var(--md-primary-bg-color);
@@ -185,21 +331,34 @@ textarea {
   gap: 0.6rem;
 }
 
+/*
+ * Each entry reads like one YAML record from the tool catalog: a key, its
+ * groups as tags, its description below in plain prose. The left rule
+ * matches .tool-detail__record so opening a tool feels like zooming into
+ * the same line rather than navigating to an unrelated page.
+ */
 .tool-list__button {
   width: 100%;
   text-align: left;
+  cursor: pointer;
   background: var(--md-code-bg-color);
   color: var(--md-default-fg-color);
   border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  padding: 0.75rem 1rem 0.75rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  transition: border-color 120ms ease;
 }
 
-.tool-list__button:hover {
+/* An orange outline only — no fill — so it still reads as lighter-touch
+   than a group tile's hard, filled hover (button.tag:hover above). */
+.tool-list__button:hover,
+.tool-list__button:focus-visible {
   border-color: var(--md-primary-fg-color);
+  border-left-color: var(--md-primary-fg-color);
 }
 
 .tool-list__row {
@@ -210,13 +369,25 @@ textarea {
 
 .tool-list__key {
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-display);
+}
+
+.tool-list__key::after {
+  content: ":";
+  opacity: 0.5;
+}
+
+.tool-list__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
 .tool-list__score {
   margin-left: auto;
-  font-size: 0.8rem;
-  opacity: 0.7;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  opacity: 0.65;
 }
 
 .tool-list__description {
@@ -225,16 +396,28 @@ textarea {
   color: var(--md-default-fg-color--light);
 }
 
-.badge {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--md-primary-fg-color);
-  color: var(--md-primary-bg-color);
+/* Tool detail / call form */
+
+@keyframes mcc-record-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Tool detail / call form */
+.tool-detail {
+  animation: mcc-record-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-detail {
+    animation: none;
+  }
+}
 
 .tool-detail__back {
   background: none;
@@ -251,8 +434,30 @@ textarea {
   text-decoration: underline;
 }
 
+/* Echoes .tool-list__button's left rule — opening a tool feels like
+   zooming into the same manifest line, not leaving it. */
+.tool-detail__record {
+  border-left: 3px solid var(--md-primary-fg-color);
+  padding-left: 1rem;
+  margin-bottom: 1.25rem;
+}
+
 .tool-detail__key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+}
+
+.tool-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tool-detail__description {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
 }
 
 .tool-detail__example,
@@ -279,10 +484,12 @@ textarea {
   gap: 0.3rem;
 }
 
+/* name: type reads as the signature line it represents */
 .tool-call-form__label {
   display: flex;
   align-items: baseline;
-  gap: 0.4rem;
+  gap: 0.3rem;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -291,15 +498,134 @@ textarea {
   color: var(--md-primary-fg-color--dark);
 }
 
+.tool-call-form__type::before {
+  content: ":";
+  opacity: 0.5;
+  margin-right: 0.3em;
+}
+
 .tool-call-form__type {
   font-weight: 400;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   opacity: 0.6;
 }
 
 .tool-call-form__description {
   font-size: 0.8rem;
   color: var(--md-default-fg-color--light);
+}
+
+/* One switch for every list/dict field, sitting above the fields it
+   affects rather than repeated per field. */
+.tool-call-form__advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  cursor: pointer;
+}
+
+/* List param — chips + a trailing draft input, styled like a single
+   text field so it reads as one control, not a list of buttons. */
+.list-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  background: var(--md-default-bg-color);
+}
+
+.list-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  padding: 0.1rem 0.3rem 0.1rem 0.55rem;
+  border-radius: 4px;
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
+}
+
+.list-input__chip-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 3px;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.list-input__chip-remove:hover:not(:disabled) {
+  background: var(--md-primary-fg-color--dark);
+  color: var(--md-primary-bg-color);
+}
+
+.list-input__input {
+  flex: 1;
+  min-width: 6rem;
+  border: none;
+  padding: 0.15rem 0.2rem;
+  background: none;
+}
+
+.list-input__input:focus {
+  outline: none;
+}
+
+/* Dict param — one row per key/value pair, the shape these params actually
+   take (e.g. field name -> CSS selector). */
+.dict-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dict-input__row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dict-input__key {
+  flex: 0 0 35%;
+  font-family: var(--font-display);
+}
+
+.dict-input__value {
+  flex: 1;
+}
+
+.dict-input__remove {
+  background: none;
+  color: var(--md-default-fg-color--light);
+  padding: 0.2rem 0.5rem;
+}
+
+.dict-input__remove:hover:not(:disabled) {
+  color: var(--md-primary-fg-color--dark);
+  background: var(--md-default-fg-color--lightest);
+}
+
+.dict-input__add {
+  align-self: flex-start;
+  background: none;
+  color: var(--md-typeset-a-color);
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+}
+
+.dict-input__add:hover:not(:disabled) {
+  text-decoration: underline;
+  background: none;
 }
 
 .tool-call-form__error {
@@ -311,9 +637,15 @@ textarea {
   margin-top: 1rem;
 }
 
+.tool-result__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
 .tool-result__status {
   font-size: 0.8rem;
-  margin-bottom: 0.3rem;
   color: var(--md-default-fg-color--light);
 }
 
@@ -325,4 +657,20 @@ textarea {
 
 .tool-result--ok .tool-result__status {
   color: #3a7a4e;
+}
+
+.tool-result__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.tool-result__copy:hover:not(:disabled) {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
 }
