@@ -4,6 +4,7 @@ import { callTool } from "../api";
 import type { CallOutcome, Tool, ToolParam } from "../api";
 import { DictInput } from "./DictInput";
 import { ListInput } from "./ListInput";
+import { Markdown } from "./Markdown";
 
 interface Props {
   tool: Tool;
@@ -187,7 +188,7 @@ export function ToolCallForm({ tool, onResult }: Props) {
           )}
 
           {param.description && (
-            <span className="tool-call-form__description">{param.description}</span>
+            <Markdown text={param.description} className="tool-call-form__description" />
           )}
           {jsonErrors[param.name] && (
             <span className="tool-call-form__error">{jsonErrors[param.name]}</span>

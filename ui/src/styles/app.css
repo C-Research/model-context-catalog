@@ -29,6 +29,27 @@
   flex-shrink: 0;
 }
 
+/* Markdown.tsx's wrapper. Links/inline code/blockquotes already pick up
+   orange.css's .md-typeset rules for free — <main> carries that class —
+   so only paragraph/list spacing needs resetting here. */
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown p {
+  margin: 0;
+}
+
+.markdown p + p {
+  margin-top: 0.5em;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.3em 0;
+  padding-left: 1.2em;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -42,9 +63,12 @@ body {
   flex-direction: column;
 }
 
-/* .md-header itself is colored by orange.css (background/text per scheme) */
-.app__header {
-  padding: 1rem 1.5rem;
+/* .md-header itself is colored by orange.css (background/text per scheme).
+   .app__header has no horizontal padding/max-width of its own —
+   .app__header-inner (below) carries .app__main for that, centering itself
+   the same way .app__main does, so the header's content and the page body
+   always share one margin, controlled from a single place. */
+.app__header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -85,10 +109,13 @@ body {
   opacity: 0.65;
 }
 
+/* The one width constraint for the whole page — reused verbatim (not just
+   in spirit) by .app__header-inner, so both the header and the body always
+   share a single margin, adjustable from this one rule. */
 .app__main {
   flex: 1;
-  padding: 1.5rem;
-  max-width: 800px;
+  padding: 1rem;
+  max-width: 1080px;
   width: 100%;
   margin: 0 auto;
 }
@@ -242,12 +269,14 @@ input[type="checkbox"]:focus-visible {
   color: var(--md-primary-fg-color--dark);
 }
 
+/* Rendered both above and below the list, so symmetric margins read right
+   in either position rather than assuming it always trails the list. */
 .tool-search__pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-top: 1rem;
+  margin: 1rem 0;
 }
 
 .tool-search__page-count {
@@ -363,13 +392,15 @@ button.tag.tag--active:hover:not(:disabled) {
 
 .tool-list__row {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
 }
 
 .tool-list__key {
   font-weight: 600;
   font-family: var(--font-display);
+  overflow-wrap: anywhere;
 }
 
 .tool-list__key::after {
@@ -439,13 +470,14 @@ button.tag.tag--active:hover:not(:disabled) {
 .tool-detail__record {
   border-left: 3px solid var(--md-primary-fg-color);
   padding-left: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .tool-detail__key {
   font-family: var(--font-display);
   font-weight: 700;
   margin: 0 0 0.4rem;
+  overflow-wrap: anywhere;
 }
 
 .tool-detail__tags {
@@ -458,8 +490,11 @@ button.tag.tag--active:hover:not(:disabled) {
 .tool-detail__description {
   margin: 0;
   color: var(--md-default-fg-color--light);
+  overflow-wrap: anywhere;
 }
 
+/* pre-wrap + break-word: a long traceback line or URL wraps inside the
+   block instead of forcing a horizontal scrollbar. */
 .tool-detail__example,
 .tool-result__body {
   background: var(--md-code-bg-color);
@@ -468,14 +503,16 @@ button.tag.tag--active:hover:not(:disabled) {
   border-radius: 8px;
   padding: 0.75rem;
   overflow-x: auto;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .tool-call-form {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
-  margin-top: 1.25rem;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .tool-call-form__field {
@@ -487,6 +524,7 @@ button.tag.tag--active:hover:not(:disabled) {
 /* name: type reads as the signature line it represents */
 .tool-call-form__label {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.3rem;
   font-family: var(--font-display);
@@ -634,7 +672,7 @@ button.tag.tag--active:hover:not(:disabled) {
 }
 
 .tool-result {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .tool-result__header {
@@ -645,7 +683,9 @@ button.tag.tag--active:hover:not(:disabled) {
 }
 
 .tool-result__status {
+  font-family: var(--font-display);
   font-size: 0.8rem;
+  font-weight: 600;
   color: var(--md-default-fg-color--light);
 }
 
@@ -657,6 +697,27 @@ button.tag.tag--active:hover:not(:disabled) {
 
 .tool-result--ok .tool-result__status {
   color: #3a7a4e;
+}
+
+/* stdout/stderr get their own labeled block each, rather than one run-on
+   dump — an exec tool's two streams are different things, not one blob. */
+.tool-result__stream + .tool-result__stream {
+  margin-top: 0.6rem;
+}
+
+.tool-result__stream-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.tool-result__stream-label {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
 }
 
 .tool-result__copy {
@@ -673,4 +734,31 @@ button.tag.tag--active:hover:not(:disabled) {
 .tool-result__copy:hover:not(:disabled) {
   background: var(--md-default-fg-color--lightest);
   color: var(--md-default-fg-color);
+}
+
+/* JSON syntax highlighting (highlightJson.ts) — restrained on purpose:
+   keys get the accent, values stay muted variations of the base code
+   color rather than a full rainbow theme. */
+.json-key {
+  color: var(--md-primary-fg-color);
+  font-weight: 600;
+}
+
+.json-string {
+  color: var(--md-code-fg-color);
+}
+
+.json-number {
+  color: var(--md-accent-fg-color);
+}
+
+.json-boolean {
+  color: var(--md-accent-fg-color);
+  font-style: italic;
+}
+
+.json-null {
+  color: var(--md-code-fg-color);
+  opacity: 0.6;
+  font-style: italic;
 }

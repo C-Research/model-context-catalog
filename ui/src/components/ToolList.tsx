@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from "react";
 import type { SearchResult, Tool } from "../api";
+import { Markdown } from "./Markdown";
 
 interface Props {
   tools: (Tool | SearchResult)[];
@@ -66,7 +67,7 @@ export function ToolList({ tools, onSelect, selectedGroups, onToggleGroup }: Pro
                 </button>
               ))}
             </span>
-            <p className="tool-list__description">{tool.description}</p>
+            <Markdown text={tool.description} className="tool-list__description" />
           </div>
         </li>
       ))}

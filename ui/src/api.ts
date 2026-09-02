@@ -38,6 +38,21 @@ export interface SearchResult extends Tool {
   score: number;
 }
 
+// Shared shape of /tools and /search's paginated responses.
+export interface Page<T> {
+  items: T[];
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
+export interface PageOptions {
+  offset?: number;
+  limit?: number;
+  // Sent as one comma-separated `groups` param — a tool matches if it
+  // belongs to any of them (mcc/routes.py's _parse_groups).
+  groups?: string[];
+}
+
 export interface WhoAmI {
   username: string;
   email: string | null;
@@ -65,18 +80,40 @@ async function requestJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function listTools(): Promise<Tool[]> {
-  return requestJson<Tool[]>("/tools");
+function pageParams(params: URLSearchParams, options: PageOptions): URLSearchParams {
+  if (options.offset !== undefined) params.set("offset", String(options.offset));
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
+  if (options.groups && options.groups.length > 0) params.set("groups", options.groups.join(","));
+  return params;
+}
+
+// /tools?offset=&limit= — {"tools": [...], "has_more": bool, "next_offset": int | null}.
+export function listTools(options: PageOptions = {}): Promise<Page<Tool>> {
+  const params = pageParams(new URLSearchParams(), options);
+  const qs = params.toString();
+  return requestJson<{ tools: Tool[]; has_more: boolean; next_offset: number | null }>(
+    `/tools${qs ? `?${qs}` : ""}`,
+  ).then((res) => ({ items: res.tools, hasMore: res.has_more, nextOffset: res.next_offset }));
 }
 
 export function getTool(key: string): Promise<Tool> {
   return requestJson<Tool>(`/tools/${encodeURIComponent(key)}`);
 }
 
-export function searchTools(query: string, minScore?: number): Promise<SearchResult[]> {
-  const params = new URLSearchParams({ q: query });
-  if (minScore !== undefined) params.set("min_score", String(minScore));
-  return requestJson<SearchResult[]>(`/search?${params.toString()}`);
+export interface SearchToolsOptions extends PageOptions {
+  minScore?: number;
+}
+
+// /search?q=&min_score=&offset=&limit= — {"results": [...], "has_more": bool, "next_offset": int | null}.
+export function searchTools(
+  query: string,
+  options: SearchToolsOptions = {},
+): Promise<Page<SearchResult>> {
+  const params = pageParams(new URLSearchParams({ q: query }), options);
+  if (options.minScore !== undefined) params.set("min_score", String(options.minScore));
+  return requestJson<{ results: SearchResult[]; has_more: boolean; next_offset: number | null }>(
+    `/search?${params.toString()}`,
+  ).then((res) => ({ items: res.results, hasMore: res.has_more, nextOffset: res.next_offset }));
 }
 
 export function whoami(): Promise<WhoAmI> {

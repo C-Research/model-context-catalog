@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { getTool } from "../api";
 import type { CallOutcome, Tool } from "../api";
 import { Icon } from "./Icon";
+import { Markdown } from "./Markdown";
 import { ToolCallForm } from "./ToolCallForm";
 import { ToolResult } from "./ToolResult";
 
 interface Props {
   toolKey: string;
   onBack: () => void;
+  onFilterGroup: (group: string) => void;
 }
 
-export function ToolDetail({ toolKey, onBack }: Props) {
+export function ToolDetail({ toolKey, onBack, onFilterGroup }: Props) {
   const [tool, setTool] = useState<Tool | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CallOutcome | null>(null);
@@ -40,13 +42,21 @@ export function ToolDetail({ toolKey, onBack }: Props) {
             <h2 className="tool-detail__key">{tool.key}</h2>
             <span className="tool-detail__tags">
               {tool.groups.map((group) => (
-                <span key={group} className="tag">
+                <button
+                  key={group}
+                  type="button"
+                  className="tag"
+                  onClick={() => onFilterGroup(group)}
+                >
                   {group}
-                </span>
+                </button>
               ))}
             </span>
-            <p className="tool-detail__description">{tool.description}</p>
+            <Markdown text={tool.description} className="tool-detail__description" />
           </div>
+          {/* example is call-syntax, not prose — markdown-rendering it as
+              text would risk misreading underscores/asterisks in the code
+              as emphasis, so it stays verbatim in a code block. */}
           {tool.example && <pre className="tool-detail__example">{tool.example}</pre>}
 
           <ToolCallForm tool={tool} onResult={setResult} />
