@@ -129,6 +129,16 @@ default:
     introspection_client_secret: ""  # propelauth
     project_id: ""                   # descope
     consent_csp_policy: ""            # any OAuthProxy/OIDCProxy-based provider; "" keeps FastMCP's built-in policy
+    # Storage for DCR client registrations (and upstream tokens/transactions/codes)
+    # on any OAuthProxy/OIDCProxy-based provider. "" (default) falls back to
+    # cache.backend, so a redis:// cache.backend already covers this with no
+    # extra config. Only set this if oauth state needs a different backend than
+    # the tool-call cache. On an ephemeral pod filesystem with no redis backend,
+    # FastMCP falls back to its own encrypted file store scoped to a directory
+    # under settings.home — a restart/redeploy wipes it and every client that
+    # already completed DCR gets "client ID was not found in the server's client
+    # registry" until it re-registers.
+    client_storage_backend: ""
     # "external" skips FastMCP's own consent screen — Auth0's login is treated
     # as sufficient authorization. Set to true to re-enable FastMCP's consent
     # screen, or false to skip it without the "handled elsewhere" warning

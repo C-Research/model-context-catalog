@@ -36,6 +36,21 @@ _PROXY_PROVIDERS = {
 }
 
 
+def _build_client_storage(backend: str):
+    """Build the AsyncKeyValue store for DCR client registrations/tokens/codes.
+
+    Same URI convention as cache.backend/event_store.backend. redis is only
+    imported when that backend is chosen, so mcc has no hard redis dependency.
+    Any other scheme (e.g. "mem://") returns None, leaving FastMCP's own default
+    (an encrypted file store) in place.
+    """
+    if backend.startswith(("redis://", "rediss://")):
+        from key_value.aio.stores.redis import RedisStore
+
+        return RedisStore(url=backend)
+    return None
+
+
 def _build_proxy_provider(name: str):
     module_path, class_name = _PROXY_PROVIDERS[name]
     cls = getattr(importlib.import_module(module_path), class_name)
@@ -48,6 +63,13 @@ def _build_proxy_provider(name: str):
     kwargs = {
         k.lower(): v for k, v in settings.oauth.to_dict().items() if v not in (None, "")
     }
+    # Defaults to cache.backend so a redis:// cache already covers DCR client
+    # persistence with no extra config; set oauth.client_storage_backend only if
+    # oauth state needs a different backend than the tool-call cache.
+    client_storage_backend = kwargs.pop("client_storage_backend", "") or settings.cache.backend
+    client_storage = _build_client_storage(client_storage_backend)
+    if client_storage is not None:
+        kwargs["client_storage"] = client_storage
     if kwargs.pop("verify_id_token", False):
         # Provider subclasses (Auth0Provider, AWSCognitoProvider, OCIProvider, ...)
         # don't expose verify_id_token, so build the underlying OIDCProxy directly
