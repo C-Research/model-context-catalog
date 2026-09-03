@@ -46,6 +46,7 @@ nav:
   - Home: index.md
   - MCP Interface: mcp.md
   - HTTP API: http-api.md
+  - Web UI: ui.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
