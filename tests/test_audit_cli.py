@@ -1,5 +1,8 @@
+import csv
+import json
 from asyncio import run as arun
 from datetime import UTC, datetime
+from io import StringIO
 
 from click.testing import CliRunner
 from mcc.cli.audit import audit
@@ -111,6 +114,42 @@ class TestAuditToolCommand:
         params = {p.name: p.default for p in audit.commands["tool"].params}
         assert params["offset"] == 0
         assert params["limit"] == 20
+
+    def test_json_format_prints_parsable_records(self, audit_idx, monkeypatch):
+        monkeypatch.setattr(settings, "AUDIT_TOOL_INDEX", "mcc-audit-test")
+        arun(_seed(type(audit_idx), {"1": _tool_doc(0, "alice")}))
+        result = CliRunner().invoke(audit, ["tool", "--format", "json"])
+        assert result.exit_code == 0
+        records = json.loads(result.output)
+        assert records[0]["username"] == "alice"
+        assert records[0]["tool_key"] == "admin.shell"
+
+    def test_csv_format_prints_header_and_rows(self, audit_idx, monkeypatch):
+        monkeypatch.setattr(settings, "AUDIT_TOOL_INDEX", "mcc-audit-test")
+        arun(
+            _seed(
+                type(audit_idx),
+                {"1": _tool_doc(0, "alice"), "2": _tool_doc(1, "bob")},
+            )
+        )
+        result = CliRunner().invoke(audit, ["tool", "--format", "csv"])
+        assert result.exit_code == 0
+        rows = list(csv.reader(StringIO(result.output)))
+        assert rows[0][:5] == ["Timestamp", "User", "Tool", "Status", "Duration (ms)"]
+        assert rows[0][-1] == "Error"
+        assert {row[1] for row in rows[1:]} == {"alice", "bob"}
+
+    def test_output_writes_to_file_instead_of_stdout(self, audit_idx, monkeypatch, tmp_path):
+        monkeypatch.setattr(settings, "AUDIT_TOOL_INDEX", "mcc-audit-test")
+        arun(_seed(type(audit_idx), {"1": _tool_doc(0, "alice")}))
+        out_file = tmp_path / "audit.json"
+        result = CliRunner().invoke(
+            audit, ["tool", "--format", "json", "--output", str(out_file)]
+        )
+        assert result.exit_code == 0
+        assert "alice" not in result.output
+        records = json.loads(out_file.read_text())
+        assert records[0]["username"] == "alice"
 
 
 class TestAuditSearchCommand:
