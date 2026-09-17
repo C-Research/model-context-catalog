@@ -13,6 +13,7 @@ from envyaml import EnvYAML
 
 from mcc.cache import cache, cached, params_hash
 from mcc.db import ToolIndex
+from mcc.db.base import embed_batch
 from mcc.exec import _build_pyrunner_env
 from mcc.models import ToolModel
 from mcc.settings import logger, settings
@@ -190,19 +191,31 @@ class Loader(dict):
     async def save(self) -> None:
         logger.debug("Indexing %d tools to Elasticsearch...", len(self))
         t0 = time()
+        tools = list(self.values())
+        vectors = await embed_batch([tool.signature for tool in tools])
+        actions = [
+            {
+                "_index": settings.TOOL_INDEX,
+                "_id": tool.key,
+                "_source": {
+                    "signature": tool.signature,
+                    "groups": tool.groups,
+                    "embedding": vector,
+                },
+            }
+            for tool, vector in zip(tools, vectors, strict=True)
+        ]
         async with ToolIndex() as idx:
             await idx.drop()
             await idx.create()
-            for tool in self.values():
-                await idx.index_tool(tool)
+            await idx.bulk_put(actions)
         logger.debug("Indexing complete in %dms", (time() - t0) * 1000)
 
     async def reload(self):
         logger.info("Reloading tools...")
         t0 = time()
         self.clear()
-        for path in self.paths:
-            self.load(path)
+        self.load(*self.paths)
         await self.save()
 
         await cache.delete_match("search:*")

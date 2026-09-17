@@ -18,6 +18,8 @@ uv run python -m mcc.cli
 
 Configuration is loaded via [dynaconf](https://www.dynaconf.com/) from `mcc/settings.yaml`. Local overrides go in `settings.local.yaml` (not committed). Environment variables override settings using the `MCC_` prefix (e.g. `MCC_AUTH=dangerous`).
 
+The tool index is never created or populated automatically — not on server startup, not by any other `mcc` command. Run `mcc tool reindex` once against a fresh Elasticsearch/OpenSearch cluster (and again whenever tool YAML changes) before the catalog has anything in it.
+
 ## Key concepts
 
 - **Tools** are defined in YAML files that point at Python callables. Load them with `mcc tool add`.

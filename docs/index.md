@@ -36,7 +36,6 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - **Auth backends**: GitHub OAuth, Google, Azure, and more — or dev mode (`dev-admin`)
 - **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
 - **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
-- **Hot reload** catalog tool defs without restarting the server
 - **MCP resources and prompts** for catalog browsing and guided workflows
 
 Project inspiration [How to build an enterprise-grade MCP registry](https://www.infoworld.com/article/4145014/how-to-build-an-enterprise-grade-mcp-registry.html)

@@ -1,3 +1,5 @@
+from mcc.db import ToolIndex
+from mcc.db.base import embed_batch as _real_embed_batch
 from mcc.loader import loader
 from mcc.models import ToolModel
 
@@ -104,6 +106,47 @@ class TestLoaderSearch:
         # ghost is in ES but not in loader — should be skipped
         results = await loader.search("ghost")
         assert all(tool.key != "ghost" for tool, _ in results)
+
+
+class TestLoaderSaveBulk:
+    async def test_embeds_all_signatures_in_one_call(
+        self, tool_idx, load_fixture, monkeypatch
+    ):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        calls = []
+
+        async def spy(texts):
+            calls.append(list(texts))
+            return await _real_embed_batch(texts)
+
+        monkeypatch.setattr("mcc.loader.embed_batch", spy)
+        await loader.save()
+
+        assert len(calls) == 1
+        assert len(calls[0]) == len(loader)
+
+    async def test_writes_all_tools_in_one_bulk_call(
+        self, tool_idx, load_fixture, monkeypatch
+    ):
+        load_fixture("tools_ungrouped.yaml", "tools_grouped.yaml")
+        calls = []
+        original = ToolIndex.bulk_put
+
+        async def spy(self, actions):
+            calls.append(actions)
+            return await original(self, actions)
+
+        monkeypatch.setattr(ToolIndex, "bulk_put", spy)
+        await loader.save()
+
+        assert len(calls) == 1
+        assert len(calls[0]) == len(loader)
+
+    async def test_save_with_no_tools_registered(self, tool_idx):
+        loader.clear()
+        await loader.save()  # must not raise on an empty catalog
+        results = await tool_idx.query("anything")
+        assert results == []
 
 
 class TestLoaderSearchGroupsFilter:

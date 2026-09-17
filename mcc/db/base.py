@@ -40,6 +40,17 @@ async def embed(text: str) -> list[float]:
     return result.tolist()
 
 
+async def embed_batch(texts: list[str]) -> list[list[float]]:
+    """Embed many texts in one model call instead of one call per text.
+
+    fastembed's `TextEmbedding.embed()` already chunks internally
+    (`batch_size=256` by default), so passing the whole list is enough.
+    """
+    loop = asyncio.get_event_loop()
+    results = await loop.run_in_executor(None, lambda: list(_get_model().embed(texts)))
+    return [r.tolist() for r in results]
+
+
 class IndexLifecycle:
     """Async context-manager scaffolding shared by both backends' index bases.
 
@@ -146,11 +157,11 @@ def log_query(query: str, hits: list[tuple[str, float]], t0: float) -> None:
 
 
 class ToolIndexMixin:
-    """`ToolIndex` behavior shared once a backend implements `put`/`search`."""
+    """`ToolIndex` behavior shared once a backend implements `put`/`search`/`bulk_put`."""
 
     if TYPE_CHECKING:
-
         async def put(self, id: str, doc: dict, refresh: bool = True) -> None: ...
+        async def bulk_put(self, actions: list[dict]) -> None: ...
 
     async def index_tool(self, tool: ToolModel) -> None:
         await self.put(

@@ -11,6 +11,7 @@ from typing import ClassVar
 
 from key_value.aio.stores.opensearch import OpenSearchStore
 from opensearchpy import AsyncOpenSearch
+from opensearchpy.helpers import async_bulk
 
 from mcc.db.base import (
     KEYS_MAPPING,
@@ -84,6 +85,12 @@ class _OSIndexBase(IndexLifecycle):
             index=self.index,
             params={"ignore_unavailable": str(ignore_unavailable).lower()},
         )
+
+    async def bulk_put(self, actions: list[dict]) -> None:
+        """Write many `{_index, _id, _source}` actions in one bulk request, then
+        refresh once so all of them are readable at once."""
+        await async_bulk(self._client, actions)
+        await self._client.indices.refresh(index=self.index)
 
 
 def _os_client_kwargs() -> dict:

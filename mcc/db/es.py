@@ -7,6 +7,7 @@ from time import time
 from typing import ClassVar
 
 from elasticsearch import AsyncElasticsearch
+from elasticsearch.helpers import async_bulk
 from key_value.aio.stores.elasticsearch import ElasticsearchStore
 
 from mcc.db.base import (
@@ -75,6 +76,12 @@ class _ESIndexBase(IndexLifecycle):
         await self._client.indices.delete(
             index=self.index, ignore_unavailable=ignore_unavailable
         )
+
+    async def bulk_put(self, actions: list[dict]) -> None:
+        """Write many `{_index, _id, _source}` actions in one bulk request, then
+        refresh once so all of them are readable at once."""
+        await async_bulk(self._client, actions)
+        await self._client.indices.refresh(index=self.index)
 
 
 def _client_kwargs() -> dict:

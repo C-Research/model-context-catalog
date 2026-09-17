@@ -1,12 +1,10 @@
 import sys
-from asyncio import run as arun
 
 import rich_click as click
 from rich.console import Console
 from rich.errors import MarkupError
 
 from mcc import __version__
-from mcc.loader import loader
 from mcc.settings import logger, settings
 
 click.rich_click.USE_MARKDOWN = True
@@ -36,8 +34,7 @@ def err(msg, exit=1):
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Enable debug logging."
 )
-@click.pass_context
-def cli(ctx, env, verbose):
+def cli(env, verbose):
     """
     **MCC** — Model Context Catalog management CLI.
 
@@ -54,11 +51,6 @@ def cli(ctx, env, verbose):
     - **MCC_SKIP_AUTOLOAD** — Set to skip automatic tool loading at startup.
     """
     logger.setLevel("DEBUG" if verbose else "INFO")
-    if ctx.invoked_subcommand != "download":
-        try:
-            arun(loader.save())
-        except Exception as exc:  # noqa: BLE001
-            err(f"ES Connection error: {exc}")
     if env is not None:
         settings.setenv(env)
 

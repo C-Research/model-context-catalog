@@ -1,5 +1,4 @@
 import json
-from contextlib import asynccontextmanager
 
 from fastmcp import Context, FastMCP
 from fastmcp.server.elicitation import (
@@ -40,13 +39,6 @@ from mcc.middleware import (
 )
 from mcc.settings import logger, settings
 
-
-@asynccontextmanager
-async def lifespan(server):
-    await loader.save()
-    yield
-
-
 # Session-scoped context store. Both backends derive index names as
 # "{index_prefix}-{collection}", and FastMCP's state store uses the collection
 # "fastmcp_state", so this touches only "mcc-ctx-fastmcp_state" and cannot clobber
@@ -78,7 +70,6 @@ mcp = FastMCP(
     _branding.get("name") or "model-context-catalog (mcc)",
     version=__version__,
     auth=get_provider(),
-    lifespan=lifespan,
     session_state_store=_session_store,
     website_url=_branding.get("website_url") or None,
     icons=[Icon(src=_branding["icon_url"])] if _branding.get("icon_url") else None,

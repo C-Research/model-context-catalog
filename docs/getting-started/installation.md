@@ -44,3 +44,13 @@ default:
 ```
 
 See [Search backend](configuration.md#search-backend) for OpenSearch's equivalent, and [Auth Backends](../auth/backends.md) for authentication configuration.
+
+## Populate the tool catalog
+
+The tool index is never created or populated automatically — not on server startup, not by any other `mcc` command. Run this once, against a freshly-configured Elasticsearch or OpenSearch cluster (and again any time your tool YAML files change):
+
+```bash
+mcc tool reindex
+```
+
+Until this has run, the catalog is empty and `search()`/`execute()` have nothing to find.

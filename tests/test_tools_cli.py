@@ -28,6 +28,27 @@ class TestToolReindex:
         assert "echo" in [key for key, _ in hits]
 
 
+class TestNonReindexCommandsDoNotTouchToolIndex:
+    def test_tool_list_does_not_populate_index(self, load_fixture, tool_idx):
+        """Unlike `tool reindex` (see TestToolReindex above), running an unrelated
+        subcommand must leave the tool index exactly as it was — no drop, no
+        create, no write — since only `tool reindex` is allowed to touch it."""
+        load_fixture("tools_ungrouped.yaml")
+        loader.paths = {str(FIXTURES / "tools_ungrouped.yaml")}
+
+        result = CliRunner().invoke(tool, ["list"])
+
+        assert result.exit_code == 0
+        assert "echo" in result.output
+
+        async def _query():
+            async with ToolIndex() as idx:
+                return await idx.query("echo", None, None)
+
+        hits = asyncio.run(_query())
+        assert hits == []
+
+
 class TestToolCallValidationError:
     def test_missing_required_param_shows_description(self, load_fixture):
         load_fixture("tools_validation_error.yaml")

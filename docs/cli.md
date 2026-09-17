@@ -181,7 +181,7 @@ Output is syntax-highlighted JSON for dicts and lists, plain text otherwise.
 
 ### `reindex`
 
-Reload tool YAML files from disk and reindex them in Elasticsearch.
+Reload tool YAML files from disk and reindex them in Elasticsearch (or OpenSearch). This is the **only** operation that ever touches the tool index — server startup and every other `mcc` command leave it untouched. It's a full rebuild (drop, recreate, bulk-write every tool), not an incremental update, so run it once after first standing up your search backend and again whenever your tool YAML changes.
 
 ```bash
 mcc tool reindex
