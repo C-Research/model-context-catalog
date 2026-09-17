@@ -179,6 +179,16 @@ Output is syntax-highlighted JSON for dicts and lists, plain text otherwise.
 
 ---
 
+### `reindex`
+
+Reload tool YAML files from disk and reindex them in Elasticsearch.
+
+```bash
+mcc tool reindex
+```
+
+---
+
 ## `mcc mcp`
 
 Start the MCP server and install it in Claude clients.

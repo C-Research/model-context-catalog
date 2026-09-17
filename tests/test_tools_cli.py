@@ -1,6 +1,31 @@
+import asyncio
+from pathlib import Path
+
 from click.testing import CliRunner
 
 from mcc.cli.tools import tool
+from mcc.db import ToolIndex
+from mcc.loader import loader
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class TestToolReindex:
+    def test_reindex_repopulates_index_from_disk(self, load_fixture, tool_idx):
+        load_fixture("tools_ungrouped.yaml")
+        loader.paths = {str(FIXTURES / "tools_ungrouped.yaml")}
+
+        result = CliRunner().invoke(tool, ["reindex"])
+
+        assert result.exit_code == 0
+        assert "Reindexed 1 tools." in result.output
+
+        async def _query():
+            async with ToolIndex() as idx:
+                return await idx.query("echo", None, None)
+
+        hits = asyncio.run(_query())
+        assert "echo" in [key for key, _ in hits]
 
 
 class TestToolCallValidationError:

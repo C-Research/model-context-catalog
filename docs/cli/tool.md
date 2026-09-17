@@ -65,3 +65,13 @@ mcc tool call my.tool --json '{"name": "foo", "count": 3}'
 ```
 
 Output is syntax-highlighted JSON for dicts and lists, plain text otherwise.
+
+---
+
+## `reindex`
+
+Reload tool YAML files from disk and reindex them in Elasticsearch.
+
+```bash
+mcc tool reindex
+```

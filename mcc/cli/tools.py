@@ -71,6 +71,13 @@ def tool_list(long):
         console.print(key)
 
 
+@tool.command("reindex")
+def tool_reindex():
+    """Reload tool YAML files from disk and reindex them in Elasticsearch."""
+    asyncio.run(loader.reload())
+    console.print(f"[green]Reindexed {len(loader)} tools.[/green]")
+
+
 @tool.command()
 @click.argument("tool")
 def info(tool):
