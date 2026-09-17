@@ -14,3 +14,4 @@ default:
     - toolsets/osint/social.yaml
     - toolsets/osint/crypto.yaml
     - toolsets/osint/infosec.yaml
+    - toolsets/osint/widelyreported.yaml

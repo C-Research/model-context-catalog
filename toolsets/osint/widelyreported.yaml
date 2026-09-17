@@ -1,0 +1,31 @@
+groups: [osint, people]
+tools:
+  - name: widelyreported_search
+    curl: "https://widelyreported.org/api/entitySuggestions?hint={{ hint | urlencode }}"
+    example: 'widelyreported_search(hint="putin")'
+    description: |
+      Search WidelyReported.org for entities (people, organizations) matching a
+      name fragment. Returns a list of candidate entities with their canonical
+      names, aliases, and logo links. Use the returned "vendor" or "stylizedVendor"
+      value as the `entity` argument to widelyreported_profile.
+      No API key required.
+    params:
+      - name: hint
+        type: str
+        required: true
+        description: Name fragment or search query to look up.
+
+  - name: widelyreported_profile
+    curl: "https://widelyreported.org/api/entityProfile?entity={{ entity | urlencode }}"
+    example: 'widelyreported_profile(entity="vladimir vladimirovich putin")'
+    description: |
+      Fetch the full entity profile from WidelyReported.org by canonical entity
+      name. Returns names, associations (relationship claims with citations),
+      leak/document feed references, biographical books, and related metadata.
+      Use widelyreported_search first to resolve a query to a canonical entity
+      name. No API key required.
+    params:
+      - name: entity
+        type: str
+        required: true
+        description: Canonical entity name, as returned by widelyreported_search.

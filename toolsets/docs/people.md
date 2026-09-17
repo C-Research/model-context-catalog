@@ -10,6 +10,8 @@ Tools for cross-platform username reconnaissance, social media footprint analysi
 |------|-------------|
 | [`sherlock_search`](#sherlock_search) | Search 400+ social platforms for accounts matching a username. |
 | [`pipl_search`](#pipl_search) | Search the PIPL people search API by name, email, phone, username, or address. |
+| [`widelyreported_search`](#widelyreported_search) | Search WidelyReported.org for entities matching a name fragment. |
+| [`widelyreported_profile`](#widelyreported_profile) | Fetch a full entity profile from WidelyReported.org by canonical name. |
 
 ---
 
@@ -92,4 +94,42 @@ Search the [PIPL people search API](https://pipl.com/) by any combination of nam
     Return only the top match:
     ```
     pipl_search(username="ckent", top_match="true")
+    ```
+
+---
+
+### `widelyreported_search`
+
+Search [WidelyReported.org](https://widelyreported.org) for entities (people, organizations) matching a name fragment. Returns candidate entities with canonical names, aliases, and logo links. Use the returned `vendor` or `stylizedVendor` value as the `entity` argument to `widelyreported_profile`.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|:--------:|---------|-------------|
+| `hint` | str | Yes | — | Name fragment or search query to look up. |
+
+**Returns:** A list of candidate entities with canonical names, aliases, and logo links.  
+**Auth:** None.
+
+??? example "Usage examples"
+    Search for an entity by name fragment:
+    ```
+    widelyreported_search(hint="putin")
+    ```
+
+---
+
+### `widelyreported_profile`
+
+Fetch the full entity profile from [WidelyReported.org](https://widelyreported.org) by canonical entity name. Returns names, associations (relationship claims with citations), leak/document feed references, biographical books, and related metadata. Use `widelyreported_search` first to resolve a query to a canonical entity name.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|:--------:|---------|-------------|
+| `entity` | str | Yes | — | Canonical entity name, as returned by `widelyreported_search`. |
+
+**Returns:** JSON with names, associations, leak/document references, biographical books, and related metadata.  
+**Auth:** None.
+
+??? example "Usage examples"
+    Fetch a profile by canonical entity name:
+    ```
+    widelyreported_profile(entity="vladimir vladimirovich putin")
     ```
