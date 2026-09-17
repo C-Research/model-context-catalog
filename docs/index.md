@@ -35,8 +35,11 @@ This also makes the catalog self-documenting. The model learns about tools on de
 - **Group-based access control** tools specs define `groups` and users are stored in the configured search backend (Elasticsearch or OpenSearch). users can be granted tool access via `groups`  or specific `tools`
 - **Auth backends**: GitHub OAuth, Google, Azure, and more — or dev mode (`dev-admin`)
 - **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
-- **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
-- **MCP resources and prompts** for catalog browsing and guided workflows
+- **Audit log**: saves tool searches and execute user, param and errors in search index
+- [**Session variables**](https://c-research.github.io/model-context-catalog/tools/session.html): session store for variables that can be referenced between tools
+- [**Web UI**](https://c-research.github.io/model-context-catalog/ui.html): authenticated web interface to login via api key to search and exeucte tools
+- [**Contrib tools**](https://c-research.github.io/model-context-catalog/toolsets/index.html): optional built-ins for HTTP, filesystem, shell, text processing, and more
+- [**OSINT tools**](https://c-research.github.io/model-context-catalog/toolsets/index.html#osint): options addons to search osint services like OpenSanctions, EDGAR, urlscan and >40 more
 
 Project inspiration [How to build an enterprise-grade MCP registry](https://www.infoworld.com/article/4145014/how-to-build-an-enterprise-grade-mcp-registry.html)
 

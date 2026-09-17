@@ -28,16 +28,17 @@ LLM context windows fill up with tool definitions — with 30+ tools loaded, a s
 
 ## Key features
 
-- **Two tool types**: point at any Python callable (`fn:`) which runs in the server's interpreter, or wrap any shell command (`exec:`) which can run any interpreter
-- **Tool spec templates**: interpolate env vars `${MYVAR}` at load time and `{{ param | quote }}` at execute time for safe shell interpolation, with conditionals and list expansion
-- **Semantic and keyword search** over your tool catalog, powered by Elasticsearch or OpenSearch and FastEmbed
-- **Group-based access control**: tool specs define `groups`, and users can be granted tool access via `groups` or specific `tools`
+- **Two tool types**: point at any Python callable (`fn:`) which runs in the server's interpreter or wrap any shell command (`exec:`) which can run any interpreter
+- **Tool spec templates**: can interpolate env vars `${MYVAR}` at load time and then `{{ param | quote }}` at execute time for safe shell interpolation, with conditionals and list expansion
+- **Semantic and keyword search** over your tool catalog and gives ranked results for the LLM to pick from. powered by Elastic or OpenSearch and FastEmbed
+- **Group-based access control** tools specs define `groups` and users are stored in the configured search backend (Elasticsearch or OpenSearch). users can be granted tool access via `groups`  or specific `tools`
 - **Auth backends**: GitHub OAuth, Google, Azure, and more — or dev mode (`dev-admin`)
-- **Resource limits** at the tool level to bound CPU/mem/etc for any tool's subprocess
-- **Contrib tools**: optional built-ins for HTTP, filesystem, shell, text processing, and more
-- **Hot reload** catalog tool defs without restarting the server
-- **MCP resources and prompts** for catalog browsing and guided workflows
-
+- **Resource limits** at the tool level to limit the cpu/mem/etc for any tool's subprocess. 
+- **Audit log**: saves tool searches and execute user, param and errors in search index
+- [**Session variables**](https://c-research.github.io/model-context-catalog/tools/session.html): session store for variables that can be referenced between tools
+- [**Web UI**](https://c-research.github.io/model-context-catalog/ui.html): authenticated web interface to login via api key to search and exeucte tools
+- [**Contrib tools**](https://c-research.github.io/model-context-catalog/toolsets/index.html): optional built-ins for HTTP, filesystem, shell, text processing, and more
+- [**OSINT tools**](https://c-research.github.io/model-context-catalog/toolsets/index.html#osint): options addons to search osint services like OpenSanctions, EDGAR, urlscan and >40 more
 ## Quickstart
 
 ```bash
