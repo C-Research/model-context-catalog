@@ -1,3 +1,4 @@
+import difflib
 import inspect
 import json
 import os
@@ -11,7 +12,14 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError, create_model, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    create_model,
+    model_validator,
+)
 
 from mcc.context import CONTEXT_PARAM, UserModel, current_user_var
 from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
@@ -285,7 +293,11 @@ class ToolModel(BaseModel):
                 param.py_type,
                 ... if param.required else param.default,
             )
-        return create_model(f"{self.key}_params", **fields)
+        return create_model(
+            f"{self.key}_params",
+            __config__=ConfigDict(extra="forbid"),
+            **fields,
+        )
 
     @property
     def signature(self) -> str:
@@ -293,6 +305,48 @@ class ToolModel(BaseModel):
         Formats the signature block of a tool as markdown
         """
         return jinja_env.get_template("tool_signature.md").render(tool=self)
+
+    def format_validation_error(self, exc: ValidationError) -> str:
+        """Renders a `param_model` ValidationError enriched for an LLM caller:
+        each offending field's YAML `description`/`example`, its expected type
+        next to pydantic's own `input_type`, the tool's full valid-param list,
+        and — since `param_model` sets `extra="forbid"` — an unrecognized
+        param name fuzzy-matched against the real ones (a typo'd key would
+        otherwise be silently dropped and never mentioned in `str(exc)` at
+        all, only showing up indirectly as an unrelated "field required").
+        """
+        param_by_name = {param.name: param for param in self.visible_params}
+        valid_params = list(param_by_name)
+        errors = exc.errors(include_url=False)
+        count = len(errors)
+        header = (
+            f"{count} validation error{'s' if count != 1 else ''} for {self.key}_params "
+            f"(valid params: {', '.join(valid_params)})"
+        )
+        lines = [header]
+        for error in errors:
+            loc = ".".join(str(part) for part in error["loc"])
+            lines.append(loc)
+            field_name = str(error["loc"][0]) if error["loc"] else None
+            param = param_by_name.get(field_name) if field_name else None
+            bits = [f"type={error['type']}"]
+            if param is not None:
+                bits.append(f"expected_type={param.py_type.__name__}")
+            bits.append(f"input_value={error['input']!r}")
+            bits.append(f"input_type={type(error['input']).__name__}")
+            lines.append(f"  {error['msg']} [{', '.join(bits)}]")
+            if param is not None and (param.description or param.example):
+                hint = param.description
+                if param.example:
+                    hint = f"{hint} — e.g. {param.example}" if hint else f"e.g. {param.example}"
+                lines.append(f"    {hint}")
+            elif error["type"] == "extra_forbidden" and field_name is not None:
+                match = difflib.get_close_matches(field_name, valid_params, n=1, cutoff=0.6)
+                if match:
+                    lines.append(f"    Unknown parameter — did you mean `{match[0]}`?")
+                else:
+                    lines.append(f"    Unknown parameter. Valid params: {', '.join(valid_params)}")
+        return "\n".join(lines)
 
     def allows(self, user: "UserModel") -> bool:
         """Returns True if a user can access this tool"""
@@ -323,7 +377,13 @@ class ToolModel(BaseModel):
         status, error = "success", None
         visible_values: dict[str, Any] = {}
         try:
-            validated = self.param_model(**kwargs)
+            # Hidden/override params are excluded from param_model (and thus
+            # rejected by its extra="forbid"), but a caller may still send
+            # one — it must keep being silently dropped in favor of the
+            # forced override value, not surfaced as an unknown-param error.
+            hidden_names = {param.name for param in self.hidden_params}
+            visible_kwargs = {k: v for k, v in kwargs.items() if k not in hidden_names}
+            validated = self.param_model(**visible_kwargs)
             call_kwargs = validated.model_dump()
             for param in self.hidden_params:
                 call_kwargs[param.name] = param.override
@@ -334,7 +394,7 @@ class ToolModel(BaseModel):
                 result = await result
             return result
         except ValidationError as exc:
-            status, error = "error", f"{type(exc).__name__}: {exc}"
+            status, error = "error", self.format_validation_error(exc)
             raise
         except Exception as exc:
             status, error = "error", f"{type(exc).__name__}: {exc}"

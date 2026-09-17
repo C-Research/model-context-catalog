@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import rich_click as click
+from pydantic import ValidationError
 
 from mcc.auth import get_user_by_username
 from mcc.cli import console, err
@@ -203,6 +204,9 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
 
     try:
         result = asyncio.run(_execute())
+    except ValidationError as e:
+        err(t.format_validation_error(e))
+        return
     except Exception as e:  # noqa: BLE001
         err(e)
         return

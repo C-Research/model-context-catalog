@@ -2,20 +2,21 @@ import json
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-import mcc.audit as audit_module
 import pytest
 from fastmcp.server.elicitation import (
     AcceptedElicitation,
     CancelledElicitation,
     DeclinedElicitation,
 )
+from pydantic import BaseModel
+
+import mcc.audit as audit_module
 from mcc.app import describe_tools, execute, search, whoami
 from mcc.audit import SearchAuditIndex
 from mcc.cache import cache, params_hash
 from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.loader import loader
 from mcc.settings import settings as real_settings
-from pydantic import BaseModel
 
 
 def _with_state(ctx, session="s1"):
@@ -171,6 +172,7 @@ class TestExecute:
         load_fixture("tools_ungrouped.yaml")
         result = await execute(_ctx_raises(), "echo", {})
         assert "Validation error" in result
+        assert "The message to echo back" in result
 
     async def test_elicit_accepted_executes_tool(self, load_fixture):
         load_fixture("tools_ungrouped.yaml")

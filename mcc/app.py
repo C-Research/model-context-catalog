@@ -311,7 +311,7 @@ async def execute(ctx: Context, key: str, params: dict | None = None):
     except _ElicitationCancelled:
         return "Execution cancelled: required parameters not provided"
     except ValidationError as e:
-        return f"Validation error for tool '{key}': {e}"
+        return f"Validation error for tool '{key}':\n{tool.format_validation_error(e)}"
 
 
 @mcp.tool()

@@ -330,11 +330,15 @@ async def tool_detail(request: Request) -> JSONResponse:
     return JSONResponse(_serialize_tool(tool))
 
 
-def _error_text(exc: Exception) -> str:
+def _error_text(exc: Exception, tool: ToolModel | None = None) -> str:
     """Plain-text error body: the full traceback when settings.DEBUG is true,
-    otherwise a one-line `Type: message` summary."""
+    otherwise a one-line `Type: message` summary — except a ValidationError
+    with its owning tool available, which is rendered with each offending
+    param's description via `ToolModel.format_validation_error`."""
     if settings.get("DEBUG", False):
         return "".join(traceback.format_exception(exc))
+    if isinstance(exc, ValidationError) and tool is not None:
+        return tool.format_validation_error(exc)
     return f"{type(exc).__name__}: {exc}"
 
 
@@ -380,7 +384,7 @@ async def tool_execute(request: Request) -> PlainTextResponse | JSONResponse:
     try:
         result = await tool.call(**params)
     except ValidationError as exc:
-        return PlainTextResponse(_error_text(exc), status_code=400)
+        return PlainTextResponse(_error_text(exc, tool), status_code=400)
     except Exception as exc:  # noqa: BLE001
         logger.exception("REST execution of %s failed", key)
         return PlainTextResponse(_error_text(exc), status_code=500)

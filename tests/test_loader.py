@@ -5,8 +5,10 @@ import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import mcc.loader
 import pytest
+from pydantic import ValidationError
+
+import mcc.loader
 from mcc.loader import Loader, load_file
 from mcc.models import ParamModel, ToolModel
 
@@ -143,6 +145,65 @@ class TestParamOverride:
     def test_no_override_is_default(self):
         p = ParamModel(name="x")
         assert p.has_override is False
+
+
+class TestFormatValidationError:
+    def setup_method(self):
+        self.loader = Loader()
+        self.loader.load(FIXTURES / "tools_validation_error.yaml")
+        self.tool = self.loader["create_contact"]
+
+    def _format(self, **kwargs) -> str:
+        try:
+            self.tool.param_model(**kwargs)
+        except ValidationError as exc:
+            return self.tool.format_validation_error(exc)
+        raise AssertionError("expected a ValidationError")
+
+    @pytest.mark.smoke
+    def test_header_lists_valid_params(self):
+        text = self._format(email="jane@example.com")
+        assert "(valid params: full_name, email, age)" in text
+
+    def test_missing_field_includes_description_and_example(self):
+        text = self._format(email="jane@example.com")
+        assert "full_name" in text
+        assert "expected_type=str" in text
+        assert "The contact's full name" in text
+        assert "e.g. Jane Doe" in text
+
+    def test_missing_field_without_description_has_no_hint_line(self):
+        # `email` is required but declares no description/example — only
+        # pydantic's own loc + detail lines should appear, no third line.
+        text = self._format(full_name="Jane Doe", age=5)
+        lines = text.splitlines()
+        assert lines[1] == "email"
+        assert len(lines) == 3
+
+    def test_type_mismatch_includes_expected_type(self):
+        text = self._format(full_name="Jane Doe", email="jane@example.com", age="old")
+        assert "age" in text
+        assert "expected_type=int" in text
+        assert "input_type=str" in text
+
+    @pytest.mark.smoke
+    def test_unknown_param_with_close_match_suggests_correction(self):
+        text = self._format(fullname="Jane Doe", email="jane@example.com")
+        assert "Extra inputs are not permitted" in text
+        assert "did you mean `full_name`?" in text
+
+    def test_unknown_param_without_close_match_lists_valid_params(self):
+        text = self._format(
+            full_name="Jane Doe", email="jane@example.com", zzz_totally_unrelated=1
+        )
+        assert "Unknown parameter. Valid params: full_name, email, age" in text
+
+    async def test_call_raises_with_enriched_message(self):
+        with pytest.raises(ValidationError) as exc_info:
+            await self.tool.call(email="jane@example.com")
+        assert "The contact's full name" in self.tool.format_validation_error(
+            exc_info.value
+        )
 
 
 class TestEnvVarSubstitution:

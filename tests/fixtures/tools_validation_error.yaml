@@ -1,0 +1,15 @@
+tools:
+  - name: create_contact
+    exec: "echo created"
+    params:
+      - name: full_name
+        type: str
+        required: true
+        description: The contact's full name
+        example: Jane Doe
+      - name: email
+        type: str
+        required: true
+      - name: age
+        type: int
+        required: false

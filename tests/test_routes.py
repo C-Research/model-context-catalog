@@ -1,14 +1,24 @@
 import json
 
-import mcc.routes as routes_module
 import pytest
+from starlette.requests import Request
+
+import mcc.routes as routes_module
 from mcc.auth import create_user
 from mcc.auth.keys import create_key
 from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.middleware import check_rate_limit, record_tool_call
-from mcc.routes import healthz, metrics, route, tool_detail, tool_execute, tools, users_list, whoami
+from mcc.routes import (
+    healthz,
+    metrics,
+    route,
+    tool_detail,
+    tool_execute,
+    tools,
+    users_list,
+    whoami,
+)
 from mcc.settings import settings as real_settings
-from starlette.requests import Request
 
 
 def _request(headers=None, query="", path_params=None, body=b""):
@@ -192,7 +202,8 @@ class TestToolExecute:
         )
         assert response.status_code == 400
         text = bytes(response.body).decode()
-        assert "ValidationError" in text
+        assert "validation error" in text
+        assert "The message to echo back" in text
         assert "Traceback (most recent call last):" not in text
 
     async def test_validation_error_returns_full_traceback_when_debug(
