@@ -1,16 +1,7 @@
 import importlib
 import inspect
 
-from mcc.pyrunner import resolve
-
-_TYPE_NAMES: dict[type, str] = {
-    str: "str",
-    int: "int",
-    float: "float",
-    bool: "bool",
-    list: "list",
-    dict: "dict",
-}
+from mcc.pyrunner import annotation_type_name, resolve
 
 
 def get_docstring(fn_path: str) -> str:
@@ -36,7 +27,7 @@ def get_signature(fn_path: str) -> dict:
         params.append(
             {
                 "name": param.name,
-                "type": _TYPE_NAMES.get(annotation, "str"),
+                "type": annotation_type_name(annotation),
                 "required": not has_default,
                 "default": param.default if has_default else None,
             }

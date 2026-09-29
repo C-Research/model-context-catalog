@@ -48,7 +48,9 @@ def _load_context() -> Any:
         return {}
 
 
-_TYPE_NAMES: dict[type, str] = {
+# Public: shared with toolsets/contrib/pysrc.py, which introspects signatures
+# the same way but (unlike this module) may import mcc freely.
+TYPE_NAMES: dict[type, str] = {
     str: "str",
     int: "int",
     float: "float",
@@ -60,23 +62,23 @@ _TYPE_NAMES: dict[type, str] = {
 _UNION_ORIGINS = (typing.Union, getattr(types, "UnionType", None))
 
 
-def _annotation_type_name(annotation: Any) -> str:
+def annotation_type_name(annotation: Any) -> str:
     """Map a parameter annotation to one of MCC's coarse type names.
 
     Unwraps Optional[X] / X | None to X — mcc represents optionality via the
     param's `required` flag, not the type itself — and generic containers
     (list[str], dict[str, int]) to their origin, before matching against
-    _TYPE_NAMES. A bare lookup on the raw annotation would silently fall
+    TYPE_NAMES. A bare lookup on the raw annotation would silently fall
     back to "str" for any of these (Optional[list[str]] is never `is` `list`),
     which is exactly the failure mode this exists to avoid.
     """
     origin = typing.get_origin(annotation)
     if origin in _UNION_ORIGINS:
         args = [a for a in typing.get_args(annotation) if a is not type(None)]
-        return _annotation_type_name(args[0]) if len(args) == 1 else "str"
+        return annotation_type_name(args[0]) if len(args) == 1 else "str"
     if origin is not None:
-        return _TYPE_NAMES.get(origin, "str")
-    return _TYPE_NAMES.get(annotation, "str")
+        return TYPE_NAMES.get(origin, "str")
+    return TYPE_NAMES.get(annotation, "str")
 
 
 def json_handler(fn: Any) -> Any:
@@ -158,7 +160,7 @@ def introspect(*fn_paths: str) -> list[dict]:
                 params.append(
                     {
                         "name": param.name,
-                        "type": _annotation_type_name(annotation),
+                        "type": annotation_type_name(annotation),
                         "required": not has_default,
                         "default": param.default if has_default else None,
                         "description": "",
