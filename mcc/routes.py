@@ -4,7 +4,7 @@ import traceback
 from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from markdown_it import MarkdownIt
 from prometheus_client import (
@@ -342,6 +342,32 @@ def _error_text(exc: Exception, tool: ToolModel | None = None) -> str:
     return f"{type(exc).__name__}: {exc}"
 
 
+def _parse_json_body(raw_body: bytes) -> dict | PlainTextResponse:
+    """Parse a request body as a JSON object, or a 400 error response if it
+    isn't valid JSON or isn't a JSON object."""
+    try:
+        params = json.loads(raw_body) if raw_body else {}
+    except json.JSONDecodeError as exc:
+        return PlainTextResponse(_error_text(exc), status_code=400)
+    if not isinstance(params, dict):
+        return PlainTextResponse("Request body must be a JSON object", status_code=400)
+    return params
+
+
+async def _call_tool_identity_only(tool: ToolModel, user: UserModel, params: dict) -> Any:
+    """Call a tool with an identity-only context (no stored session state, no
+    write-back) — the REST v1 execution path, which has no MCP session
+    equivalent to ctx.get_state/set_state."""
+    context = assemble_context(None, user)
+    context_token = current_context_var.set(context)
+    writeback_token = writeback_context_var.set(NO_WRITEBACK)
+    try:
+        return await tool.call(**params)
+    finally:
+        writeback_context_var.reset(writeback_token)
+        current_context_var.reset(context_token)
+
+
 @route("/tools/{key}", ["POST"], optional=True)
 async def tool_execute(request: Request) -> PlainTextResponse | JSONResponse:
     """POST /tools/{key}: executes the tool with the JSON request body as its
@@ -360,13 +386,10 @@ async def tool_execute(request: Request) -> PlainTextResponse | JSONResponse:
     if tool is None:
         return PlainTextResponse("Not found", status_code=404)
 
-    raw_body = await request.body()
-    try:
-        params = json.loads(raw_body) if raw_body else {}
-    except json.JSONDecodeError as exc:
-        return PlainTextResponse(_error_text(exc), status_code=400)
-    if not isinstance(params, dict):
-        return PlainTextResponse("Request body must be a JSON object", status_code=400)
+    parsed_body = _parse_json_body(await request.body())
+    if isinstance(parsed_body, PlainTextResponse):
+        return parsed_body
+    params = parsed_body
 
     username = user.username
     if settings.get("rate_limit", {}).get("enabled", False):
@@ -378,19 +401,13 @@ async def tool_execute(request: Request) -> PlainTextResponse | JSONResponse:
                 status_code=429,
             )
 
-    context = assemble_context(None, user)
-    context_token = current_context_var.set(context)
-    writeback_token = writeback_context_var.set(NO_WRITEBACK)
     try:
-        result = await tool.call(**params)
+        result = await _call_tool_identity_only(tool, user, params)
     except ValidationError as exc:
         return PlainTextResponse(_error_text(exc, tool), status_code=400)
     except Exception as exc:  # noqa: BLE001
         logger.exception("REST execution of %s failed", key)
         return PlainTextResponse(_error_text(exc), status_code=500)
-    finally:
-        writeback_context_var.reset(writeback_token)
-        current_context_var.reset(context_token)
 
     if isinstance(result, tuple) and len(result) == 3:
         code, stdout, stderr = result

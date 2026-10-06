@@ -28,6 +28,21 @@ _LIMIT_SIGNALS = {
 }
 
 
+def _passthrough_env(env_passthrough: bool | list[str]) -> dict[str, str]:
+    """Resolve env_passthrough to the vars it exposes beyond the floor: the
+    whole parent environment for True, an fnmatchcase-filtered subset for a
+    glob list, or nothing for False."""
+    if env_passthrough is True:
+        return dict(os.environ)
+    if isinstance(env_passthrough, list):
+        return {
+            k: v
+            for k, v in os.environ.items()
+            if any(fnmatchcase(k, pat) for pat in env_passthrough)
+        }
+    return {}
+
+
 def _build_env(
     env: dict[str, str] | None,
     env_file: str | None,
@@ -51,16 +66,7 @@ def _build_env(
     OS default or None fallback.
     """
     base = {k: os.environ[k] for k in settings.ENV_FLOOR if k in os.environ}
-    if env_passthrough is True:
-        base = dict(os.environ)
-    elif isinstance(env_passthrough, list):
-        base.update(
-            {
-                k: v
-                for k, v in os.environ.items()
-                if any(fnmatchcase(k, pat) for pat in env_passthrough)
-            }
-        )
+    base.update(_passthrough_env(env_passthrough))
     if env_file:
         base.update({k: v for k, v in dotenv_values(env_file).items() if v is not None})
     if env:
@@ -205,6 +211,23 @@ def _proc_extra(
     return extra
 
 
+def _traceback_frame_end(lines: list[str]) -> int | None:
+    """Find the index just after the last ``File "..."`` frame header — the
+    start of the exception message that follows it — or None if no frame
+    header is present."""
+    last_file = next(
+        (i for i in range(len(lines) - 1, -1, -1) if lines[i].lstrip().startswith('File "')),
+        None,
+    )
+    if last_file is None:
+        return None
+    file_indent = len(lines[last_file]) - len(lines[last_file].lstrip())
+    start = last_file + 1
+    while start < len(lines) and (len(lines[start]) - len(lines[start].lstrip())) > file_indent:
+        start += 1
+    return start
+
+
 def _sanitize_fn_traceback(err: str) -> str:
     """Reduce a pyrunner-emitted Python traceback to its final exception message.
 
@@ -222,16 +245,9 @@ def _sanitize_fn_traceback(err: str) -> str:
     if settings.get("DEBUG", False) or "Traceback (most recent call last):" not in err:
         return err
     lines = [line for line in err.strip().splitlines() if line.strip()]
-    last_file = next(
-        (i for i in range(len(lines) - 1, -1, -1) if lines[i].lstrip().startswith('File "')),
-        None,
-    )
-    if last_file is None:
+    start = _traceback_frame_end(lines)
+    if start is None:
         return lines[-1] if lines else err
-    file_indent = len(lines[last_file]) - len(lines[last_file].lstrip())
-    start = last_file + 1
-    while start < len(lines) and (len(lines[start]) - len(lines[start].lstrip())) > file_indent:
-        start += 1
     return "\n".join(lines[start:]) if start < len(lines) else lines[-1]
 
 

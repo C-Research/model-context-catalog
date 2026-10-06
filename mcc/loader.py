@@ -89,6 +89,59 @@ def _batch_introspect(
     return results
 
 
+def _cascade_file_env(
+    entries: list[dict], file_env_file: str | None, file_env: dict[str, str]
+) -> None:
+    """Fill each entry's env_file/env from file-level defaults; per-tool values win."""
+    if not (file_env_file or file_env):
+        return
+    for entry in entries:
+        if file_env_file and not entry.get("env_file"):
+            entry["env_file"] = file_env_file
+        if file_env:
+            entry["env"] = {**file_env, **(entry.get("env") or {})}
+
+
+def _apply_introspect_result(entry: dict, info: dict) -> None:
+    """Fill an entry's name/description/params/return_type from an introspect result.
+    Explicit values on the entry always take precedence."""
+    if not entry.get("name"):
+        entry["name"] = info["name"]
+    if not entry.get("description"):
+        entry["description"] = info["doc"]
+    if not entry.get("params"):
+        entry["params"] = info["params"]
+    if not entry.get("return_type"):
+        entry["return_type"] = info.get("return_type")
+
+
+def _fill_missing_metadata(entries: list[dict], source_path: Path) -> None:
+    """Batch introspect fn entries missing params and/or a return_type, grouped by
+    interpreter. An entry with explicit params still needs this when return_type is
+    unset — only return_type is filled in for it in that case."""
+    needs_introspect = [
+        (i, e)
+        for i, e in enumerate(entries)
+        if e.get("fn") and (not e.get("params") or not e.get("return_type"))
+    ]
+    if not needs_introspect:
+        return
+
+    groups: dict[tuple, list[tuple[int, dict]]] = defaultdict(list)
+    for i, e in needs_introspect:
+        groups[_introspect_key(e)].append((i, e))
+
+    for key, group in groups.items():
+        python, cwd, env_file, env_items = key
+        env = dict(env_items) if env_items else None
+        fn_paths = [e["fn"] for _, e in group]
+        results = _batch_introspect(
+            python, fn_paths, source_path, cwd or None, env_file or None, env
+        )
+        for _, e in group:
+            _apply_introspect_result(e, results[e["fn"]])
+
+
 def load_file(path: str | Path) -> list[ToolModel]:
     if not isinstance(path, Path):
         path = Path(path)
@@ -101,56 +154,31 @@ def load_file(path: str | Path) -> list[ToolModel]:
     parent_groups: list[str] = tool.get("groups", [])  # type: ignore[assignment]  # EnvYAML stubs return Unknown|None regardless of default
     entries: list[dict] = list(tool.get("tools", []))  # type: ignore[arg-type]  # EnvYAML stubs return Unknown|None regardless of default
 
-    # Cascade file-level env_file / env into each tool entry as defaults.
-    # Per-tool values always take precedence; file-level fills in the gaps.
-    file_env_file: str | None = tool.get("env_file") or None  # type: ignore[assignment]
-    file_env: dict[str, str] = dict(tool.get("env") or {})  # type: ignore[arg-type]
-    if file_env_file or file_env:
-        for entry in entries:
-            if file_env_file and not entry.get("env_file"):
-                entry["env_file"] = file_env_file
-            if file_env:
-                entry["env"] = {**file_env, **(entry.get("env") or {})}
+    _cascade_file_env(
+        entries,
+        tool.get("env_file") or None,  # type: ignore[assignment]
+        dict(tool.get("env") or {}),  # type: ignore[arg-type]
+    )
+    _fill_missing_metadata(entries, path)
 
-    # Pre-pass: batch introspect fn entries missing params and/or a return_type,
-    # grouped by interpreter. An entry with explicit params still needs this when
-    # return_type is unset — only return_type is filled in for it in that case.
-    needs_introspect = [
-        (i, e)
-        for i, e in enumerate(entries)
-        if e.get("fn") and (not e.get("params") or not e.get("return_type"))
-    ]
-    if needs_introspect:
-        groups: dict[tuple, list[tuple[int, dict]]] = defaultdict(list)
-        for i, e in needs_introspect:
-            groups[_introspect_key(e)].append((i, e))
-
-        for key, group in groups.items():
-            python, cwd, env_file, env_items = key
-            env = dict(env_items) if env_items else None
-            fn_paths = [e["fn"] for _, e in group]
-            results = _batch_introspect(
-                python, fn_paths, path, cwd or None, env_file or None, env
-            )
-            for _, e in group:
-                info = results[e["fn"]]
-                if not e.get("name"):
-                    e["name"] = info["name"]
-                if not e.get("description"):
-                    e["description"] = info["doc"]
-                if not e.get("params"):
-                    e["params"] = info["params"]
-                if not e.get("return_type"):
-                    e["return_type"] = info.get("return_type")
-
-    tools = [
-        # fromkeys deduplicates while preserving order
+    # fromkeys deduplicates while preserving order
+    return [
         ToolModel(
             groups=list(dict.fromkeys(parent_groups + entry.pop("groups", []))), **entry
         )
         for entry in entries
     ]
-    return tools
+
+
+def _resolve_tool_files(path_str: str) -> list[Path] | list[str]:
+    """Expand a load() path entry — glob pattern, directory, or single file — to
+    the concrete tool files it names."""
+    if any(c in path_str for c in ("*", "?", "[")):
+        return sorted(glob_module.glob(path_str, recursive=True))
+    path = Path(path_str)
+    if path.is_dir():
+        return sorted(path.glob("*.y*ml"))
+    return [path]
 
 
 class Loader(dict):
@@ -162,19 +190,9 @@ class Loader(dict):
         for path in paths:
             path_str = str(path)
             self.paths.add(path_str)
-            if any(c in path_str for c in ("*", "?", "[")):
-                for file in sorted(glob_module.glob(path_str, recursive=True)):
-                    for tool in load_file(file):
-                        self.register(tool)
-            else:
-                path = Path(path_str)
-                if path.is_dir():
-                    for file in sorted(path.glob("*.y*ml")):
-                        for tool in load_file(file):
-                            self.register(tool)
-                else:
-                    for tool in load_file(path):
-                        self.register(tool)
+            for file in _resolve_tool_files(path_str):
+                for tool in load_file(file):
+                    self.register(tool)
         added = len(self) - before
         logger.debug(
             "Loaded %d tools in %dms from %s ",

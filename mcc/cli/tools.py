@@ -89,6 +89,81 @@ def info(tool):
     console.print(tool_obj.signature)
 
 
+def _resolve_caller(as_user: str | None) -> UserModel | None:
+    """Resolve the calling user for `tool call`: the given --as username, or a
+    synthetic admin when omitted. Prints an error and returns None if the
+    username doesn't resolve."""
+    if as_user is None:
+        return _CLI_USER
+    current_user = asyncio.run(get_user_by_username(as_user))
+    if current_user is None:
+        err(f"user `{as_user}` not found")
+    return current_user
+
+
+def _build_kwargs(json_str: str | None, params: tuple[str, ...]) -> dict[str, Any] | None:
+    """Merge a --json blob with key=value CLI params into one kwargs dict.
+    Prints an error and returns None on failure."""
+    kwargs: dict[str, Any] = {}
+    if json_str:
+        parsed_json = _load_json_blob(json_str)
+        if parsed_json is None:
+            return None
+        kwargs.update(parsed_json)
+    parsed_params = _parse_kv_pairs(params)
+    if parsed_params is None:
+        return None
+    kwargs.update(parsed_params)
+    return kwargs
+
+
+def _build_context_vars(
+    ctx_json_str: str | None, ctx_vars: tuple[str, ...]
+) -> dict[str, Any] | None:
+    """Merge --ctx-json with --ctx key=value pairs and validate each key. Prints
+    an error and returns None on failure."""
+    ctx: dict[str, Any] = {}
+    if ctx_json_str:
+        parsed_ctx_json = _load_json_blob(ctx_json_str)
+        if parsed_ctx_json is None:
+            return None
+        ctx.update(parsed_ctx_json)
+    parsed_ctx = _parse_kv_pairs(ctx_vars)
+    if parsed_ctx is None:
+        return None
+    ctx.update(parsed_ctx)
+
+    for key in ctx:
+        if key in RESERVED_KEYS:
+            err(f"`{key}` is a reserved identity key and cannot be set via --ctx")
+            return None
+        if not SLUG_RE.match(key):
+            err(
+                f"invalid context var name `{key}` — must be lowercase letters, "
+                "digits, and underscores, not starting with a digit"
+            )
+            return None
+    return ctx
+
+
+def _print_tool_result(result: Any, pretty: bool) -> None:
+    if isinstance(result, tuple):
+        # exception
+        console.print(result[1]) if pretty else print(result[1])
+        err(result[2], result[0])
+        return
+    if result is None:
+        return
+    try:
+        result = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    if pretty:
+        console.print_json(data=result)
+    else:
+        print(json.dumps(result))
+
+
 @tool.command("call", aliases=["exec", "run"])
 @click.argument("tool")
 @click.argument("params", nargs=-1)
@@ -155,48 +230,17 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
         err(f" tool `{tool}` not found in loaded tools: {','.join(loader)}")
         return
 
-    if as_user is None:
-        current_user = _CLI_USER
-    else:
-        current_user = asyncio.run(get_user_by_username(as_user))
-        if current_user is None:
-            err(f"user `{as_user}` not found")
-            return
-
-    kwargs: dict[str, Any] = {}
-    if json_str:
-        parsed_json = _load_json_blob(json_str)
-        if parsed_json is None:
-            return
-        kwargs.update(parsed_json)
-
-    parsed_params = _parse_kv_pairs(params)
-    if parsed_params is None:
+    current_user = _resolve_caller(as_user)
+    if current_user is None:
         return
-    kwargs.update(parsed_params)
 
-    ctx: dict[str, Any] = {}
-    if ctx_json_str:
-        parsed_ctx_json = _load_json_blob(ctx_json_str)
-        if parsed_ctx_json is None:
-            return
-        ctx.update(parsed_ctx_json)
-
-    parsed_ctx = _parse_kv_pairs(ctx_vars)
-    if parsed_ctx is None:
+    kwargs = _build_kwargs(json_str, params)
+    if kwargs is None:
         return
-    ctx.update(parsed_ctx)
 
-    for key in ctx:
-        if key in RESERVED_KEYS:
-            err(f"`{key}` is a reserved identity key and cannot be set via --ctx")
-            return
-        if not SLUG_RE.match(key):
-            err(
-                f"invalid context var name `{key}` — must be lowercase letters, "
-                "digits, and underscores, not starting with a digit"
-            )
-            return
+    ctx = _build_context_vars(ctx_json_str, ctx_vars)
+    if ctx is None:
+        return
 
     async def _execute():
         current_user_var.set(current_user)
@@ -218,18 +262,4 @@ def tool_call(tool, params, json_str, ctx_vars, ctx_json_str, as_user, pretty):
         err(e)
         return
 
-    if isinstance(result, tuple):
-        # exception
-        console.print(result[1]) if pretty else print(result[1])
-        err(result[2], result[0])
-        return
-    if result is None:
-        return
-    try:
-        result = json.loads(result)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    if pretty:
-        console.print_json(data=result)
-    else:
-        print(json.dumps(result))
+    _print_tool_result(result, pretty)

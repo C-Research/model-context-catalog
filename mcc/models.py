@@ -20,6 +20,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
+from pydantic_core import ErrorDetails
 
 from mcc.context import CONTEXT_PARAM, UserModel, current_user_var
 from mcc.exec import _build_pyrunner_env, make_exec_callable, make_py_callable
@@ -72,6 +73,101 @@ TYPE_MAP: dict[str, type] = {
     "list": list,
     "dict": dict,
 }
+
+
+def _curl_to_exec(curl: str, stdin: bool) -> str:
+    """Build an equivalent `exec` shell command from a `curl` shorthand tool."""
+    flags = "curl -sL -o -"
+    if stdin:
+        flags += " --json @-"
+    # Bare URLs need quoting so shell doesn't interpret & as a background op.
+    # Flag-prefixed values (e.g. "-H 'Key: x' 'https://...'") are already quoted.
+    curl_arg = f"'{curl}'" if curl.lstrip().startswith(("http://", "https://")) else curl
+    return f"{flags} {curl_arg}"
+
+
+def _resolve_python_path(python: str) -> str:
+    resolved = shutil.which(python)
+    if resolved is None:
+        raise ValueError(f"Python interpreter not found: {python!r}")
+    return resolved
+
+
+def _run_fn_introspection(
+    python: str,
+    fn: str,
+    cwd: str | None,
+    env: dict[str, str] | None,
+    env_file: str | None,
+    env_passthrough: bool | list[str],
+) -> dict:
+    """Run pyrunner introspect for a single fn in a subprocess and return its
+    result dict. Raises ValueError on subprocess failure, unparseable output,
+    or a per-item introspection error."""
+    pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
+    effective_cwd = cwd if cwd is not None else os.getcwd()
+    run_kwargs: dict = {
+        "capture_output": True,
+        "text": True,
+        "timeout": 30,
+        "cwd": effective_cwd,
+        "env": _build_pyrunner_env(env, env_file, env_passthrough, effective_cwd),
+    }
+    result = subprocess.run(  # nosec B603 -- argv list, no shell; python/pyrunner_path
+        # are resolved internally and fn comes from admin-authored tool YAML, not
+        # runtime/caller input
+        [python, pyrunner_path, "introspect", fn],
+        check=False,
+        **run_kwargs,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"Failed to introspect '{fn}' with {python!r}: {result.stderr}")
+    try:
+        items = json.loads(result.stdout)
+    except (json.JSONDecodeError, ValueError):
+        raise ValueError(
+            "Unable to parse JSON output. This is probably because of something in the tool writing to stdout"
+        )
+    info = items[0]
+    if "error" in info:
+        raise ValueError(f"Failed to introspect '{fn}':\n{info['error']}")
+    return info
+
+
+def _name_from_fn_path(fn: str) -> str:
+    """Derive a tool name from its fn dotpath when none was declared explicitly."""
+    attrs = fn.split(":", 1)[-1] if ":" in fn else fn
+    return attrs.rsplit(".", 1)[-1]
+
+
+def _format_param_error(
+    error: ErrorDetails, param_by_name: dict[str, "ParamModel"], valid_params: list[str]
+) -> list[str]:
+    """Render one pydantic error's location, message, and — when available —
+    the offending param's declared type/description/example, or a
+    fuzzy-matched suggestion for an unrecognized param name."""
+    loc = ".".join(str(part) for part in error["loc"])
+    lines = [loc]
+    field_name = str(error["loc"][0]) if error["loc"] else None
+    param = param_by_name.get(field_name) if field_name else None
+    bits = [f"type={error['type']}"]
+    if param is not None:
+        bits.append(f"expected_type={param.py_type.__name__}")
+    bits.append(f"input_value={error['input']!r}")
+    bits.append(f"input_type={type(error['input']).__name__}")
+    lines.append(f"  {error['msg']} [{', '.join(bits)}]")
+    if param is not None and (param.description or param.example):
+        hint = param.description
+        if param.example:
+            hint = f"{hint} — e.g. {param.example}" if hint else f"e.g. {param.example}"
+        lines.append(f"    {hint}")
+    elif error["type"] == "extra_forbidden" and field_name is not None:
+        match = difflib.get_close_matches(field_name, valid_params, n=1, cutoff=0.6)
+        if match:
+            lines.append(f"    Unknown parameter — did you mean `{match[0]}`?")
+        else:
+            lines.append(f"    Unknown parameter. Valid params: {', '.join(valid_params)}")
+    return lines
 
 
 def sorted_groups(groups: list[str]) -> list[str]:
@@ -135,17 +231,7 @@ class ToolModel(BaseModel):
                 raise ValueError(
                     "Tool must specify only one of 'fn', 'exec', or 'curl'"
                 )
-            flags = "curl -sL -o -"
-            if self.stdin:
-                flags += " --json @-"
-            # Bare URLs need quoting so shell doesn't interpret & as a background op.
-            # Flag-prefixed values (e.g. "-H 'Key: x' 'https://...'") are already quoted.
-            curl_arg = (
-                f"'{self.curl}'"
-                if self.curl.lstrip().startswith(("http://", "https://"))
-                else self.curl
-            )
-            self.exec = f"{flags} {curl_arg}"
+            self.exec = _curl_to_exec(self.curl, self.stdin)
         if self.fn and self.exec:
             raise ValueError("Tool must specify either 'fn' or 'exec', not both")
         if not self.fn and not self.exec:
@@ -155,10 +241,7 @@ class ToolModel(BaseModel):
         if self.fn and not self.python:
             self.python = sys.executable
         if self.python:
-            resolved = shutil.which(self.python)
-            if resolved is None:
-                raise ValueError(f"Python interpreter not found: {self.python!r}")
-            self.python = resolved
+            self.python = _resolve_python_path(self.python)
         return self
 
     @model_validator(mode="after")
@@ -178,39 +261,9 @@ class ToolModel(BaseModel):
         # function's return_type, but must not have its declared params
         # overwritten.
         if self.params is None or not self.return_type:
-            pyrunner_path = str(Path(__file__).with_name("pyrunner.py"))
-
-            effective_cwd = self.cwd if self.cwd is not None else os.getcwd()
-            run_kwargs: dict = {
-                "capture_output": True,
-                "text": True,
-                "timeout": 30,
-                "cwd": effective_cwd,
-                "env": _build_pyrunner_env(
-                    self.env, self.env_file, self.env_passthrough, effective_cwd
-                ),
-            }
-            result = subprocess.run(  # nosec B603 -- argv list, no shell; self.python/
-                # pyrunner_path are resolved internally and self.fn comes from
-                # admin-authored tool YAML, not runtime/caller input
-                [self.python, pyrunner_path, "introspect", self.fn],
-                check=False,
-                **run_kwargs,
+            info = _run_fn_introspection(
+                self.python, self.fn, self.cwd, self.env, self.env_file, self.env_passthrough
             )
-            if result.returncode != 0:
-                raise ValueError(
-                    f"Failed to introspect '{self.fn}' with {self.python!r}:"
-                    f" {result.stderr}"
-                )
-            try:
-                items = json.loads(result.stdout)
-            except (json.JSONDecodeError, ValueError):
-                raise ValueError(
-                    "Unable to parse JSON output. This is probably because of something in the tool writing to stdout"
-                )
-            info = items[0]
-            if "error" in info:
-                raise ValueError(f"Failed to introspect '{self.fn}':\n{info['error']}")
             if not self.name:
                 self.name = info["name"]
             if not self.description:
@@ -221,8 +274,7 @@ class ToolModel(BaseModel):
                 self.params = [ParamModel(**p) for p in info["params"]]
         if not self.name:
             # params explicitly declared; derive name from path string
-            attrs = self.fn.split(":", 1)[-1] if ":" in self.fn else self.fn
-            self.name = attrs.rsplit(".", 1)[-1]
+            self.name = _name_from_fn_path(self.fn)
         return self
 
     @property
@@ -325,27 +377,7 @@ class ToolModel(BaseModel):
         )
         lines = [header]
         for error in errors:
-            loc = ".".join(str(part) for part in error["loc"])
-            lines.append(loc)
-            field_name = str(error["loc"][0]) if error["loc"] else None
-            param = param_by_name.get(field_name) if field_name else None
-            bits = [f"type={error['type']}"]
-            if param is not None:
-                bits.append(f"expected_type={param.py_type.__name__}")
-            bits.append(f"input_value={error['input']!r}")
-            bits.append(f"input_type={type(error['input']).__name__}")
-            lines.append(f"  {error['msg']} [{', '.join(bits)}]")
-            if param is not None and (param.description or param.example):
-                hint = param.description
-                if param.example:
-                    hint = f"{hint} — e.g. {param.example}" if hint else f"e.g. {param.example}"
-                lines.append(f"    {hint}")
-            elif error["type"] == "extra_forbidden" and field_name is not None:
-                match = difflib.get_close_matches(field_name, valid_params, n=1, cutoff=0.6)
-                if match:
-                    lines.append(f"    Unknown parameter — did you mean `{match[0]}`?")
-                else:
-                    lines.append(f"    Unknown parameter. Valid params: {', '.join(valid_params)}")
+            lines.extend(_format_param_error(error, param_by_name, valid_params))
         return "\n".join(lines)
 
     def allows(self, user: "UserModel") -> bool:

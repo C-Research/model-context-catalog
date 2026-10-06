@@ -79,36 +79,45 @@ def _write(text: str, output_path: str | None) -> None:
         print(text, end="")
 
 
-def _render(docs: list[dict], columns: list[_Column], fmt: str, output_path: str | None) -> None:
-    """Renders `docs` as a rich table (to stdout only) or CSV/JSON (to stdout
-    or `output_path`), using `columns` to select and format fields."""
-    if fmt == "json":
-        payload = [{key: doc.get(key) for _, key, _ in columns} for doc in docs]
-        _write(json.dumps(payload, indent=2, default=str), output_path)
-        return
+def _render_json(docs: list[dict], columns: list[_Column], output_path: str | None) -> None:
+    payload = [{key: doc.get(key) for _, key, _ in columns} for doc in docs]
+    _write(json.dumps(payload, indent=2, default=str), output_path)
 
-    if fmt == "csv":
-        buf = StringIO()
-        writer = csv.writer(buf)
-        writer.writerow([header for header, _, _ in columns])
-        for doc in docs:
-            writer.writerow([_value(doc, key, formatter) for _, key, formatter in columns])
-        _write(buf.getvalue(), output_path)
-        return
 
+def _render_csv(docs: list[dict], columns: list[_Column], output_path: str | None) -> None:
+    buf = StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([header for header, _, _ in columns])
+    for doc in docs:
+        writer.writerow([_value(doc, key, formatter) for _, key, formatter in columns])
+    _write(buf.getvalue(), output_path)
+
+
+def _render_table(docs: list[dict], columns: list[_Column], output_path: str | None) -> None:
     table = Table(show_header=True, header_style="bold")
     for header, _, _ in columns:
         table.add_column(header)
     for doc in docs:
-        table.add_row(
-            *[_display(doc, key, formatter) for _, key, formatter in columns]
-        )
+        table.add_row(*[_display(doc, key, formatter) for _, key, formatter in columns])
     if output_path:
         with open(output_path, "w") as f:
             Console(file=f, markup=True).print(table)
         console.print(f"[dim]Wrote output to {output_path}[/dim]")
     else:
         console.print(table)
+
+
+_RENDERERS: dict[str, Callable[[list[dict], list[_Column], str | None], None]] = {
+    "json": _render_json,
+    "csv": _render_csv,
+    "table": _render_table,
+}
+
+
+def _render(docs: list[dict], columns: list[_Column], fmt: str, output_path: str | None) -> None:
+    """Renders `docs` as a rich table (to stdout only) or CSV/JSON (to stdout
+    or `output_path`), using `columns` to select and format fields."""
+    _RENDERERS[fmt](docs, columns, output_path)
 
 
 def _value(doc: dict, key: str, formatter: Callable[[Any], Any] | None) -> Any:

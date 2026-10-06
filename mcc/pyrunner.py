@@ -119,6 +119,48 @@ def resolve(fn_path: str) -> Any:
     return obj
 
 
+def _inspect_param(param: inspect.Parameter) -> dict:
+    has_default = param.default is not param.empty
+    if param.annotation is not param.empty:
+        annotation = param.annotation
+    elif has_default:
+        # No annotation (common for C builtins like re.sub, or a bare
+        # `x=False` in Python source): infer from the default's runtime type
+        # rather than assuming str, or a differently-typed default (e.g. a
+        # bool flag) would be exposed to callers as a str param that rejects
+        # the correct type.
+        annotation = type(param.default)
+    else:
+        annotation = str
+    return {
+        "name": param.name,
+        "type": annotation_type_name(annotation),
+        "required": not has_default,
+        "default": param.default if has_default else None,
+        "description": "",
+    }
+
+
+def _inspect_fn(fn_path: str, fn: Any) -> dict:
+    sig = inspect.signature(fn)
+    params = [
+        _inspect_param(param)
+        for param in sig.parameters.values()
+        if param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+    ]
+    hint = sig.return_annotation
+    return_type = (
+        None if hint is inspect.Parameter.empty else getattr(hint, "__name__", str(hint))
+    )
+    return {
+        "fn_path": fn_path,
+        "name": getattr(fn, "__name__", fn_path.rsplit(".", 1)[-1]),
+        "doc": inspect.getdoc(fn) or "",
+        "params": params,
+        "return_type": return_type,
+    }
+
+
 @json_handler
 def introspect(*fn_paths: str) -> list[dict]:
     """Inspect functions and print a JSON array of results to stdout.
@@ -140,45 +182,7 @@ def introspect(*fn_paths: str) -> list[dict]:
     # Phase 2 — inspect successfully resolved fns
     for fn_path, fn in resolved.items():
         try:
-            sig = inspect.signature(fn)
-            params = []
-            for param in sig.parameters.values():
-                if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-                    continue
-                has_default = param.default is not param.empty
-                if param.annotation is not param.empty:
-                    annotation = param.annotation
-                elif has_default:
-                    # No annotation (common for C builtins like re.sub, or a
-                    # bare `x=False` in Python source): infer from the default's
-                    # runtime type rather than assuming str, or a differently-
-                    # typed default (e.g. a bool flag) would be exposed to
-                    # callers as a str param that rejects the correct type.
-                    annotation = type(param.default)
-                else:
-                    annotation = str
-                params.append(
-                    {
-                        "name": param.name,
-                        "type": annotation_type_name(annotation),
-                        "required": not has_default,
-                        "default": param.default if has_default else None,
-                        "description": "",
-                    }
-                )
-            hint = sig.return_annotation
-            return_type = (
-                None
-                if hint is inspect.Parameter.empty
-                else getattr(hint, "__name__", str(hint))
-            )
-            result_map[fn_path] = {
-                "fn_path": fn_path,
-                "name": getattr(fn, "__name__", fn_path.rsplit(".", 1)[-1]),
-                "doc": inspect.getdoc(fn) or "",
-                "params": params,
-                "return_type": return_type,
-            }
+            result_map[fn_path] = _inspect_fn(fn_path, fn)
         except Exception:  # noqa: BLE001
             result_map[fn_path] = {"fn_path": fn_path, "error": traceback.format_exc()}
 

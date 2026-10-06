@@ -159,6 +159,15 @@ class _ElicitationCancelled(Exception):
     """Raised when the caller declines or cancels elicitation of required params."""
 
 
+def _needs_elicitation(param, params: dict | None) -> bool:
+    """True if `param` is required, elicitable, and not already supplied."""
+    return (
+        param.required
+        and param.name not in (params or {})
+        and param.type in _ELICITABLE
+    )
+
+
 async def _elicit_missing(ctx: Context, key: str, tool, params: dict | None) -> dict:
     """Prompt the caller for any required, elicitable params not already supplied.
 
@@ -167,11 +176,7 @@ async def _elicit_missing(ctx: Context, key: str, tool, params: dict | None) -> 
     elicitation itself fails, logs and returns the originals unchanged so the
     tool's own validation can surface the missing-param error.
     """
-    missing = [
-        p
-        for p in tool.visible_params
-        if p.required and p.name not in (params or {}) and p.type in _ELICITABLE
-    ]
+    missing = [p for p in tool.visible_params if _needs_elicitation(p, params)]
     if not missing:
         return params or {}
     fields: dict = {
