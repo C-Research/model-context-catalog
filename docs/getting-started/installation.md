@@ -45,6 +45,16 @@ default:
 
 See [Search backend](configuration.md#search-backend) for OpenSearch's equivalent, and [Auth Backends](../auth/backends.md) for authentication configuration.
 
+## Create the indices
+
+On a fresh cluster, create the users and keys indices (plus the audit indices if `audit_tool_index` / `audit_search_index` are set) before adding users:
+
+```bash
+mcc init
+```
+
+It is safe to re-run. The tool index is built separately by `mcc tool reindex`, below.
+
 ## Populate the tool catalog
 
 The tool index is never created or populated automatically — not on server startup, not by any other `mcc` command. Run this once, against a freshly-configured Elasticsearch or OpenSearch cluster (and again any time your tool YAML files change):

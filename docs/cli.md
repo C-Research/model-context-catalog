@@ -46,6 +46,18 @@ Any individual setting can also be overridden with the `MCC_` prefix (e.g. `MCC_
 
 ---
 
+## `mcc init`
+
+Create the Elasticsearch/OpenSearch indices mcc needs, if they don't exist yet. Safe to re-run — existing indices are left untouched.
+
+```bash
+mcc init
+```
+
+Creates the users and keys indices, plus the audit indices when `audit_tool_index` / `audit_search_index` are set. The tool index is **not** created here; run [`mcc tool reindex`](cli/tool.md) for that. Run `mcc init` once against a fresh cluster, before `mcc user add`.
+
+---
+
 ## `mcc user`
 
 Manage users and their permissions.

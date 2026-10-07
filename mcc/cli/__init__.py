@@ -57,11 +57,13 @@ def cli(env, verbose):
 
 from mcc.cli.audit import audit
 from mcc.cli.download import download
+from mcc.cli.init import init
 from mcc.cli.mcp import mcp_cmd
 from mcc.cli.tools import tool
 from mcc.cli.users import user
 
 cli.add_command(download)
+cli.add_command(init)
 cli.add_command(user)
 cli.add_command(tool)
 cli.add_command(mcp_cmd)
