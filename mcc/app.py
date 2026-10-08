@@ -196,6 +196,27 @@ async def _elicit_missing(ctx: Context, key: str, tool, params: dict | None) -> 
     return params or {}
 
 
+def _is_cacheable_result(result) -> bool:
+    """Whether a tool result is a success worth caching.
+
+    A failed subprocess (non-zero exit, timeout, resource limit) is returned by
+    mcc.exec as a ``(code, stdout, stderr)`` tuple of ``(int, str, str)``
+    rather than raised. Caching it would replay the failure to the caller for
+    the whole ``cache_ttl`` even after its cause (a missing API key, a down
+    dependency) is fixed. Only that exact shape is treated as a failure: a
+    successful result is JSON-parsed, so it is never a tuple, and a list or
+    other value that merely looks similar is still cached.
+    """
+    is_failure = (
+        isinstance(result, tuple)
+        and len(result) == 3
+        and isinstance(result[0], int)
+        and isinstance(result[1], str)
+        and isinstance(result[2], str)
+    )
+    return not is_failure
+
+
 def _coerce_result(result):
     """fn tools return JSON-encoded strings via subprocess; parse for natural values."""
     if isinstance(result, str):
@@ -303,7 +324,9 @@ async def execute(ctx: Context, key: str, params: dict | None = None):
             current_context_var.reset(token)
 
     try:
-        return await cached(cache_key, _compute, tool.cache_ttl)
+        return await cached(
+            cache_key, _compute, tool.cache_ttl, should_cache=_is_cacheable_result
+        )
     except _ElicitationCancelled:
         return "Execution cancelled: required parameters not provided"
     except ValidationError as e:

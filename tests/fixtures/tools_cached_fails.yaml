@@ -1,0 +1,10 @@
+tools:
+  - name: always_fails
+    fn: tests.example.always_fails
+    description: Always raises, to exercise failure handling under caching
+    cache_ttl: 60
+    params:
+      - name: msg
+        type: str
+        required: true
+        description: The error message to raise

@@ -11,9 +11,9 @@ from fastmcp.server.elicitation import (
 from pydantic import BaseModel
 
 import mcc.audit as audit_module
-from mcc.app import describe_tools, execute, search, whoami
+from mcc.app import _is_cacheable_result, describe_tools, execute, search, whoami
 from mcc.audit import SearchAuditIndex
-from mcc.cache import cache, params_hash
+from mcc.cache import cache, cached, params_hash
 from mcc.context import ANONYMOUS_USER, UserModel, current_user_var
 from mcc.loader import loader
 from mcc.settings import settings as real_settings
@@ -397,6 +397,30 @@ class TestExecuteCache:
         await cache.set(cache_key, "sentinel", expire=60)
         result2 = await execute(ctx, "echo", {"message": "hi"})
         assert result2 == "sentinel"
+
+    async def test_failure_result_is_not_cached(self, load_fixture):
+        # A failing fn tool comes back as a (code, stdout, stderr) tuple, not an
+        # exception; it must not be stored or it would be replayed for cache_ttl.
+        load_fixture("tools_cached_fails.yaml")
+        ctx = _ctx_raises()
+        result = await execute(ctx, "always_fails", {"msg": "boom"})
+        assert isinstance(result, tuple)
+        assert result[0] != 0
+        cache_key = (
+            f"exec:always_fails:{params_hash({'msg': 'boom'})}:"
+            f"{params_hash(_ANON_CONTEXT)}"
+        )
+        assert await cache.get(cache_key, default=None) is None
+
+    async def test_success_result_is_still_cached(self, load_fixture):
+        load_fixture("tools_cached.yaml")
+        ctx = _ctx_raises()
+        await execute(ctx, "echo", {"message": "ok"})
+        cache_key = (
+            f"exec:echo:{params_hash({'message': 'ok'})}:"
+            f"{params_hash(_ANON_CONTEXT)}"
+        )
+        assert await cache.get(cache_key, default=None) == ["ok"]
 
     async def test_no_cache_ttl_always_calls_tool(self, load_fixture):
         # Tool without cache_ttl: manually set a cache entry and verify it's ignored.
@@ -812,3 +836,61 @@ async def test_rate_limit_check_skipped_when_disabled(monkeypatch, load_fixture)
 
     assert result == ["hi"]
     assert called is False
+
+
+class TestIsCacheableResult:
+    """Only the (int, str, str) failure envelope from mcc.exec is uncacheable."""
+
+    @pytest.mark.parametrize(
+        "result",
+        [(1, "", "Traceback ..."), (-1, "", "timeout after 5s"), (2, "out", "")],
+    )
+    def test_failure_tuple_not_cacheable(self, result):
+        assert _is_cacheable_result(result) is False
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            ["hi"],  # typical successful tool result
+            [1, "", "x"],  # list that merely looks like the failure triple
+            (1, "x"),  # wrong arity
+            (1, "a", "b", "c"),
+            ("1", "", ""),  # wrong element types
+            (1, 2, ""),
+            "text",
+            None,
+            {"a": 1},
+        ],
+    )
+    def test_everything_else_cacheable(self, result):
+        assert _is_cacheable_result(result) is True
+
+
+class TestCachedShouldCache:
+    async def test_rejected_value_returned_but_not_stored(self):
+        calls = 0
+
+        async def compute():
+            nonlocal calls
+            calls += 1
+            return "bad"
+
+        key = "should-cache-test:rejected"
+        await cache.delete(key)
+        first = await cached(key, compute, 60, should_cache=lambda v: v != "bad")
+        second = await cached(key, compute, 60, should_cache=lambda v: v != "bad")
+        assert (first, second, calls) == ("bad", "bad", 2)
+
+    async def test_accepted_value_is_stored(self):
+        calls = 0
+
+        async def compute():
+            nonlocal calls
+            calls += 1
+            return "good"
+
+        key = "should-cache-test:accepted"
+        await cache.delete(key)
+        await cached(key, compute, 60, should_cache=lambda v: True)
+        await cached(key, compute, 60, should_cache=lambda v: True)
+        assert calls == 1

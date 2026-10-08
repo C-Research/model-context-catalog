@@ -25,7 +25,10 @@ def params_hash(params: dict | None) -> str:
 
 
 async def cached(
-    key: str | None, compute: Callable[[], Awaitable[Any]], expire: int | None
+    key: str | None,
+    compute: Callable[[], Awaitable[Any]],
+    expire: int | None,
+    should_cache: Callable[[Any], bool] | None = None,
 ) -> Any:
     """Return the cached value for key, else compute it and store it under key.
 
@@ -37,6 +40,10 @@ async def cached(
     Hits are distinguished from misses with a sentinel default rather than a
     falsy check, so a cached value that is itself falsy (None, "", 0) is still
     returned from the cache instead of triggering recomputation.
+
+    ``should_cache`` is consulted with a freshly computed value before it is
+    stored; when it returns False the value is still returned to the caller but
+    not cached, so the next call recomputes. Defaults to caching every value.
     """
     if key is None:
         return await compute()
@@ -44,7 +51,8 @@ async def cached(
     if value is not _MISS:
         return value
     value = await compute()
-    await cache.set(key, value, expire=expire)
+    if should_cache is None or should_cache(value):
+        await cache.set(key, value, expire=expire)
     return value
 
 
