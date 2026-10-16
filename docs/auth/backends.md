@@ -404,10 +404,10 @@ By default every OAuth/JWT user needs a record in the MCC user store, and MCC de
 ### How it works
 
 ```
-token claims:  roles = ["Acme Portal", "Example MCP", "MCC:osint.geo", "MCC:admin"]
+token claims:  roles = ["Acme Portal", "Example MCP", "MCC:osint.geo.*", "MCC:admin"]
                           │ keep roles starting with the prefix, strip it
                           ▼
-groups:        ["osint.geo", "admin"]
+groups:        ["osint.geo.*", "admin"]
 ```
 
 - Only roles starting with `role_group_prefix` (case-sensitive) become groups; the prefix is stripped. Other roles are ignored — IdP roles are often shared across applications, so the prefix keeps another app's `admin` role from becoming MCC admin.
@@ -440,7 +440,7 @@ Environment variables work too: `MCC_CLAIMS__ROLES_CLAIM`, `MCC_CLAIMS__ROLE_GRO
 
 ### Auth0 setup
 
-1. **Create roles** named `MCC:<group>` (for example `MCC:osint`, `MCC:osint.geo`, `MCC:admin`) and assign them to users. The part after the prefix must match the groups your tools declare.
+1. **Create roles** named `MCC:<group>` (for example `MCC:osint`, `MCC:osint.geo.*`, `MCC:admin`) and assign them to users. The part after the prefix becomes the MCC group and is matched like any user group: a plain name (`osint`) matches any tool that lists that group, and a `.*` suffix (`osint.geo.*`) matches tools whose groups start with that path, in order (`[osint, geo]`). A bare dotted name such as `osint.geo` matches nothing.
 2. **Emit the roles in the token MCC verifies.** Auth0 only allows custom claims whose names are namespaced (URL-shaped), and the claim must be in the token MCC verifies: set `verify_id_token: true` (see [auth0](#auth0)) and add it to the **ID token**. A post-login Action for this (adapt the namespace to your tenant):
 
     ```js

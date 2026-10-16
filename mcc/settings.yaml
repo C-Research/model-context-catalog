@@ -169,7 +169,7 @@ default:
     # must be a list of strings. "" (default) disables the feature.
     roles_claim: ""
     # Only roles starting with this prefix (case-sensitive) become groups, with
-    # the prefix stripped: "MCC:osint.geo" -> group "osint.geo". Roles are often
+    # the prefix stripped: "MCC:osint" -> group "osint". Roles are often
     # tenant-wide and shared across apps, so the prefix keeps other apps' roles
     # out. Must be non-empty when roles_claim is set (startup fails otherwise).
     # "admin" is not special-cased: "MCC:admin" grants the admin group.
