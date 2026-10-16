@@ -91,7 +91,11 @@ USERS_MAPPING: dict = {
     "mappings": {
         "properties": {
             "username": {"type": "keyword"},
-            "email": {"type": "keyword"},
+            # Built-in lowercase normalizer: term queries (user lookup by token
+            # email, duplicate-email check) match regardless of case. Only applies
+            # to indices created after this was added; a pre-existing index keeps
+            # its old mapping and needs a recreate/reindex to pick it up.
+            "email": {"type": "keyword", "normalizer": "lowercase"},
             "groups": {"type": "keyword"},
             "tools": {"type": "keyword"},
         }

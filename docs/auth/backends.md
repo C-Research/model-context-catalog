@@ -116,11 +116,13 @@ default:
 
 Or via environment variables: `MCC_OAUTH__BASE_URL`, `MCC_OAUTH__CLIENT_ID`, `MCC_OAUTH__CLIENT_SECRET`.
 
-Users must exist in the MCC user store before they connect. Identity is resolved from the token's `email` claim first, then `login` (GitHub handle):
+By default, users must exist in the MCC user store before they connect. Identity is resolved from the token's `email` claim first, then `login` (GitHub handle):
 
 ```bash
 mcc user add alice --email alice@example.com
 ```
+
+To manage access in the identity provider instead, see [Groups from IdP roles](#groups-from-idp-roles).
 
 ### github
 
@@ -387,3 +389,101 @@ Identity is resolved from the token's `email` claim. Ensure your IdP includes em
 ```bash
 mcc user add alice --email alice@example.com
 ```
+
+Or skip the user records and derive groups from a roles claim in the token — see [Groups from IdP roles](#groups-from-idp-roles).
+
+---
+
+## Groups from IdP roles
+
+By default every OAuth/JWT user needs a record in the MCC user store, and MCC decides their groups. With `claims.roles_claim` set, MCC instead derives groups from a list of **role names in the verified token**, so access is managed in the identity provider and no user record is required.
+
+!!! info "Status"
+    Tested with **Auth0**. It reads the verified token's claims and is configured purely through settings, so it should work with any backend whose claims contain a list of role names (see [Other backends](#other-backends)), but only Auth0 has been exercised.
+
+### How it works
+
+```
+token claims:  roles = ["Acme Portal", "Example MCP", "MCC:osint.geo", "MCC:admin"]
+                          │ keep roles starting with the prefix, strip it
+                          ▼
+groups:        ["osint.geo", "admin"]
+```
+
+- Only roles starting with `role_group_prefix` (case-sensitive) become groups; the prefix is stripped. Other roles are ignored — IdP roles are often shared across applications, so the prefix keeps another app's `admin` role from becoming MCC admin.
+- `admin` is an ordinary group: `MCC:admin` grants admin, which bypasses every tool's group check. Anyone who can assign that role in the IdP can make someone an MCC admin.
+- Identity is the `email` claim, lowercased. Claim groups are applied only if `email_verified` is `true` (see `require_email_verified`).
+- **Union with the user store.** If a user record matches the email (or `login`), its groups and tools still apply and the claim groups are added. Without a record the username is the email and there are no per-user tool grants. If the user store is unreachable, claim groups still apply.
+- A caller with **no matching record and no matching roles** is anonymous (public tools only), and an INFO log line says why.
+
+### Settings
+
+A top-level `claims:` block (not under `oauth:`, whose keys are passed to the provider):
+
+```yaml
+default:
+  claims:
+    roles_claim: "https://your-mcc-server.example.com/roles"
+    role_group_prefix: "MCC:"
+    require_email_verified: true
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `roles_claim` | `""` | Exact key of the roles claim in the token. The value must be a list of strings. Empty disables the feature. |
+| `role_group_prefix` | `"MCC:"` | Only roles with this prefix become groups. Must be non-empty when `roles_claim` is set; startup fails otherwise. |
+| `require_email_verified` | `true` | Ignore claim groups unless the token's `email_verified` claim is `true`. Set to `false` only for an IdP that does not emit it. |
+
+Environment variables work too: `MCC_CLAIMS__ROLES_CLAIM`, `MCC_CLAIMS__ROLE_GROUP_PREFIX`, `MCC_CLAIMS__REQUIRE_EMAIL_VERIFIED`.
+
+`roles_claim` is looked up as an exact key, with no dotted-path traversal, because IdP claim keys are often URLs. A nested claim such as Keycloak's `realm_access.roles` has to be flattened into a top-level claim by the IdP first.
+
+### Auth0 setup
+
+1. **Create roles** named `MCC:<group>` (for example `MCC:osint`, `MCC:osint.geo`, `MCC:admin`) and assign them to users. The part after the prefix must match the groups your tools declare.
+2. **Emit the roles in the token MCC verifies.** Auth0 only allows custom claims whose names are namespaced (URL-shaped), and the claim must be in the token MCC verifies: set `verify_id_token: true` (see [auth0](#auth0)) and add it to the **ID token**. A post-login Action for this (adapt the namespace to your tenant):
+
+    ```js
+    exports.onExecutePostLogin = async (event, api) => {
+      const namespace = "https://your-mcc-server.example.com";
+      api.idToken.setCustomClaim(`${namespace}/roles`, event.authorization?.roles ?? []);
+    };
+    ```
+
+3. **Point MCC at the claim:**
+
+    ```yaml
+    default:
+      auth: "auth0"
+      oauth:
+        verify_id_token: true
+        # ... base_url, client_id, client_secret, config_url, audience
+      claims:
+        roles_claim: "https://your-mcc-server.example.com/roles"
+    ```
+
+!!! warning "Auth0 Rules are deprecated"
+    Auth0 is retiring Rules in favor of Actions (the Auth0 CLI prints a deprecation notice, and the end-of-life date is close — confirm it in the Auth0 docs). If your tenant emits roles and enforces access (for example, denying unverified emails or users without an app role) from Rules, port both to Actions before they are removed. MCC checks `email_verified` itself, but it does not replace a tenant-level access gate. If the roles claim disappears from the token, claim users fall back to anonymous.
+
+!!! note "Revocation is not instant"
+    Claim groups are read from the token MCC holds for the session, so removing a role in Auth0 takes effect when that token refreshes — up to its lifetime (for an Auth0 ID token this is configurable per application; 10 hours on one tenant checked). Shorten the lifetime if you need faster revocation. User-store changes, by contrast, apply immediately.
+
+### Other backends
+
+The feature reads `token.claims`, which depends on the backend:
+
+| Backend | Roles in claims? |
+|---------|------------------|
+| `auth0`, `jwt` | Full JWT claims pass through; works if the IdP puts a role list in the token. `jwt` is the route for Okta, Keycloak, Authentik, Dex and others. |
+| `azure` | Full JWT claims; app roles arrive in `roles`. Group claims are GUIDs and overflow for large memberships, so prefer app roles. Role values cannot contain spaces. |
+| `aws` | Cognito's default verifier keeps only `sub`, `username` and `cognito:groups` — it drops `email` and `email_verified`. Use `verify_id_token: true` to get the full ID-token claims. |
+| `oci`, `supabase`, `scalekit`, `descope` | Full JWT claims; the claim name depends on your tenant configuration. |
+| `github`, `google`, `discord`, `workos`, `clerk` | **Not supported** — their claims are built from a profile lookup and carry no role list. Use user-store records. |
+| `api_key` | Not applicable — API keys always resolve through the user store. |
+
+Everything except Auth0 is untested. If your IdP does not emit `email_verified`, set `require_email_verified: false` knowingly.
+
+### Limits
+
+- The HTTP routes that authenticate with an API key, and `mcc tool --as-user`, still look users up in the user store only; claim-derived users cannot use them.
+- Per-user tool grants (`mcc user grant -t`) and API keys still require a user record.

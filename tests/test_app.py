@@ -322,6 +322,10 @@ class TestWhoami:
             current_user_var.set(ANONYMOUS_USER)
 
 
+def _whoami_key(username: str, groups: list[str]) -> str:
+    return f"whoami:{username}:{params_hash({'groups': sorted(groups)})}"
+
+
 class TestWhoamiCache:
     async def test_second_call_uses_cache(self, load_fixture):
         load_fixture("tools_multigroup.yaml")
@@ -330,9 +334,24 @@ class TestWhoamiCache:
             result1 = await whoami()
             assert "a.single_a" in result1
             # Overwrite the cache entry — a cache hit returns the sentinel verbatim.
-            await cache.set("whoami:alice", "SENTINEL", expire=60)
+            await cache.set(_whoami_key("alice", ["a"]), "SENTINEL", expire=60)
             result2 = await whoami()
             assert result2 == "SENTINEL"
+        finally:
+            current_user_var.set(ANONYMOUS_USER)
+
+    async def test_different_groups_use_distinct_cache_entries(self, load_fixture):
+        # Claim-derived groups change without any user-store write to invalidate
+        # the cache, so the same username with new groups must not hit the old entry.
+        load_fixture("tools_multigroup.yaml")
+        current_user_var.set(UserModel(username="alice", groups=["a"]))
+        try:
+            await cache.set(_whoami_key("alice", ["a"]), "SENTINEL", expire=60)
+            assert await whoami() == "SENTINEL"
+            current_user_var.set(UserModel(username="alice", groups=["a", "b"]))
+            result = await whoami()
+            assert result != "SENTINEL"
+            assert "b.single_b" in result
         finally:
             current_user_var.set(ANONYMOUS_USER)
 
@@ -346,7 +365,7 @@ class TestWhoamiCache:
         current_user_var.set(UserModel(username="alice", groups=["a"]))
         try:
             # Prime the cache with a sentinel; served from cache while valid.
-            await cache.set("whoami:alice", "SENTINEL", expire=60)
+            await cache.set(_whoami_key("alice", ["a"]), "SENTINEL", expire=60)
             assert await whoami() == "SENTINEL"
             # reload busts whoami:* → real result is recomputed from the catalog.
             await loader.reload()
@@ -364,7 +383,7 @@ class TestWhoamiCache:
         current_user_var.set(UserModel(username="carol", groups=["a"]))
         try:
             # Prime cache with a sentinel; a hit would return it verbatim.
-            await cache.set("whoami:carol", "SENTINEL", expire=60)
+            await cache.set(_whoami_key("carol", ["a"]), "SENTINEL", expire=60)
             assert await whoami() == "SENTINEL"
             # Granting a tool must drop the cached entry → no longer the sentinel.
             await add_tool("carol", "b.single_b")

@@ -13,7 +13,7 @@ from mcp.types import Icon
 from pydantic import Field, ValidationError, create_model
 
 from mcc import __version__
-from mcc.auth import whoami_info
+from mcc.auth import validate_claims_settings, whoami_info
 from mcc.auth.backend import get_provider
 from mcc.cache import cached, params_hash
 from mcc.context import (
@@ -75,6 +75,7 @@ mcp = FastMCP(
     icons=[Icon(src=_branding["icon_url"])] if _branding.get("icon_url") else None,
 )
 mcp.loader = loader  # type: ignore[attr-defined]
+validate_claims_settings()
 mcp.add_middleware(AuthMiddleware())
 mcp.add_middleware(TimingMiddleware(logger))
 mcp.add_middleware(
@@ -354,11 +355,17 @@ async def whoami() -> str:
     if user.is_anonymous:
         return "Not authenticated: no user is associated with this session."
 
-    # Cache keyed on username. Invalidated on loader.reload() (the accessible-tool
-    # set depends on the catalog) and on any modification to the user (mcc.auth.db).
-    # Reuses search_ttl since both cache catalog-derived results.
+    # Cache keyed on username plus a hash of the groups: claim-derived groups
+    # change with the token, not through a user-store write that would
+    # invalidate the entry. Also invalidated on loader.reload() (the
+    # accessible-tool set depends on the catalog) and on any modification to the
+    # user (mcc.auth.db). Reuses search_ttl since both cache catalog-derived results.
     search_ttl = (settings.get("cache") or {}).get("search_ttl", 0)
-    cache_key = f"whoami:{user.username}" if search_ttl else None
+    cache_key = (
+        f"whoami:{user.username}:{params_hash({'groups': sorted(user.groups)})}"
+        if search_ttl
+        else None
+    )
 
     async def _summary() -> str:
         info = whoami_info(user)

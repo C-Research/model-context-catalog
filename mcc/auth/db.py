@@ -7,8 +7,12 @@ from mcc.db import UsersIndex
 
 
 async def _invalidate_whoami(username: str) -> None:
-    """Drop the cached whoami response for a user after their perms change."""
-    await cache.delete(f"whoami:{username}")
+    """Drop the cached whoami responses for a user after their perms change.
+
+    Keys are `whoami:{username}:{groups_hash}` (see mcc.app.whoami), so match
+    every groups variant for the user.
+    """
+    await cache.delete_match(f"whoami:{username}:*")
 
 
 async def create_user(

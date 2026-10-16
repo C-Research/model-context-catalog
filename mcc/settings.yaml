@@ -153,6 +153,31 @@ default:
     base_url: "http://localhost:8000"
     required_scopes: []
 
+  # Derives tool-group membership from the IdP's token claims, so users don't
+  # need a record in the users index. Works with any backend whose verified
+  # token claims contain a list of role names (tested with auth0; backends whose
+  # claims carry no roles, e.g. github/google, can't use it). Kept out of oauth:
+  # because everything under oauth: is passed to the provider constructor.
+  # Resolution is a union: a matching users-index record (looked up by the
+  # lowercased email claim) still contributes its groups/tools and username;
+  # claim groups are added on top. A caller with neither a record nor any
+  # matching role is anonymous. Claim groups change only when the stored token
+  # refreshes, so removing an IdP role isn't instant.
+  claims:
+    # Exact key of the roles claim in the verified token (no path traversal),
+    # e.g. "https://example.com/roles" for an Auth0 namespaced claim. The value
+    # must be a list of strings. "" (default) disables the feature.
+    roles_claim: ""
+    # Only roles starting with this prefix (case-sensitive) become groups, with
+    # the prefix stripped: "MCC:osint.geo" -> group "osint.geo". Roles are often
+    # tenant-wide and shared across apps, so the prefix keeps other apps' roles
+    # out. Must be non-empty when roles_claim is set (startup fails otherwise).
+    # "admin" is not special-cased: "MCC:admin" grants the admin group.
+    role_group_prefix: "MCC:"
+    # Apply claim groups only when the token's email_verified claim is true.
+    # Turn off only for an IdP that doesn't emit email_verified.
+    require_email_verified: true
+
   logging:
     version: 1
     disable_existing_loggers: false

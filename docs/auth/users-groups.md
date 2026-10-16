@@ -17,6 +17,9 @@ Each user has:
 | `groups` | List of group memberships |
 | `tools` | List of explicit tool key grants |
 
+!!! note "User records are optional with IdP roles"
+    If you derive groups from your identity provider's roles ([Groups from IdP roles](backends.md#groups-from-idp-roles)), users do not need a record. A record is still needed for per-user tool grants, API keys, and the HTTP routes and `mcc tool --as-user` that look users up in the store. When a record exists, it is merged with the groups from the token.
+
 ## Managing users
 
 ### Add a user

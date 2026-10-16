@@ -23,9 +23,13 @@ Checks run in order — first match wins:
 ```
 MCP request (with token)
   └─ auth backend resolves token → identity claims
-  └─ get_current_user() resolves claims → UserModel from DB
+  └─ get_current_user() resolves claims → UserModel
+       ├─ user store record (by email, then login), if any
+       └─ + groups from the token's roles claim, if claims.roles_claim is set
   └─ can_access(user, tool) runs the hierarchy above
 ```
+
+A caller with neither a user-store record nor any matching role is anonymous: only `public` tools are available. See [Groups from IdP roles](backends.md#groups-from-idp-roles) to manage groups in your identity provider instead of the user store.
 
 ## Public tools
 
